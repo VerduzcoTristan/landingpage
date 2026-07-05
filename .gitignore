@@ -1,0 +1,40 @@
+# Python/runtime artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.pytest_cache/**
+.coverage
+htmlcov/
+
+# Local databases and state
+*.db
+*.sqlite
+*.sqlite3
+
+# Local secrets/config that should not be published
+.env
+.env.*
+tunnel-config.yml
+
+# Generated backups/snapshots from iterative server edits
+*.bak
+*.bak.*
+*.prev
+*.good
+*.shortcuts-v2
+*.declutter-bak
+*.ux-nav-bak
+*.ui2-*.bak
+*.llm-*-bak
+*.model-tuning-bak
+*.hide-projects-*.bak
+server.py.*-bak
+
+# Scratch/test server copies
+_test_srv.py
+server_test.py
+
+# OS/editor noise
+.DS_Store
+*.swp
+*.swo

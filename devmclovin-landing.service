@@ -1,0 +1,15 @@
+[Unit]
+Description=devmclovin.com landing page
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+ExecStart=/usr/bin/python3 /home/ubuntu/devmclovin-landing/server.py 3002
+WorkingDirectory=/home/ubuntu/devmclovin-landing
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

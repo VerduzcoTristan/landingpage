@@ -1,0 +1,14 @@
+[Unit]
+Description=LLM Router Dashboard (standalone)
+After=network.target
+
+[Service]
+Type=simple
+User=hermes
+WorkingDirectory=/home/hermes/devmclovin-landing
+ExecStart=/usr/bin/python3 /home/hermes/devmclovin-landing/router_server.py 3003
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

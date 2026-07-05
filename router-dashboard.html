@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Router Dashboard — devmclovin</title>
+<style>
+/* ── CSS Variables (matching devmclovin.com server.py) ── */
+:root {
+    --bg: #0d1117;
+    --bg-card: #161b22;
+    --bg-nav: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --accent: #7c3aed;
+    --accent-hover: #8b5cf6;
+    --accent-glow: rgba(124, 58, 237, 0.3);
+    --green: #3fb950;
+    --orange: #d2991d;
+    --red: #f85149;
+    --blue: #58a6ff;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+/* ── Navigation ── */
+nav {
+    background: var(--bg-nav);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+}
+nav .logo {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+nav .logo span { color: var(--accent); }
+nav .links { display: flex; gap: 1.5rem; align-items: center; }
+nav .links a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.2s;
+    padding: 0.5rem 0;
+}
+nav .links a:hover,
+nav .links a.active { color: var(--text); }
+nav .links a.accent-btn {
+    background: var(--accent);
+    color: #fff;
+    padding: 0.4rem 1rem;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: background 0.2s, box-shadow 0.2s;
+}
+nav .links a.accent-btn:hover {
+    background: var(--accent-hover);
+    box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.container { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+
+/* ── Window Selector ── */
+#window-selector {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+#window-selector button.window-btn {
+    padding: 0.5rem 1.25rem;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+#window-selector button.window-btn:hover { border-color: var(--accent); color: var(--text); }
+#window-selector button.window-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+#refresh-btn {
+    margin-left: auto;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+#refresh-btn:hover { border-color: var(--accent); color: var(--text); }
+#refresh-btn:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+#refresh-btn .spinner { display: none; animation: spin 0.8s linear infinite; }
+#refresh-btn.refreshing .spinner { display: inline; }
+#refresh-btn.refreshing .btn-text { display: none; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Summary Header ── */
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+.summary-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem 1rem;
+    text-align: center;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+.summary-card:hover { border-color: rgba(124, 58, 237, 0.4); }
+.summary-card .card-icon { font-size: 1.5rem; margin-bottom: 0.25rem; }
+.summary-card .card-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 0.25rem;
+    word-break: break-word;
+}
+.summary-card .card-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Summary card conditional glows */
+.summary-card.good { border-color: rgba(63, 185, 80, 0.4); box-shadow: 0 0 12px rgba(63, 185, 80, 0.1); }
+.summary-card.warn { border-color: rgba(210, 153, 29, 0.4); box-shadow: 0 0 12px rgba(210, 153, 29, 0.1); }
+.summary-card.bad  { border-color: rgba(248, 81, 73, 0.4); box-shadow: 0 0 12px rgba(248, 81, 73, 0.1); }
+
+/* ── Detail Grid ── */
+.detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+@media (max-width: 768px) {
+    .detail-grid { grid-template-columns: 1fr; }
+    nav { padding: 0 1rem; }
+    .container { padding: 1rem; }
+}
+
+/* ── Detail Cards ── */
+.detail-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+}
+.detail-card .card-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.detail-card .card-title .icon { font-size: 1.1rem; }
+
+/* ── Stats rows ── */
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.4rem 0;
+    font-size: 0.85rem;
+}
+.stat-row .stat-label { color: var(--text-muted); }
+.stat-row .stat-value { font-weight: 600; color: var(--text); }
+
+/* ── Bar charts ── */
+.bar-wrap {
+    position: relative;
+    height: 24px;
+    background: var(--bg);
+    border-radius: 4px;
+    margin: 0.3rem 0 0.6rem;
+    overflow: hidden;
+}
+.bar-local {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: var(--green);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+.bar-remote {
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    background: var(--blue);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+/* Latency bars */
+.latency-bar { margin-bottom: 0.5rem; }
+.latency-bar .latency-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    margin-bottom: 0.2rem;
+}
+.latency-bar .latency-label .name { color: var(--text-muted); }
+.latency-bar .latency-label .value { font-weight: 600; color: var(--text); }
+.latency-bar .track {
+    height: 14px;
+    background: var(--bg);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.latency-bar .fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+.latency-bar .fill.avg { background: var(--blue); }
+.latency-bar .fill.p50 { background: var(--accent); }
+.latency-bar .fill.p95 { background: var(--orange); }
+.latency-bar .fill.local-fill { background: var(--green); }
+.latency-bar .fill.remote-fill { background: var(--blue); }
+
+/* ── Tables ── */
+.model-table, .reason-table {
+    width: 100%;
+    font-size: 0.82rem;
+    border-collapse: collapse;
+}
+.model-table th, .reason-table th {
+    text-align: left;
+    color: var(--text-muted);
+    font-weight: 500;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.model-table td, .reason-table td {
+    padding: 0.35rem 0.5rem;
+    border-top: 1px solid var(--border);
+}
+.model-table .model-bar-cell { width: 100px; }
+.model-table .model-bar {
+    height: 8px;
+    background: var(--bg);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.model-table .model-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+.model-table .count-cell { text-align: right; font-weight: 600; }
+.model-table .pct-cell { text-align: right; color: var(--text-muted); }
+
+.reason-table .badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+.reason-table .badge.local { background: rgba(63,185,80,0.15); color: var(--green); }
+.reason-table .badge.remote { background: rgba(88,166,255,0.15); color: var(--blue); }
+.reason-table .reason-count { text-align: right; font-weight: 600; }
+
+/* ── Cost detail ── */
+.cost-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.4rem 0;
+    font-size: 0.85rem;
+    border-bottom: 1px solid rgba(48,54,61,0.5);
+}
+.cost-row:last-child { border-bottom: none; }
+.cost-row .cost-label { color: var(--text-muted); }
+.cost-row .cost-value { font-weight: 600; }
+.cost-row .cost-value.positive { color: var(--green); }
+.cost-row .cost-value.negative { color: var(--red); }
+
+/* ── PII card ── */
+.pii-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-radius: 8px;
+    margin-top: 0.5rem;
+}
+.pii-indicator.protected { background: rgba(63,185,80,0.08); }
+.pii-indicator.at-risk { background: rgba(248,81,73,0.08); }
+.pii-indicator .pii-icon { font-size: 1.75rem; }
+.pii-indicator .pii-text { font-size: 0.85rem; color: var(--text-muted); }
+
+/* ── Status bar ── */
+#status-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+#status-bar .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse-dot 2s infinite;
+}
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+#status-bar .error-dot { background: var(--red); }
+
+/* ── Connection banner ── */
+#connection-banner {
+    display: none;
+    background: rgba(248,81,73,0.1);
+    border: 1px solid rgba(248,81,73,0.3);
+    color: var(--red);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+    text-align: center;
+}
+#connection-banner.show { display: block; }
+
+/* ── Skeleton loading ── */
+@keyframes skeleton-pulse {
+    0% { opacity: 0.5; }
+    50% { opacity: 0.3; }
+    100% { opacity: 0.5; }
+}
+.skeleton {
+    background: linear-gradient(90deg, var(--bg-card) 25%, #1c2333 50%, var(--bg-card) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s infinite;
+    border-radius: 4px;
+}
+@keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+.skeleton-value { height: 2rem; width: 60%; margin: 0 auto 0.5rem; }
+.skeleton-label { height: 0.75rem; width: 50%; margin: 0 auto; }
+
+/* ── Empty state ── */
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-muted);
+}
+.empty-state .empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+.empty-state .empty-msg { font-size: 1rem; }
+
+/* ── Error card ── */
+.detail-card.error-card { border-color: rgba(248,81,73,0.3); }
+.detail-card.error-card .card-title { color: var(--red); }
+
+/* ── Utility ── */
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ── Navigation ── -->
+<nav>
+    <a href="/" class="logo">dev<span>mclovin</span></a>
+    <div class="links">
+        <a href="/">Home</a>
+        <a href="/briefings">Briefings</a>
+        <a href="/projects">Projects</a>
+        <a href="/router" class="active">LLM Router</a>
+        <a href="/hermes">Hermes</a>
+    </div>
+</nav>
+
+<div class="container">
+
+    <!-- ── Connection banner ── -->
+    <div id="connection-banner">⚠ Connection issues — retrying every 60s…</div>
+
+    <!-- ── Window Selector ── -->
+    <div id="window-selector">
+        <button class="window-btn active" data-window="today" aria-label="Show today's metrics">Today</button>
+        <button class="window-btn" data-window="7d" aria-label="Show last 7 days metrics">Last 7 Days</button>
+        <button class="window-btn" data-window="30d" aria-label="Show last 30 days metrics">Last 30 Days</button>
+        <button id="refresh-btn" aria-label="Refresh now">
+            <span class="btn-text">🔄 Refresh</span>
+            <span class="spinner">⏳</span>
+        </button>
+    </div>
+
+    <!-- ── Summary Header ── -->
+    <div id="summary-header" class="summary-cards">
+        <!-- Populated by JS -->
+    </div>
+
+    <!-- ── Detail Grid ── -->
+    <div id="detail-grid" class="detail-grid">
+        <!-- Populated by JS -->
+    </div>
+
+    <!-- ── Status Bar ── -->
+    <div id="status-bar">
+        <span class="dot" id="status-dot"></span>
+        <span id="last-updated-text">Last updated: --</span>
+        <span>· Auto-refresh: 30s</span>
+    </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  Configuration
+// ═══════════════════════════════════════════════
+const API_URL = '/api/router-metrics';
+let currentWindow = 'today';
+let refreshInterval = null;
+let consecutiveFailures = 0;
+let isFetching = false;
+
+// ── Sample data matching the API schema (for development / fallback) ──
+const SAMPLE_DATA = {
+    ok: true,
+    window: { label: "Today", start: "2026-06-28T00:00:00Z", end: new Date().toISOString() },
+    summary: {
+        total_requests: 142, local_requests: 105, remote_requests: 37, local_pct: 73.94,
+        cost_saved: 1.18, remote_spend: 0.87, savings_rate: 0.0112, net_savings: 0.31,
+        failed_requests: 2, failure_rate: 1.41, fallback_count: 3, fallback_rate: 2.86,
+        success_rate: 98.59,
+        avg_latency_ms: 2340.5, p50_latency_ms: 1800.0, p95_latency_ms: 5200.0,
+        local_avg_latency_ms: 1200.0, remote_avg_latency_ms: 3100.0,
+        pii_detections: 12, pii_redactions: 12, pii_redaction_rate: 100.0
+    },
+    models: [
+        { model: "deepseek-v4-pro", count: 45, local_count: 30, remote_count: 15, total_tokens: 125000, avg_latency_ms: 2100.0 },
+        { model: "llama-3.1-70b", count: 38, local_count: 38, remote_count: 0, total_tokens: 89000, avg_latency_ms: 1200.0 },
+        { model: "claude-sonnet-4", count: 22, local_count: 0, remote_count: 22, total_tokens: 67000, avg_latency_ms: 3400.0 },
+        { model: "gemini-2.5-flash", count: 19, local_count: 19, remote_count: 0, total_tokens: 42000, avg_latency_ms: 800.0 },
+        { model: "gpt-4o", count: 12, local_count: 12, remote_count: 0, total_tokens: 31000, avg_latency_ms: 1500.0 },
+        { model: "mistral-large", count: 6, local_count: 6, remote_count: 0, total_tokens: 14000, avg_latency_ms: 1600.0 }
+    ],
+    routing_reasons: [
+        { reason: "simple_query", count: 52, route: "local" },
+        { reason: "remote_only_model", count: 31, route: "remote" },
+        { reason: "complex_reasoning", count: 28, route: "remote" },
+        { reason: "load_balancing", count: 19, route: "remote" },
+        { reason: "tool_use_required", count: 12, route: "remote" }
+    ],
+    generated_at: new Date().toISOString()
+};
+
+// ═══════════════════════════════════════════════
+//  Fetch & State
+// ═══════════════════════════════════════════════
+
+async function fetchMetrics() {
+    if (isFetching) return;  // Skip if fetch in flight
+    isFetching = true;
+    const btn = document.getElementById('refresh-btn');
+    btn.classList.add('refreshing');
+
+    try {
+        const resp = await fetch(`${API_URL}?window=${currentWindow}`, {
+            headers: { 'Accept': 'application/json' },
+            signal: AbortSignal.timeout(10000)
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        if (!data.ok) {
+            renderEmpty(data.error || 'No data available');
+        } else {
+            consecutiveFailures = 0;
+            hideConnectionBanner();
+            renderAll(data);
+        }
+    } catch (err) {
+        console.warn('API fetch failed, using sample data:', err.message);
+        consecutiveFailures++;
+        if (consecutiveFailures >= 3) {
+            showConnectionBanner();
+        }
+        // Fall back to sample data so the dashboard always shows something
+        const sample = JSON.parse(JSON.stringify(SAMPLE_DATA));
+        sample.window.end = new Date().toISOString();
+        sample.generated_at = new Date().toISOString();
+        renderAll(sample);
+    } finally {
+        isFetching = false;
+        btn.classList.remove('refreshing');
+    }
+}
+
+function showConnectionBanner() {
+    document.getElementById('connection-banner').classList.add('show');
+    document.getElementById('status-dot').classList.add('error-dot');
+    // Slow down refresh on persistent errors
+    clearInterval(refreshInterval);
+    refreshInterval = setInterval(fetchMetrics, 60000);
+    document.getElementById('last-updated-text').textContent =
+        'Last updated: -- (Connection issues)';
+}
+
+function hideConnectionBanner() {
+    document.getElementById('connection-banner').classList.remove('show');
+    document.getElementById('status-dot').classList.remove('error-dot');
+    clearInterval(refreshInterval);
+    refreshInterval = setInterval(fetchMetrics, 30000);
+}
+
+// ═══════════════════════════════════════════════
+//  Render — Summary Header
+// ═══════════════════════════════════════════════
+
+function renderSummary(s) {
+    const container = document.getElementById('summary-header');
+
+    const cards = [
+        {
+            icon: '📊', label: 'Requests', value: s.total_requests.toLocaleString(),
+            aria: `${s.total_requests} total requests`, cls: ''
+        },
+        {
+            icon: '🏠', label: 'Local',
+            value: s.local_pct.toFixed(0) + '%',
+            aria: `${s.local_requests} local requests out of ${s.total_requests} total`,
+            cls: s.local_pct >= 75 ? 'good' : (s.local_pct >= 50 ? '' : '')
+        },
+        {
+            icon: '💰', label: 'Saved',
+            value: '$' + s.cost_saved.toFixed(2),
+            aria: `$${s.cost_saved.toFixed(2)} saved by routing locally`,
+            cls: s.cost_saved > 0.50 ? 'good' : (s.cost_saved > 0 ? '' : '')
+        },
+        {
+            icon: '🔄', label: 'Fallbacks',
+            value: s.fallback_count,
+            aria: `${s.fallback_count} fallback requests`,
+            cls: (s.local_requests > 0 && s.fallback_count / s.local_requests > 0.10) ? 'warn' : ''
+        },
+        {
+            icon: '⏱️', label: 'Avg Latency',
+            value: formatLatency(s.avg_latency_ms),
+            aria: `Average latency ${formatLatency(s.avg_latency_ms)}`,
+            cls: s.avg_latency_ms > 5000 ? 'warn' : ''
+        },
+        {
+            icon: '🔒', label: 'PII Redacted',
+            value: s.pii_redactions,
+            aria: `${s.pii_redactions} requests with PII redacted`,
+            cls: s.pii_redactions > 0 ? 'good' : ''
+        }
+    ];
+
+    container.innerHTML = cards.map(c => `
+        <div class="summary-card ${c.cls}" aria-label="${c.aria}">
+            <div class="card-icon">${c.icon}</div>
+            <div class="card-value">${c.value}</div>
+            <div class="card-label">${c.label}</div>
+        </div>
+    `).join('');
+}
+
+// ═══════════════════════════════════════════════
+//  Render — Detail Cards
+// ═══════════════════════════════════════════════
+
+function renderDetails(data) {
+    const s = data.summary;
+    const grid = document.getElementById('detail-grid');
+
+    // Max bar width reference for latency bars
+    const maxLat = Math.max(s.avg_latency_ms, s.p95_latency_ms, 1000) * 1.2;
+
+    grid.innerHTML = `
+        <!-- Request Breakdown -->
+        <div class="detail-card">
+            <div class="card-title"><span class="icon">📊</span> Request Breakdown</div>
+            <div class="stat-row">
+                <span class="stat-label">Local</span>
+                <span class="stat-value" style="color:var(--green)">${s.local_requests.toLocaleString()} (${s.total_requests > 0 ? (s.local_pct).toFixed(0) : 0}%)</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Remote</span>
+                <span class="stat-value" style="color:var(--blue)">${s.remote_requests.toLocaleString()} (${s.total_requests > 0 ? (100 - s.local_pct).toFixed(0) : 0}%)</span>
+            </div>
+            <div class="bar-wrap">
+                <div class="bar-local" style="width:${s.total_requests > 0 ? s.local_pct : 0}%"></div>
+                <div class="bar-remote" style="width:${s.total_requests > 0 ? (100 - s.local_pct) : 0}%"></div>
+            </div>
+            <div class="stat-row" style="margin-top:0.75rem">
+                <span class="stat-label">Success</span>
+                <span class="stat-value" style="color:var(--green)">${s.success_rate.toFixed(1)}%</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Failed</span>
+                <span class="stat-value" style="color:${s.failed_requests > 0 ? 'var(--red)' : 'var(--text-muted)'}">${s.failed_requests} (${s.failure_rate.toFixed(1)}%)</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Fallbacks</span>
+                <span class="stat-value" style="color:${s.fallback_count > 0 ? 'var(--orange)' : 'var(--text-muted)'}">${s.fallback_count} (${s.fallback_rate.toFixed(1)}%)</span>
+            </div>
+        </div>
+
+        <!-- Latency -->
+        <div class="detail-card">
+            <div class="card-title"><span class="icon">⏱️</span> Latency</div>
+            ${latencyBar('Avg', s.avg_latency_ms, maxLat, 'avg')}
+            ${latencyBar('P50', s.p50_latency_ms, maxLat, 'p50')}
+            ${latencyBar('P95', s.p95_latency_ms, maxLat, 'p95')}
+            <div style="margin-top:0.75rem; padding-top:0.5rem; border-top:1px solid var(--border)">
+                ${latencyBar('Local', s.local_avg_latency_ms, maxLat, 'local-fill')}
+                ${latencyBar('Remote', s.remote_avg_latency_ms, maxLat, 'remote-fill')}
+            </div>
+        </div>
+
+        <!-- Model Distribution -->
+        <div class="detail-card">
+            <div class="card-title"><span class="icon">🤖</span> Model Distribution</div>
+            <table class="model-table">
+                <thead>
+                    <tr><th>Model</th><th></th><th class="count-cell">Count</th><th class="pct-cell">%</th></tr>
+                </thead>
+                <tbody>
+                    ${data.models.slice(0, 10).map(m => {
+                        const pct = s.total_requests > 0 ? (m.count / s.total_requests * 100) : 0;
+                        return `<tr>
+                            <td>${escHtml(m.model)}</td>
+                            <td class="model-bar-cell"><div class="model-bar"><div class="model-bar-fill" style="width:${Math.max(pct, 2)}%"></div></div></td>
+                            <td class="count-cell">${m.count}</td>
+                            <td class="pct-cell">${pct.toFixed(0)}%</td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Routing Reasons -->
+        <div class="detail-card">
+            <div class="card-title"><span class="icon">🧭</span> Routing Reasons</div>
+            <table class="reason-table">
+                <thead>
+                    <tr><th>Reason</th><th>Route</th><th class="reason-count">Count</th></tr>
+                </thead>
+                <tbody>
+                    ${data.routing_reasons.map(rr => `
+                        <tr>
+                            <td style="color:var(--text)">${escHtml(rr.reason.replace(/_/g, ' '))}</td>
+                            <td><span class="badge ${rr.route}">${rr.route === 'local' ? '🏠 local' : '☁️ remote'}</span></td>
+                            <td class="reason-count">${rr.count}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Cost Detail -->
+        <div class="detail-card">
+            <div class="card-title"><span class="icon">💰</span> Cost Detail</div>
+            <div class="cost-row">
+                <span class="cost-label">Saved (avoided remote)</span>
+                <span class="cost-value positive">$${s.cost_saved.toFixed(2)}</span>
+            </div>
+            <div class="cost-row">
+                <span class="cost-label">Spent (remote)</span>
+                <span class="cost-value" style="color:var(--orange)">$${s.remote_spend.toFixed(2)}</span>
+            </div>
+            <div class="cost-row" style="font-weight:700; margin-top:0.25rem">
+                <span class="cost-label">Net</span>
+                <span class="cost-value ${s.net_savings >= 0 ? 'positive' : 'negative'}">
+                    ${s.net_savings >= 0 ? '+' : ''}$${s.net_savings.toFixed(2)}
+                </span>
+            </div>
+            <div class="cost-row" style="margin-top:0.5rem">
+                <span class="cost-label">Avg savings/request</span>
+                <span class="cost-value" style="color:var(--text-muted)">$${s.savings_rate.toFixed(3)}</span>
+            </div>
+        </div>
+
+        <!-- PII Redaction -->
+        <div class="detail-card">
+            <div class="card-title"><span class="icon">🔒</span> PII Redaction</div>
+            <div class="stat-row">
+                <span class="stat-label">PII Detected</span>
+                <span class="stat-value">${s.pii_detections} requests</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">PII Redacted</span>
+                <span class="stat-value" style="color:var(--green)">${s.pii_redactions} (${s.pii_redaction_rate.toFixed(0)}%)</span>
+            </div>
+            <div class="pii-indicator ${s.pii_redaction_rate >= 100 ? 'protected' : 'at-risk'}">
+                <span class="pii-icon">${s.pii_redaction_rate >= 100 ? '✅' : '⚠️'}</span>
+                <span class="pii-text">
+                    ${s.pii_detections === 0
+                        ? 'No PII detected in this window.'
+                        : s.pii_redaction_rate >= 100
+                            ? 'All PII successfully redacted before sending to remote.'
+                            : `${s.pii_detections - s.pii_redactions} requests with PII were NOT redacted.`
+                    }
+                </span>
+            </div>
+        </div>
+    `;
+}
+
+// ═══════════════════════════════════════════════
+//  Helpers
+// ═══════════════════════════════════════════════
+
+function latencyBar(name, ms, max, cls) {
+    const w = Math.max((ms / max) * 100, 2);
+    return `<div class="latency-bar">
+        <div class="latency-label"><span class="name">${name}</span><span class="value">${formatLatency(ms)}</span></div>
+        <div class="track"><div class="fill ${cls}" style="width:${w}%"></div></div>
+    </div>`;
+}
+
+function formatLatency(ms) {
+    if (ms === 0 || ms === null || ms === undefined) return '—';
+    if (ms < 1000) return ms.toFixed(0) + 'ms';
+    return (ms / 1000).toFixed(1) + 's';
+}
+
+function escHtml(s) {
+    if (!s) return '';
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function renderAll(data) {
+    renderSummary(data.summary);
+    renderDetails(data);
+    document.getElementById('last-updated-text').textContent =
+        'Last updated: ' + new Date(data.generated_at).toLocaleTimeString('en-US', { timeZone: 'UTC', hour12: false }) + ' UTC';
+}
+
+function renderEmpty(msg) {
+    const grid = document.getElementById('detail-grid');
+    document.getElementById('summary-header').innerHTML = '';
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+        <div class="empty-icon">📭</div>
+        <div class="empty-msg">${escHtml(msg || 'No data for this window')}</div>
+    </div>`;
+}
+
+function renderSkeleton() {
+    const container = document.getElementById('summary-header');
+    container.innerHTML = Array(6).fill(0).map(() => `
+        <div class="summary-card">
+            <div class="skeleton skeleton-value"></div>
+            <div class="skeleton skeleton-label"></div>
+        </div>
+    `).join('');
+    document.getElementById('detail-grid').innerHTML = '';
+}
+
+// ═══════════════════════════════════════════════
+//  Window switching
+// ═══════════════════════════════════════════════
+
+function switchWindow(win) {
+    if (win === currentWindow) return;
+    currentWindow = win;
+    // Update button states
+    document.querySelectorAll('.window-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.window === win);
+    });
+    // Clear and show skeleton
+    renderSkeleton();
+    fetchMetrics();
+}
+
+// ═══════════════════════════════════════════════
+//  Init
+// ═══════════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Window selector clicks
+    document.querySelectorAll('.window-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchWindow(btn.dataset.window));
+    });
+
+    // Manual refresh
+    document.getElementById('refresh-btn').addEventListener('click', () => {
+        renderSkeleton();
+        fetchMetrics();
+    });
+
+    // Keyboard shortcut: R for refresh
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'r' && !e.ctrlKey && !e.metaKey && !e.altKey &&
+            document.activeElement === document.body) {
+            e.preventDefault();
+            renderSkeleton();
+            fetchMetrics();
+        }
+    });
+
+    // Initial fetch
+    fetchMetrics();
+
+    // Auto-refresh every 30s
+    refreshInterval = setInterval(fetchMetrics, 30000);
+});
+</script>
+
+</body>
+</html>
