@@ -35,7 +35,6 @@ def _get_models_data():
 
 
 PORT = 3002
-from backup_panel import backup_panels_row, BACKUP_CSS
 BRIEFING_DIR = Path(os.path.expanduser("~/.hermes/cron/output/7dc1d641173d"))
 SITE_DIR = Path(__file__).parent
 
@@ -340,31 +339,6 @@ def services_status_row() -> str:
            'err.textContent="Service status unavailable — API server is not responding.";}' + \
            '});' + \
            '})()</script>'
-
-def command_center_row():
-    # Render a compact inline status bar (chips instead of cards).
-    status = get_system_status()
-
-    html = '<div class="cc-compact">'
-    for key in ["server", "hermes", "router", "tunnel", "spend"]:
-        s = status.get(key, {})
-        if not s:
-            continue
-        badge_class = s.get("status", "unknown")
-        action_url = s.get("action_url", "#")
-        html += '<a href="' + action_url + '" class="cc-chip"'
-        if action_url != "#":
-            html += ' target="_blank" rel="noopener"'
-        html += '>'
-        html += '<span class="status-dot ' + badge_class + '"></span>'
-        html += s.get("icon", "\u2753") + ' ' + s.get("label", "")
-        html += '</a>'
-
-    html += '</div>'
-    return html
-
-
-
 
 def _load_env_var(name: str) -> str | None:
     """Read a variable from the Hermes .env file."""
@@ -4282,7 +4256,6 @@ def models_section() -> str:
     body += '</div>'
 
     # JavaScript for model management (pull, refresh, delete)
-    body += '<script src="/models.js"></script>'
     body += '<script>'
     body += 'onModelDelete = function(name) {'
     body += '  fetch("/api/ollama/models/delete", {'
@@ -4488,7 +4461,7 @@ def models_section() -> str:
 def hermes_page() -> str:
     """Consolidated Hermes dashboard."""
     body = '<div class="hero" style="padding:2rem 0 1rem"><h1>Hermes</h1>'
-    body += '<p>AI agent dashboard — cron, kanban, briefings.</p></div>'
+    body += '<p>AI agent dashboard — cron, briefings.</p></div>'
     body += '<div style="text-align:center;margin:0 0 2rem 0">'
     body += '<a href="https://hermes.devmclovin.com" target="_blank" rel="noopener" class="cta-button">🚀 Open Hermes Web UI →</a></div>'
 
@@ -4554,33 +4527,6 @@ def hermes_page() -> str:
     body += '<div class="card-summary">Compare pricing, view installed Ollama models, pull new models, and run benchmarks.</div>'
     body += '<span class="card-action">Open models →</span></a></div>'
 
-    # ── Kanban Board (grid) ──
-    body += '<a href=/kanban style=text-decoration:none;color:inherit><div class="section-title" style="margin-top:2rem">📋 Kanban Board</div></a>'
-    tasks = load_kanban_tasks()
-    if tasks and any(len(v) > 0 for v in tasks.values()):
-        body += '<div class="dashboard-grid">'
-        cols = [("ready","Ready","📥"),("running","Running","⚡"),("blocked","Blocked","🚧"),("done","Done","✅")]
-        for col_key, col_label, col_emoji in cols:
-            col_tasks = tasks.get(col_key, [])
-            body += '<div class="briefing-card">'
-            body += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">'
-            body += '<span style="font-size:1.5rem">' + col_emoji + '</span>'
-            body += '<span class="card-num" style="font-size:1.8rem;font-weight:700">' + str(len(col_tasks)) + '</span>'
-            body += '</div>'
-            body += '<h3>' + col_label + '</h3>'
-            if col_tasks:
-                body += '<div class="card-summary" style="font-size:0.8rem">'
-                for t in col_tasks[:3]:
-                    body += '&bull; ' + t["title"][:50] + '<br>'
-                if len(col_tasks) > 3:
-                    body += '<span style="color:var(--text-muted);font-size:0.75rem">+' + str(len(col_tasks)-3) + ' more</span>'
-                body += '</div>'
-            body += '<span class="card-action">Open board →</span>'
-            body += '</div>'
-        body += '</div>'
-    else:
-        body += '<div class="empty-state"><p>No kanban tasks yet.</p></div>'
-
     # ── Recent Briefings (grid) ──
     body += '<a href=/briefings style=text-decoration:none;color:inherit><div class="section-title" style="margin-top:2rem">📰 Recent Briefings</div></a>'
     files = sorted(glob.glob(str(BRIEFING_DIR / "*.md")), reverse=True)[:4]
@@ -4607,22 +4553,6 @@ def hermes_page() -> str:
         body += '<div class="empty-state"><p>No briefings found.</p></div>'
 
     return html_page("Hermes", body, active_nav="hermes")
-def kanban_page(msg: str = "") -> str:
-    """Full-featured Kanban board — mock-style layout with real DB data."""
-    tasks = load_kanban_tasks_full()
-    tasks_json = json.dumps(tasks)
-
-    # Load template
-    tpl_path = SITE_DIR / "kanban_template.html"
-    try:
-        tpl = tpl_path.read_text(encoding="utf-8")
-    except (FileNotFoundError, OSError):
-        return html_page("Kanban Board", "<p>Kanban template not found.</p>", active_nav="hermes")
-
-    # Inject tasks JSON
-    tpl = tpl.replace("const TASKS = /*TASKS_JSON*/[];", "const TASKS = " + tasks_json + ";")
-
-    return tpl
 
 # ═══════════════════════════════════════════════════════════════
 #  HTML helpers
@@ -4683,7 +4613,7 @@ def html_page(title: str, body: str, active_nav: str = "home", extra_head: str =
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     {extra_head}
     <title>{title} — devmclovin</title>
-    <style>{BASE_CSS}{BACKUP_CSS}
+    <style>{BASE_CSS}
 </style>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
     <script>
@@ -5326,112 +5256,6 @@ def _relative_time(iso_str: str) -> str:
     return f"{days // 365}y ago"
 
 
-def github_projects_row() -> str:
-    """Render a responsive grid of GitHub repo cards with action links."""
-    repos, username = get_github_repos()
-
-    if not repos:
-        return (
-            '<div class="section-title">GitHub Projects</div>'
-            '<div class="empty-state"><p>🔑 GitHub token not found. '
-            'Set GITHUB_READ_TOKEN in ~/.hermes/.env to show your projects.</p></div>'
-        )
-
-    html = f'<div class="section-title">GitHub Projects <span style="font-weight:400;color:var(--text-muted);font-size:0.85rem">@{username}</span></div>'
-    html += '<div class="section-timestamp">Last updated: ' + datetime.now().strftime('%Y-%m-%d %H:%M UTC') + '</div>'
-    html += '<div class="dashboard-grid">'
-
-    configs = load_project_configs()
-
-    for r in repos:
-        desc = r["description"]
-        if not desc:
-            cfg = configs.get(r["name"], {})
-            desc = cfg.get("description", "")
-        if len(desc) > 140:
-            desc = desc[:137].rsplit(" ", 1)[0] + "…"
-
-        badges = ""
-        if r["private"]:
-            badges += '<span class="repo-badge private">private</span> '
-        if r["fork"]:
-            badges += '<span class="repo-badge fork">fork</span> '
-
-        html += '<div class="repo-card">'
-        html += f'<h3>{badges}<a href="{r["html_url"]}" target="_blank" rel="noopener">{r["name"]}</a></h3>'
-        if desc:
-            html += f'<div class="repo-desc">{desc}</div>'
-        else:
-            html += '<div class="repo-desc" style="font-style:italic">No description provided</div>'
-
-        html += '<div class="repo-meta">'
-        if r["language"]:
-            html += f'<span class="lang"><span class="repo-lang-dot" style="background:{_lang_color(r["language"])}"></span>{r["language"]}</span>'
-        if r["stars"]:
-            html += f'<span class="stars">⭐ {r["stars"]}</span>'
-        if r["updated_at"]:
-            html += f'<span>{_relative_time(r["updated_at"])}</span>'
-        html += '</div>'
-
-        html += f'<a href="{r["html_url"]}" target="_blank" rel="noopener" class="card-action">View on GitHub →</a>'
-
-        html += '</div>'
-
-    html += '</div>'
-    return html
-def spending_card_row() -> str:
-    """Render a responsive grid of OpenRouter spending cards with status badges."""
-    data = get_openrouter_data()
-
-    if data["error"]:
-        return (
-            '<div class="section-title">OpenRouter Spend</div>'
-            f'<div class="empty-state"><p>🔑 {data["error"]}. '
-            'Set OPENROUTER_API_KEY in ~/.hermes/.env.</p></div>'
-        )
-
-    balance = data["balance"]
-    total_usage = data["total_usage"]
-    remaining = (balance - total_usage) if (balance is not None and total_usage is not None) else None
-
-    html = '<div class="section-title">OpenRouter Spend</div>'
-    html += '<div class="section-timestamp">Last updated: ' + datetime.now().strftime('%Y-%m-%d %H:%M UTC') + '</div>'
-    html += '<div class="dashboard-grid">'
-
-    rem_class = "positive" if (remaining is not None and remaining > 0) else "negative"
-    html += '<div class="spending-mini">'
-    html += '<div class="spend-mini-label">Credits Remaining</div>'
-    html += f'<div class="spend-mini-value {rem_class}">${remaining:.2f}</div>' if remaining is not None else '<div class="spend-mini-value">--</div>'
-    html += f'<div class="spend-mini-sub">of ${balance:.2f} purchased</div>' if balance else ''
-    if remaining is not None and remaining > 0:
-        html += '<span class="status-badge online" style="margin-top:0.5rem;display:inline-block">OK</span>'
-    elif remaining is not None:
-        html += '<span class="status-badge warning" style="margin-top:0.5rem;display:inline-block">Low</span>'
-    html += '</div>'
-
-    html += '<div class="spending-mini">'
-    html += '<div class="spend-mini-label">Lifetime Usage</div>'
-    html += f'<div class="spend-mini-value">${total_usage:.2f}</div>' if total_usage else '<div class="spend-mini-value">--</div>'
-    if balance and total_usage:
-        pct = (total_usage / balance * 100) if balance > 0 else 0
-        html += f'<div class="spend-mini-sub">{pct:.0f}% of credits</div>'
-    html += '</div>'
-
-    html += '<div class="spending-mini">'
-    html += '<div class="spend-mini-label">Model Analytics</div>'
-    html += '<div class="spend-mini-value" style="font-size:1.1rem;color:var(--text-muted)">Per-model data</div>'
-    html += '<div class="spend-mini-sub">available on <a href="https://openrouter.ai/activity" target="_blank" rel="noopener" style="color:var(--accent-hover)">OpenRouter →</a></div>'
-    html += '</div>'
-
-    html += '<a href="https://openrouter.ai/activity" target="_blank" rel="noopener" style="text-decoration:none">'
-    html += '<div class="spending-mini" style="border-color:var(--accent);justify-content:center;align-items:center">'
-    html += '<div style="color:var(--accent-hover);font-size:1rem;font-weight:600">Open in OpenRouter →</div>'
-    html += '<div class="spend-mini-sub">Full activity &amp; models</div>'
-    html += '</div></a>'
-
-    html += '</div>'
-    return html
-
 # ── Cloudflare Tunnel Monitor UI ──
 
 def _cf_dashboard_url(account_id, path=""):
@@ -5449,90 +5273,6 @@ def _cf_timestamp(iso_str):
         if delta.seconds >= 60: return f"{delta.seconds//60}m ago"
         return "just now"
     except: return iso_str[:19] if iso_str else "Never"
-
-def cloudflare_tunnel_row():
-    cf = get_cloudflare_tunnel_data()
-    account_id = cf.get("account_id", "")
-    import time as _t
-    checked = cf.get("checked_at", 0)
-    ct = "never"
-    if checked:
-        from datetime import datetime, timezone
-        ct = datetime.fromtimestamp(checked, tz=timezone.utc).strftime("%H:%M:%S UTC")
-
-    h = '<div class="section-title"><a href="/tunnel" style="text-decoration:none;color:inherit">🌐 Cloudflare Tunnel</a></div>'
-    h += f'<div class="section-timestamp">checked: {ct}</div>'
-
-    if not cf.get("ok"):
-        err = cf.get("error", "Unknown error")
-        if not account_id:
-            # Credentials not configured — show a clean info card, not a warning
-            h += '<div class="dashboard-grid"><div class="briefing-card tunnel-status-card" style="opacity:0.6">'
-            h += '<div class="card-title">🔒 Tunnel Monitoring</div>'
-            h += '<div class="card-meta">Not configured — set CF_API_TOKEN and CF_ACCOUNT_ID to enable</div>'
-            h += '<div class="card-meta" style="font-size:0.75rem;margin-top:0.5rem">Fetch live tunnel status, hostnames, connections, and access policies from the Cloudflare API.</div>'
-            h += '</div></div>'
-        else:
-            h += f'<div class="empty-state"><p>⚠️ Cloudflare tunnel data unavailable<br><small>{err}</small></p></div>'
-        return h
-
-    d = cf["data"]; tid = d["tunnel_id"]
-    dash = _cf_dashboard_url(account_id, "networks/tunnels")
-    is_up = d["is_up"]; sc = "var(--green)" if is_up else "#f85149"
-    st = "UP" if is_up else "DOWN"
-
-    h += '<div class="dashboard-grid">'
-
-    # Tunnel Status card
-    h += '<div class="briefing-card tunnel-status-card">'
-    h += f'<div class="card-title"><span class="status-dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;background:{sc}"></span>Tunnel: {d["tunnel_name"]}</div>'
-    h += f'<div class="card-meta">Status: <strong style="color:{sc}">{st}</strong></div>'
-    h += f'<div class="card-meta">ID: <code>{tid[:12]}...</code></div>'
-    h += f'<div class="card-meta">Connections: <strong>{len(d["connections"])}</strong></div>'
-    h += f'<div class="card-meta">Last reconnect: {_cf_timestamp(d["last_reconnect_at"])}</div>'
-    h += f'<a href="{dash}" target="_blank" rel="noopener" class="card-action">Zero Trust →</a></div>'
-
-    # Public Hostnames card
-    h += '<div class="briefing-card tunnel-hostnames-card"><div class="card-title">🔗 Public Hostnames</div>'
-    hostnames = d["hostnames"]
-    if hostnames:
-        h += '<table class="tunnel-table"><thead><tr><th>Hostname</th><th>Origin</th></tr></thead><tbody>'
-        apps = _cf_dashboard_url(account_id, "access/apps")
-        for hn in hostnames:
-            h += f'<tr><td><a href="{apps}" target="_blank" rel="noopener" title="Manage in Zero Trust">{hn["hostname"]}</a></td><td><code>{hn["service"]}</code></td></tr>'
-        h += '</tbody></table>'
-    else: h += '<div class="card-summary">No public hostnames configured.</div>'
-    h += '</div>'
-
-    # Port Mappings card
-    h += '<div class="briefing-card tunnel-ports-card"><div class="card-title">📡 Port Mappings</div>'
-    ports = d["port_mappings"]
-    if ports:
-        h += '<table class="tunnel-table"><thead><tr><th>Protocol</th><th>Local</th><th>Port</th></tr></thead><tbody>'
-        for pm in ports: h += f'<tr><td><span class="badge">{pm["protocol"].upper()}</span></td><td>{pm["host"]}</td><td><code>{pm["port"]}</code></td></tr>'
-        h += '</tbody></table>'
-    else: h += '<div class="card-summary">No port mappings detected.</div>'
-    h += '</div>'
-
-    # Access Policies card
-    ap = d["access_policies"]
-    h += '<div class="briefing-card tunnel-policies-card"><div class="card-title">🛡️ Access Policies</div>'
-    h += f'<div class="card-meta">Total: <strong>{ap["total_policies"]}</strong></div>'
-    bd = ap.get("types_breakdown", {})
-    if bd: h += f'<div class="card-summary">{", ".join(f"{k}: {v}" for k, v in sorted(bd.items()))}</div>'
-    policies = ap.get("policies", [])
-    if policies:
-        h += '<div style="margin-top:0.5rem">'
-        colors = {"allow": "var(--green)", "deny": "#f85149", "bypass": "var(--orange)", "non_identity": "var(--text-muted)"}
-        for p in policies[:3]:
-            dc = colors.get(p["decision"], "var(--text-muted)")
-            h += f'<div class="card-meta" style="font-size:0.8rem;margin-bottom:2px"><span style="color:{dc}">●</span> <strong>{p["name"] or "Unnamed"}</strong> ({p["decision"]}, incl:{p["include_count"]} excl:{p["exclude_count"]})</div>'
-        if len(policies) > 3: h += f'<div class="card-meta" style="font-size:0.75rem;color:var(--text-muted)">+{len(policies)-3} more</div>'
-        h += '</div>'
-    access = _cf_dashboard_url(account_id, "access/policies")
-    h += f'<a href="{access}" target="_blank" rel="noopener" class="card-action">Manage in Zero Trust →</a></div>'
-    h += '</div>'
-    return h
 
 def cloudflare_tunnel_page():
     cf = get_cloudflare_tunnel_data()
@@ -5623,25 +5363,9 @@ def cloudflare_tunnel_page():
 
 
 def system_summary_row() -> str:
-    """Render a compact summary row for system sections (Backups, Spend, GitHub, Tunnel)."""
+    """Render a compact summary row for system sections (Spend, GitHub, Tunnel)."""
     html = '<div class="section-title-mini">📊 System Overview</div>'
     html += '<div class="sys-summary-grid">'
-
-    # ── Backups summary ──
-    from backup_panel import get_backup_status
-    bu = get_backup_status()
-    if bu:
-        h_status = bu.get("hermes", {}).get("last_status", "unknown")
-        g_status = bu.get("github", {}).get("last_status", "unknown")
-        bu_text = f"Hermes: {h_status}, GitHub: {g_status}"
-    else:
-        bu_text = "Backup status unavailable"
-    html += '<a href="/hermes" class="sys-summary-card">'
-    html += '<span class="sys-summary-icon">🛡️</span>'
-    html += '<div class="sys-summary-info">'
-    html += '<div class="sys-summary-label">Backups</div>'
-    html += f'<div class="sys-summary-metric">{bu_text}</div>'
-    html += '</div></a>'
 
     # ── OpenRouter Spend summary ──
     or_data = get_openrouter_data()
@@ -8043,9 +7767,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif path == "/runbooks":
             content = runbooks_page().encode()
             self._respond(200, "text/html", content)
-        elif path == "/kanban":
-            content = kanban_page().encode()
-            self._respond(200, "text/html", content)
         elif path == "/api/models":
             import sqlite3 as _sql2
             _conn = _sql2.connect(MODELS_DB)
@@ -8120,13 +7841,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif path == "/api/tuning/messages/export":
             body = _tuning_dataset_jsonl().encode()
             self._respond(200, "application/x-ndjson", body)
-        elif path == "/models.js":
-            models_js = SITE_DIR / "models.js"
-            if models_js.exists():
-                content = models_js.read_bytes()
-                self._respond(200, "application/javascript", content)
-            else:
-                self._respond(404, "text/plain", b"Not Found")
         elif path == "/cron":
             content = cron_page().encode()
             self._respond(200, "text/html", content)
