@@ -1147,6 +1147,42 @@ nav .links a.hermes-btn:hover {
 .status-mini-service span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .status-mini-service small { color: var(--text-muted); font-size: 0.68rem; white-space: nowrap; }
 
+/* ── Homepage: page-head row (replaces .hero) ── */
+.page-head { display:flex; align-items:baseline; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin:1.25rem 0 1rem; }
+.page-head h1 { font-size:1.5rem; font-weight:700; color:var(--text); }
+.page-date { color:var(--text-muted); font-size:0.9rem; white-space:nowrap; }
+
+/* ── Status strip health dot ── */
+.status-strip-dot { display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--text-muted); flex-shrink:0; }
+.status-strip-dot.green { background:var(--green); }
+.status-strip-dot.red { background:var(--red); }
+.status-strip-dot.amber { background:var(--orange); }
+
+/* ── Homepage section-title row (title left, action link right) ── */
+.section-head { display:flex; align-items:baseline; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin:2rem 0 0.5rem; }
+.section-head h2 { font-size:1.05rem; font-weight:600; color:var(--text); }
+.section-head a { color:var(--accent-hover); text-decoration:none; font-size:0.82rem; white-space:nowrap; }
+.section-head a:hover { color:var(--text); }
+
+/* ── Today's Briefing: vertical list (home only, no horizontal scroll) ── */
+.briefing-home { border:1px solid var(--border); border-radius:12px; background:var(--bg-card); overflow:hidden; }
+.briefing-home-row { display:flex; align-items:flex-start; gap:0.6rem; padding:0.6rem 0.85rem; border-top:1px solid var(--border); }
+.briefing-home-row:first-child { border-top:none; }
+.briefing-home-row .bh-badge { flex-shrink:0; margin-top:0.1rem; }
+.briefing-home-row .bh-main { min-width:0; flex:1; }
+.briefing-home-row .bh-title { color:var(--text); text-decoration:none; font-size:0.9rem; font-weight:500; }
+.briefing-home-row .bh-title:hover { color:var(--accent-hover); }
+.briefing-home-row .bh-impact { color:var(--text-muted); font-size:0.8rem; margin-top:0.15rem; line-height:1.4; }
+
+/* ── Compact hub rows (label + inline chips) ── */
+.hub-rows { display:flex; flex-direction:column; gap:0.5rem; margin:0.5rem 0 0; }
+.hub-row { display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; }
+.hub-row-label { display:inline-flex; align-items:center; gap:0.4rem; font-weight:600; font-size:0.85rem; color:var(--text); min-width:9rem; }
+.hub-chips { display:flex; flex-wrap:wrap; gap:0.4rem; }
+.hub-chip { color:var(--accent-hover); text-decoration:none; font-size:0.8rem; border:1px solid var(--border); border-radius:999px; padding:0.35rem 0.7rem; background:var(--bg-card); }
+.hub-chip:hover { border-color:var(--accent); color:var(--text); }
+@media (max-width:480px) { .hub-row-label { min-width:100%; } }
+
 /* ── Briefing archive cards + subnav ── */
 .briefing-subnav { display:flex; flex-wrap:wrap; gap:0.5rem; justify-content:center; margin:-0.35rem 0 1rem; }
 .briefing-subnav a { color:var(--text-muted); text-decoration:none; border:1px solid var(--border); background:var(--bg-card); border-radius:999px; padding:0.35rem 0.8rem; font-size:0.82rem; }
@@ -5428,39 +5464,71 @@ def system_summary_row() -> str:
     return html
 
 def home_hub_html() -> str:
-    """Task-oriented homepage hub: groups the site by user intent."""
+    """Task-oriented homepage hub: one compact row per intent (icon + label + chips)."""
     groups = [
-        ("📰", "Read", "Catch up and save what matters.", [
+        ("📰", "Read", [
             ("/briefings", "Briefings"), ("/bookmarks", "Saved"), ("/notes", "Notes")
         ]),
-        ("🛠️", "Build", "Jump into projects and agent work.", [
+        ("🛠️", "Build", [
             ("/projects", "Projects"), ("/hermes", "Hermes"), ("/inbox", "Inbox")
         ]),
-        ("📡", "Monitor", "Check the health of the home-server stack.", [
+        ("📡", "Monitor", [
             ("/status", "Status"), ("/tunnel", "Tunnel"), ("/logs", "Logs")
         ]),
-        ("⚙️", "Maintain", "Scheduled jobs, storage, models, and runbooks.", [
+        ("⚙️", "Maintain", [
             ("/cron", "Cron"), ("/disk-cleanup", "Disk"), ("/models", "Models"), ("/model-tuning", "Tuning"), ("/llm-lab", "LLM Lab"), ("/runbooks", "Runbooks")
         ]),
     ]
-    html = '<div class="site-hub" aria-label="Organized site sections">'
-    for icon, title, desc, links in groups:
-        html += '<section class="hub-card">'
-        html += '<div class="hub-kicker"><span>' + icon + '</span><span>' + title + '</span></div>'
-        html += '<div class="hub-desc">' + desc + '</div>'
-        html += '<div class="hub-links">'
+    html = '<div class="hub-rows" aria-label="Organized site sections">'
+    for icon, title, links in groups:
+        html += '<div class="hub-row">'
+        html += '<span class="hub-row-label"><span>' + icon + '</span><span>' + title + '</span></span>'
+        html += '<span class="hub-chips">'
         for href, label in links:
-            html += '<a href="' + href + '">' + label + '</a>'
-        html += '</div></section>'
+            html += '<a class="hub-chip" href="' + href + '">' + label + '</a>'
+        html += '</span></div>'
     html += '</div>'
     return html
 
-def home_status_strip() -> str:
-    """Extremely compact service status on the landing page; expands on demand."""
+
+def briefing_list_home(articles: list[dict], date_str: str) -> str:
+    """Today's stories on the homepage as a plain vertical list (max 5 rows), no
+    horizontal scroll and no bookmark toggle. Used ONLY by home_page(); the archive
+    page keeps briefing_card_from_db / briefing_card unchanged."""
+    rows = articles[:5]
+    h = '<div class="briefing-home">'
+    for a in rows:
+        title = a.get("title", "Untitled")
+        url = a.get("source_url", "")
+        summary = a.get("summary") or a.get("impact") or a.get("body") or ""
+        categories = a.get("categories", "")
+        first_cat = ""
+        if categories:
+            parts = [c.strip() for c in categories.split(",") if c.strip() and c.strip() != "general"]
+            first_cat = parts[0] if parts else ""
+        h += '<div class="briefing-home-row">'
+        if first_cat:
+            bg, fg = CATEGORY_COLORS.get(first_cat, ("#6b7280", "#f3f4f6"))
+            h += f'<span class="bh-badge category-badge" style="background:{bg};color:{fg}">{html.escape(first_cat)}</span>'
+        h += '<div class="bh-main">'
+        href = url or f"/briefing/{date_str}"
+        target = ' target="_blank" rel="noopener"' if url else ''
+        h += f'<a class="bh-title" href="{html.escape(href, quote=True)}"{target}>{html.escape(title)}</a>'
+        if summary:
+            h += f'<div class="bh-impact">{html.escape(first_sentence(summary))}</div>'
+        h += '</div></div>'
+    h += '</div>'
+    return h
+
+def status_strip() -> str:
+    """Topmost homepage element: a 44px health bar. Green dot + 'All systems normal'
+    or red dot + 'K services need attention' (auto-opens the details on issues).
+    Amber dot + 'Status API unavailable' on fetch failure."""
     return '''<details class="landing-status-strip" id="landing-status-strip">
         <summary>
             <span class="status-summary-left">
-                <span class="status-summary-title">📡 Service status</span>
+                <span class="status-strip-dot" id="status-strip-dot"></span>
+                <span class="status-summary-title">Service status</span>
                 <span class="status-summary-meta" id="status-summary-meta">Checking services…</span>
             </span>
             <span class="status-summary-right">
@@ -5476,6 +5544,7 @@ def home_status_strip() -> str:
     <script>
     (function(){
         var names=["hermes_dashboard","ollama","cloudflare_tunnel","searxng","llm_router","github_backup"];
+        var dot=document.getElementById('status-strip-dot');
         fetch("/api/status").then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
         .then(function(data){
             var svcs=data.services||{}; var ok=0; var bad=0; var h='<div class="status-mini-grid">';
@@ -5485,11 +5554,14 @@ def home_status_strip() -> str:
                      '<small>' + (s.status || (healthy?'Online':'Issue')) + '</small></a>';
             });
             h += '</div><div style="margin-top:.55rem"><a href="/status" class="card-action">Open full status board →</a></div>';
-            var meta=document.getElementById('status-summary-meta'); if(meta) meta.textContent = bad ? (bad + ' need attention') : 'All monitored services online';
+            var meta=document.getElementById('status-summary-meta'); if(meta) meta.textContent = bad ? (bad + ' service' + (bad>1?'s':'') + ' need attention') : 'All systems normal';
+            if(dot) dot.classList.add(bad?'red':'green');
             var okP=document.getElementById('status-ok-pill'); if(okP){ okP.textContent=ok+' OK'; okP.classList.add('ok'); }
             var badP=document.getElementById('status-issue-pill'); if(badP){ badP.textContent=bad+' issues'; badP.classList.add(bad?'warn':'ok'); }
             var body=document.getElementById('landing-status-body'); if(body) body.innerHTML=h;
+            if(bad>0){ var d=document.getElementById('landing-status-strip'); if(d) d.open=true; }
         }).catch(function(){
+            if(dot) dot.classList.add('amber');
             var meta=document.getElementById('status-summary-meta'); if(meta) meta.textContent='Status API unavailable';
             var body=document.getElementById('landing-status-body'); if(body) body.innerHTML='<div class="services-error">Service status unavailable. Open the full status page for static checks.</div><a href="/status" class="card-action">Open full status board →</a>';
         });
@@ -5497,50 +5569,58 @@ def home_status_strip() -> str:
     </script>'''
 
 def home_page() -> str:
-    body = """
-    <div class="hero">
-        <h1>devmclovin</h1>
-        <p>Personal projects, daily briefings, and AI-powered tools — organized by what you want to do.</p>
-    </div>
-    """
-    body += home_hub_html()
+    now = datetime.now()
+    today = now.strftime("%Y-%m-%d")
+    page_date = now.strftime("%A, %B ") + str(now.day)  # cross-platform "no leading zero"
 
-    # Ultra-compact service status with expandable details
-    body += home_status_strip()
+    # 1) Header row (replaces the hero tagline)
+    body = ('<div class="page-head"><h1>devmclovin</h1>'
+            f'<span class="page-date">{page_date}</span></div>')
 
-    # Today's briefing (from DB)
-    body += '<div class="section-title">Today\'s Briefing</div>'
-    today = datetime.now().strftime("%Y-%m-%d")
+    # 2) Status strip (topmost interactive element; auto-opens on issues)
+    body += status_strip()
+
+    # 3) Today's Briefing — same 3-level fallback chain as before, rendered as a
+    #    vertical list (briefing_list_home) instead of the horizontal-scroll cards.
     archive = _get_archive()
+    stories = []            # articles found through any path
+    iso_for_links = today   # ISO date used for per-story fallback links
+    section_date = now.strftime("%b ") + str(now.day)
+
     briefing = archive.get_briefing(today)
-    stories = []  # track whether we found stories through any path
     if briefing and briefing.get("articles"):
-        date_str = _render_briefing_date(briefing.get("full_date"), briefing["date"])
-        body += briefing_card_from_db(briefing["articles"], date_str)
         stories = briefing["articles"]
+        iso_for_links = briefing["date"]
     else:
-        # Fallback 1: try today's raw .md file on disk (may not be in DB yet)
+        # Fallback 1: today's raw .md on disk (may not be in DB yet)
         today_files = sorted(BRIEFING_DIR.glob(f"{today}_*.md"), reverse=True)
         if today_files:
             raw = today_files[0].read_text(encoding="utf-8")
-            stories, date_str = parse_briefing_stories(raw)
-            if stories:
-                body += briefing_card(stories, date_str)
-            # If raw file exists but has no stories (template / empty), fall through to DB fallback
+            file_stories, _ = parse_briefing_stories(raw)
+            if file_stories:
+                stories = file_stories
         if not stories:
-            # Fallback 2: try the most recent briefing from DB
+            # Fallback 2: most recent briefing from DB
             recent = archive.get_briefings(limit=1)
             if recent:
                 b = archive.get_briefing(recent[0]["date"])
                 if b and b.get("articles"):
-                    date_str = _render_briefing_date(b.get("full_date"), b["date"])
-                    body += briefing_card_from_db(b["articles"], date_str)
-                else:
-                    body += '<div class="empty-state"><p>☕ No briefings found. The morning briefing runs at 7am UTC.</p></div>'
-            else:
-                body += '<div class="empty-state"><p>☕ No briefings found. The morning briefing runs at 7am UTC.</p></div>'
+                    stories = b["articles"]
+                    iso_for_links = b["date"]
+                    section_date = _render_briefing_date(b.get("full_date"), b["date"])
 
-    # ── System Overview (collapsible secondary section) ──
+    body += ('<div class="section-head"><h2>Today\'s Briefing — '
+             + html.escape(section_date) + '</h2>'
+             '<a href="/briefings">All briefings →</a></div>')
+    if stories:
+        body += briefing_list_home(stories, iso_for_links)
+    else:
+        body += '<div class="empty-state"><p>☕ No briefings found. The morning briefing runs at 7am UTC.</p></div>'
+
+    # 4) Compact hub chips
+    body += home_hub_html()
+
+    # 5) System Overview (collapsed secondary section)
     body += '<details class="system-overview">'
     body += '<summary>📊 System Overview</summary>'
     body += '<div class="system-overview-body">'
