@@ -7,8 +7,16 @@ The Agent Inbox is a structured message board on [devmclovin.com](https://devmcl
 | What         | Value                                      |
 |-------------|--------------------------------------------|
 | Base URL    | `https://devmclovin.com/api/inbox`         |
+| Items path  | `https://devmclovin.com/api/inbox/api/v1/items` |
 | Auth        | None (Cloudflare Tunnel access-controlled) |
 | Content-Type | `application/json`                        |
+
+> **How the path maps.** `devmclovin.com/api/inbox/*` is a same-origin proxy in
+> `server.py` (`_proxy_inbox`). It strips **only** the `/api/inbox` prefix and
+> forwards the remainder verbatim to the Inbox API on `127.0.0.1:8000`. The API's
+> resources live under `/api/v1/...`, so the public item collection is
+> `…/api/inbox/api/v1/items`. Verify on the box before relying on exact shapes:
+> `curl -s http://127.0.0.1:8000/api/v1/items`.
 
 ## Data Model
 
@@ -39,10 +47,10 @@ new  ──→  in_progress  ──→  resolved
 
 ### Create an Inbox Item
 
-`POST /api/inbox`
+`POST /api/inbox/api/v1/items`
 
 ```bash
-curl -X POST https://devmclovin.com/api/inbox \
+curl -X POST https://devmclovin.com/api/inbox/api/v1/items \
   -H "Content-Type: application/json" \
   -d '{
     "summary": "Hermes backup job failed — disk full",
@@ -68,40 +76,42 @@ Response (201 Created):
 
 ### List All Items
 
-`GET /api/inbox`
+`GET /api/inbox/api/v1/items`
 
-Optional query params: `?sort=created_at` (default `desc`), `?status=new` to filter.
+Optional query params: `?sort_by=created_at&sort_order=desc` (default), `?status=new`
+to filter, `?offset=` / `?limit=` for pagination. The response is a paginated
+object `{ "items": [...], "total": N }`.
 
 ```bash
-curl -s https://devmclovin.com/api/inbox | python3 -m json.tool
+curl -s https://devmclovin.com/api/inbox/api/v1/items | python3 -m json.tool
 ```
 
 ### Get One Item
 
-`GET /api/inbox/{id}`
+`GET /api/inbox/api/v1/items/{id}`
 
 ```bash
-curl -s https://devmclovin.com/api/inbox/12
+curl -s https://devmclovin.com/api/inbox/api/v1/items/12
 ```
 
 ### Update an Item
 
-`PUT /api/inbox/{id}`
+`PUT /api/inbox/api/v1/items/{id}`
 
 Send only the fields you want to change. Timestamps are updated automatically.
 
 ```bash
-curl -X PUT https://devmclovin.com/api/inbox/12 \
+curl -X PUT https://devmclovin.com/api/inbox/api/v1/items/12 \
   -H "Content-Type: application/json" \
   -d '{"status": "resolved"}'
 ```
 
 ### Delete an Item
 
-`DELETE /api/inbox/{id}`
+`DELETE /api/inbox/api/v1/items/{id}`
 
 ```bash
-curl -X DELETE https://devmclovin.com/api/inbox/12
+curl -X DELETE https://devmclovin.com/api/inbox/api/v1/items/12
 ```
 
 Returns 204 No Content on success.
@@ -117,9 +127,9 @@ When your kanban task finishes, add an inbox item alongside `kanban_complete`:
 import json, subprocess
 
 summary = "Kanban redesign ready for review"
-suggested_action = "Open /kanban page and test the new drag-and-drop"
+suggested_action = "Review the changes on the Hermes dashboard"
 # Link to the kanban card
-link = "https://devmclovin.com/kanban?task=t_45a13bd9"
+link = "https://devmclovin.com/hermes"
 
 payload = json.dumps({
     "summary": summary,
@@ -131,7 +141,7 @@ payload = json.dumps({
 # 2. POST to the inbox
 subprocess.run([
     "curl", "-s", "-X", "POST",
-    "https://devmclovin.com/api/inbox",
+    "https://devmclovin.com/api/inbox/api/v1/items",
     "-H", "Content-Type: application/json",
     "-d", payload
 ])
@@ -147,7 +157,7 @@ After a cron job runs, use the `cronjob_exec` or `terminal` tool to fire a curl.
 
 DISK_PCT=$(df / | awk 'NR==2 {print $5}' | tr -d '%')
 if [ "$DISK_PCT" -gt 90 ]; then
-  curl -s -X POST https://devmclovin.com/api/inbox \
+  curl -s -X POST https://devmclovin.com/api/inbox/api/v1/items \
     -H "Content-Type: application/json" \
     -d "{
       \"summary\": \"Disk usage at ${DISK_PCT}% — critical\",
@@ -173,7 +183,7 @@ item = json.dumps({
     "link": "/etc/cloudflared/config.yml"
 })
 
-terminal(f"curl -s -X POST https://devmclovin.com/api/inbox -H 'Content-Type: application/json' -d '{item}'")
+terminal(f"curl -s -X POST https://devmclovin.com/api/inbox/api/v1/items -H 'Content-Type: application/json' -d '{item}'")
 ```
 
 ## When to Add an Item
@@ -202,7 +212,7 @@ The `link` field is free-form. Common patterns:
 |--------------------------------|----------------------------------------------------------|
 | Local log file                 | `/home/hermes/.hermes/logs/gateway.log`                  |
 | Cron output file               | `/home/hermes/.hermes/cron/output/<job_id>/...`          |
-| Kanban card                    | `https://devmclovin.com/kanban?task=t_a9e35bb0`          |
+| Hermes dashboard               | `https://devmclovin.com/hermes`                          |
 | GitHub PR                      | `https://github.com/VerduzcoTristan/repo/pull/42`        |
 | Hermes session transcript      | Referenced by session ID (viewable via `/sessions`)       |
 | Briefing markdown file         | `/home/hermes/.hermes/cron/output/7dc1d641173d/...`      |
@@ -259,10 +269,10 @@ The `link` field is free-form. Common patterns:
 
 ```json
 {
-  "summary": "Kanban interactive board v2 deployed to /kanban",
+  "summary": "Briefing redesign v2 deployed",
   "status": "resolved",
   "suggested_action": "None — already live",
-  "link": "https://devmclovin.com/kanban"
+  "link": "https://devmclovin.com/hermes"
 }
 ```
 
@@ -289,6 +299,5 @@ The `link` field is free-form. Common patterns:
 
 ## See Also
 
-- [Kanban Board](https://devmclovin.com/kanban) — real-time task tracking
-- [Hermes Dashboard](https://devmclovin.com/hermes) — cron, kanban, and briefing summaries
+- [Hermes Dashboard](https://devmclovin.com/hermes) — cron and briefing summaries
 - [Briefings Archive](https://devmclovin.com/briefings) — daily briefing history

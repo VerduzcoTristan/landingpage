@@ -16,31 +16,39 @@ from pathlib import Path
 
 from runbook_data import runbooks_page
 
-# ── Model Comparison DB helpers ──
-import importlib.util as _importlib_util
-_MODEL_DB_INIT_PATH = "/home/hermes/projects/model-price-comparison/init_db.py"
-_MODEL_DB_PATH = "/home/hermes/projects/model-price-comparison/models.db"
-_init_spec = _importlib_util.spec_from_file_location("init_db", _MODEL_DB_INIT_PATH)
-_init_db_mod = _importlib_util.module_from_spec(_init_spec)
-_init_spec.loader.exec_module(_init_db_mod)
-ensure_schema = _init_db_mod.ensure_schema
-list_models = _init_db_mod.list_models
-
-def _get_models_data():
-    """Return list of model dicts from the SQLite database."""
-    conn = ensure_schema(_MODEL_DB_PATH)
-    rows = list_models(conn)
-    conn.close()
-    return rows
-
-
 PORT = 3002
-from backup_panel import backup_panels_row, BACKUP_CSS
 BRIEFING_DIR = Path(os.path.expanduser("~/.hermes/cron/output/7dc1d641173d"))
 SITE_DIR = Path(__file__).parent
 
 # ── Model Comparison DB ──
+# The price-comparison DB lives in a separate repo that may be absent/moved.
+# fetch_models() is the SINGLE read path for both /models and /api/models and
+# never crashes the server on a missing DB — it returns an error string instead.
 MODELS_DB = os.path.expanduser("~/projects/model-price-comparison/models.db")
+
+
+def fetch_models() -> tuple[list[dict], str | None]:
+    """Return (rows, error). error is a message when the models DB is unavailable
+    so callers can render a friendly state instead of raising at import/route time."""
+    try:
+        conn = sqlite3.connect(MODELS_DB)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT model_id, name, provider, input_price_per_mtok, "
+            "output_price_per_mtok, context_window, best_use_case, "
+            "preferred_role, notes FROM models ORDER BY provider, name"
+        ).fetchall()
+        conn.close()
+    except Exception as e:
+        return [], f"Models DB unavailable: {e}"
+    return [{
+        "model_id": r["model_id"], "name": r["name"], "provider": r["provider"],
+        "input_price_per_mtok": r["input_price_per_mtok"],
+        "output_price_per_mtok": r["output_price_per_mtok"],
+        "context_window": r["context_window"],
+        "best_use_case": r["best_use_case"],
+        "preferred_role": r["preferred_role"], "notes": r["notes"] or "",
+    } for r in rows], None
 
 # ── Auth helpers (Cloudflare Access) ──
 def is_authenticated(handler) -> bool:
@@ -341,31 +349,6 @@ def services_status_row() -> str:
            '});' + \
            '})()</script>'
 
-def command_center_row():
-    # Render a compact inline status bar (chips instead of cards).
-    status = get_system_status()
-
-    html = '<div class="cc-compact">'
-    for key in ["server", "hermes", "router", "tunnel", "spend"]:
-        s = status.get(key, {})
-        if not s:
-            continue
-        badge_class = s.get("status", "unknown")
-        action_url = s.get("action_url", "#")
-        html += '<a href="' + action_url + '" class="cc-chip"'
-        if action_url != "#":
-            html += ' target="_blank" rel="noopener"'
-        html += '>'
-        html += '<span class="status-dot ' + badge_class + '"></span>'
-        html += s.get("icon", "\u2753") + ' ' + s.get("label", "")
-        html += '</a>'
-
-    html += '</div>'
-    return html
-
-
-
-
 def _load_env_var(name: str) -> str | None:
     """Read a variable from the Hermes .env file."""
     env_path = Path(os.path.expanduser("~/.hermes/.env"))
@@ -633,6 +616,293 @@ def simple_md_to_html(text: str) -> str:
     return f'<p>{text}</p>'
 
 
+# ── Shared nav assets (single source of truth for the top nav) ──────────────
+# NAV_CSS is a faithful copy of every nav-related rule in BASE_CSS. html_page()
+# emits {NAV_CSS}{BASE_CSS} (duplicate-but-identical rules on server pages), and
+# the six template pages receive NAV_CSS via the __SITE_NAV_CSS__ placeholder so
+# the injected nav is styled everywhere. NAV_JS holds the dropdown close-behaviour
+# handlers, embedded by html_page and injected into templates via __SITE_NAV_JS__.
+NAV_CSS = """
+.skip-link {
+    position: absolute;
+    top: -100px;
+    left: 1rem;
+    background: var(--accent);
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 0 0 6px 6px;
+    z-index: 200;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: top 0.2s;
+}
+.skip-link:focus { top: 0; }
+
+nav {
+    background: var(--bg-nav);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+    flex-wrap: wrap;
+}
+nav .logo {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+nav .logo span { color: var(--accent); }
+nav .links {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+nav .links a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.2s;
+    padding: 0.5rem 0;
+    white-space: nowrap;
+}
+nav .links a:hover,
+nav .links a.active { color: var(--text); }
+nav .links a.hermes-btn {
+    background: var(--accent);
+    color: #fff;
+    padding: 0.4rem 1rem;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: background 0.2s, box-shadow 0.2s;
+}
+nav .links a.hermes-btn:hover {
+    background: var(--accent-hover);
+    box-shadow: 0 0 20px var(--accent-glow);
+}
+.nav-dropdown {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.nav-more-summary {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: 0.5rem 0;
+    white-space: nowrap;
+    list-style: none;
+    user-select: none;
+    transition: color 0.2s;
+}
+.nav-more-summary::-webkit-details-marker { display: none; }
+.nav-more-summary::after { content: " ▾"; font-size: 0.7rem; }
+.nav-more-summary:hover,
+.nav-more-summary.active { color: var(--text); }
+.nav-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.4rem 0;
+    min-width: 230px;
+    z-index: 150;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    display: flex;
+    flex-direction: column;
+}
+.nav-menu-label {
+    padding: 0.35rem 1rem 0.25rem;
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.75;
+}
+.nav-dropdown-menu a {
+    color: var(--text-muted) !important;
+    text-decoration: none;
+    font-size: 0.85rem !important;
+    padding: 0.5rem 1rem !important;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+.nav-dropdown-menu a:hover {
+    background: rgba(124,58,237,0.1);
+    color: var(--text) !important;
+}
+.nav-dropdown-menu a.active { color: var(--accent-hover) !important; }
+.nav-item-main { color: inherit; font-weight: 600; }
+.nav-item-hint {
+    color: #9aa4b2;
+    font-size: 0.7rem;
+    line-height: 1.25;
+}
+.nav-dropdown-menu a:hover .nav-item-hint { color: var(--text-muted); }
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.category-pill:focus-visible,
+.category-tab:focus-visible,
+.bm-btn:focus-visible,
+.link-card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+footer {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    border-top: 1px solid var(--border);
+    margin-top: 3rem;
+}
+.footer-nav {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+}
+.footer-nav a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.78rem;
+}
+.footer-nav a:hover { color: var(--accent-hover); }
+
+@media (min-width: 481px) and (max-width: 900px) {
+    nav { padding: 0 1.25rem; }
+    nav .links { gap: 1rem; }
+    nav .links a { font-size: 0.82rem; }
+}
+@media (max-width: 480px) {
+    nav {
+        padding: 0 0.75rem;
+        height: auto;
+        min-height: 52px;
+    }
+    nav .links {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 0.75rem;
+        padding-bottom: 0.25rem;
+        scrollbar-width: none;
+    }
+    nav .links::-webkit-scrollbar { display: none; }
+    nav .links a { font-size: 0.8rem; padding: 0.45rem 0; }
+    nav .logo { font-size: 1.05rem; }
+    .footer-nav { gap: 1rem; }
+}
+"""
+
+NAV_JS = """
+document.addEventListener('DOMContentLoaded', function() {
+    var dropdowns = Array.prototype.slice.call(document.querySelectorAll('details.nav-dropdown'));
+    dropdowns.forEach(function(dropdown) {
+        dropdown.addEventListener('toggle', function() {
+            if (dropdown.open) {
+                dropdowns.forEach(function(other) {
+                    if (other !== dropdown) other.open = false;
+                });
+            }
+        });
+    });
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('details.nav-dropdown')) {
+            dropdowns.forEach(function(dropdown) { dropdown.open = false; });
+        }
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            dropdowns.forEach(function(dropdown) { dropdown.open = false; });
+        }
+    });
+});
+"""
+
+
+def render_nav(active: str = "home") -> str:
+    """Single source of truth for the top nav (see section 3 of the redesign plan).
+    Returns the full <nav>…</nav> block: used by html_page() and injected verbatim
+    into the six template pages so the nav is byte-identical everywhere."""
+    top_links = [
+        ("/", "Home", "home"),
+        ("/briefings", "Briefings", "briefings"),
+        ("/projects", "Projects", "projects"),
+        ("/status", "Status", "status"),
+        ("/hermes", "Hermes", "hermes"),
+    ]
+    links = ""
+    for href, label, key in top_links:
+        cls = 'active' if active == key else ''
+        links += f'<a href="{href}" class="{cls}">{label}</a>'
+
+    tool_keys = {"notes", "inbox", "runbooks", "cron", "models",
+                 "model-tuning", "llm-lab", "disk-cleanup", "tunnel", "logs"}
+    items = [
+        ("__label__", "Daily", ""),
+        ("/notes", "Notes", "Personal notes", "notes"),
+        ("/inbox", "Inbox", "Agent intake queue", "inbox"),
+        ("/runbooks", "Runbooks", "Copy-paste server fixes", "runbooks"),
+        ("__label__", "Ops", ""),
+        ("/cron", "Cron Jobs", "Schedules and outputs", "cron"),
+        ("/models", "Models", "LLM pricing and local models", "models"),
+        ("/model-tuning", "Tuning", "Fine-tune datasets and HF pulls", "model-tuning"),
+        ("/llm-lab", "LLM Lab", "Evals, traces, arena, GGUF pulls", "llm-lab"),
+        ("/disk-cleanup", "Disk", "Storage usage and cleanup", "disk-cleanup"),
+        ("/tunnel", "Tunnel", "Cloudflare routes", "tunnel"),
+        ("/logs", "Logs", "Server and router journals", "logs"),
+    ]
+    summary_cls = 'nav-more-summary' + (' active' if active in tool_keys else '')
+    links += '<details class="nav-dropdown"><summary class="' + summary_cls + '">Tools</summary><div class="nav-dropdown-menu">'
+    for item in items:
+        if item[0] == "__label__":
+            links += '<div class="nav-menu-label">' + item[1] + '</div>'
+            continue
+        href, label, hint, key = item
+        cls = 'active' if active == key else ''
+        links += '<a href="' + href + '" class="' + cls + '"><span class="nav-item-main">' + label + '</span><span class="nav-item-hint">' + hint + '</span></a>'
+    links += '</div></details>'
+    links += '<a href="https://ssh.devmclovin.com" class="hermes-btn">SSH</a>'
+
+    return ('<nav>'
+            '<a href="/" class="logo" aria-label="devmclovin home">dev<span>mclovin</span></a>'
+            '<div class="links">' + links + '</div>'
+            '</nav>')
+
+
+def inject_nav(page_html: str, active: str) -> str:
+    """Fill the NavInjection placeholders in a template page so it shares the exact
+    same nav, nav CSS and nav JS as server-rendered pages (kills nav drift)."""
+    return (page_html
+            .replace("__SITE_NAV_CSS__", NAV_CSS)
+            .replace("__SITE_NAV_JS__", NAV_JS)
+            .replace("__SITE_NAV__", render_nav(active)))
+
+
 BASE_CSS = """
 :root {
     --bg: #0d1117;
@@ -742,15 +1012,6 @@ nav .links a.hermes-btn:hover {
     box-shadow: 0 0 20px var(--accent-glow);
 }
 
-.nav-sep {
-    width: 1px;
-    height: 20px;
-    background: var(--border);
-    margin: 0 0.25rem;
-    align-self: center;
-    flex-shrink: 0;
-}
-
 /* ── Nav dropdown (More menu) ── */
 .nav-dropdown {
     position: relative;
@@ -807,7 +1068,7 @@ nav .links a.hermes-btn:hover {
 }
 
 .container {
-    max-width: 960px;
+    max-width: 1100px;
     margin: 0 auto;
     padding: 2rem;
 }
@@ -831,49 +1092,6 @@ nav .links a.hermes-btn:hover {
 .hero p {
     color: var(--text-muted);
     font-size: 1.1rem;
-}
-
-/* ── Quick actions row (homepage hero) ── */
-.quick-actions {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 0.75rem;
-    margin: 0.5rem 0 1rem;
-}
-
-.qa-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1rem 1.25rem;
-    text-decoration: none;
-    color: var(--text);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.35rem;
-    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
-}
-
-.qa-card:hover {
-    border-color: var(--accent);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.15);
-}
-
-.qa-icon {
-    font-size: 1.6rem;
-    line-height: 1;
-}
-
-.qa-label {
-    font-weight: 600;
-    font-size: 0.95rem;
-}
-
-.qa-desc {
-    font-size: 0.75rem;
-    color: var(--text-muted);
 }
 /* ── System Overview collapsible ── */
 .system-overview {
@@ -957,37 +1175,6 @@ nav .links a.hermes-btn:hover {
     text-overflow: ellipsis;
 }
 
-/* ── Compact command center (inline status bar) ── */
-.cc-compact {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin: 1.5rem 0;
-    align-items: center;
-}
-.cc-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.3rem 0.7rem;
-    border-radius: 20px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    text-decoration: none;
-    transition: border-color 0.2s, color 0.2s;
-    white-space: nowrap;
-}
-.cc-chip:hover {
-    border-color: var(--accent);
-    color: var(--text);
-}
-.cc-chip .status-dot {
-    width: 7px;
-    height: 7px;
-}
-
 
 /* ── Organized navigation + page hubs ── */
 .nav-dropdown-menu {
@@ -1011,48 +1198,13 @@ nav .links a.hermes-btn:hover {
     font-weight: 600;
 }
 .nav-item-hint {
-    color: var(--text-muted);
+    color: #9aa4b2;
     font-size: 0.7rem;
     line-height: 1.25;
 }
 .nav-dropdown-menu a:hover .nav-item-hint {
     color: var(--text-muted);
 }
-.site-hub {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-    gap: 0.85rem;
-    margin: 0.75rem 0 1.25rem;
-}
-.hub-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-    min-height: 150px;
-}
-.hub-kicker {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-weight: 700;
-    color: var(--text);
-}
-.hub-desc {
-    color: var(--text-muted);
-    font-size: 0.82rem;
-    line-height: 1.45;
-}
-.hub-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-top: auto;
-}
-.hub-links a,
 .page-toolbar a {
     color: var(--accent-hover);
     text-decoration: none;
@@ -1062,7 +1214,6 @@ nav .links a.hermes-btn:hover {
     padding: 0.25rem 0.55rem;
     background: rgba(124,58,237,0.08);
 }
-.hub-links a:hover,
 .page-toolbar a:hover {
     border-color: var(--accent);
     color: var(--text);
@@ -1164,6 +1315,48 @@ nav .links a.hermes-btn:hover {
 .status-mini-service span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .status-mini-service small { color: var(--text-muted); font-size: 0.68rem; white-space: nowrap; }
 
+/* ── Homepage: page-head row (replaces .hero) ── */
+.page-head { display:flex; align-items:baseline; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin:1.25rem 0 1rem; }
+.page-head h1 { font-size:1.5rem; font-weight:700; color:var(--text); }
+.page-date { color:var(--text-muted); font-size:0.9rem; white-space:nowrap; }
+
+/* ── Status strip health dot ── */
+.status-strip-dot { display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--text-muted); flex-shrink:0; }
+.status-strip-dot.green { background:var(--green); }
+.status-strip-dot.red { background:var(--red); }
+.status-strip-dot.amber { background:var(--orange); }
+
+/* ── Homepage section-title row (title left, action link right) ── */
+.section-head { display:flex; align-items:baseline; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin:2rem 0 0.5rem; }
+.section-head h2 { font-size:1.05rem; font-weight:600; color:var(--text); }
+.section-head a { color:var(--accent-hover); text-decoration:none; font-size:0.82rem; white-space:nowrap; }
+.section-head a:hover { color:var(--text); }
+
+/* ── Today's Briefing: vertical list (home only, no horizontal scroll) ── */
+.briefing-home { border:1px solid var(--border); border-radius:12px; background:var(--bg-card); overflow:hidden; }
+.briefing-home-row { display:flex; align-items:flex-start; gap:0.6rem; padding:0.6rem 0.85rem; border-top:1px solid var(--border); }
+.briefing-home-row:first-child { border-top:none; }
+.briefing-home-row .bh-badge { flex-shrink:0; margin-top:0.1rem; }
+.briefing-home-row .bh-main { min-width:0; flex:1; }
+.briefing-home-row .bh-title { color:var(--text); text-decoration:none; font-size:0.9rem; font-weight:500; }
+.briefing-home-row .bh-title:hover { color:var(--accent-hover); }
+.briefing-home-row .bh-impact { color:var(--text-muted); font-size:0.8rem; margin-top:0.15rem; line-height:1.4; }
+
+/* ── Compact hub rows (label + inline chips) ── */
+.hub-rows { display:flex; flex-direction:column; gap:0.5rem; margin:0.5rem 0 0; }
+.hub-row { display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; }
+.hub-row-label { display:inline-flex; align-items:center; gap:0.4rem; font-weight:600; font-size:0.85rem; color:var(--text); min-width:9rem; }
+.hub-chips { display:flex; flex-wrap:wrap; gap:0.4rem; }
+.hub-chip { color:var(--accent-hover); text-decoration:none; font-size:0.8rem; border:1px solid var(--border); border-radius:999px; padding:0.35rem 0.7rem; background:var(--bg-card); }
+.hub-chip:hover { border-color:var(--accent); color:var(--text); }
+@media (max-width:480px) { .hub-row-label { min-width:100%; } }
+
+/* ── Logs tabs (Server | Router) ── */
+.logs-tabs { display:flex; gap:1.25rem; border-bottom:1px solid var(--border); margin:0.75rem 0 1rem; }
+.logs-tab { color:var(--text-muted); text-decoration:none; font-size:0.9rem; padding:0.4rem 0.1rem; border-bottom:2px solid transparent; margin-bottom:-1px; }
+.logs-tab:hover { color:var(--text); }
+.logs-tab.active { color:var(--text); border-bottom-color:var(--accent); }
+
 /* ── Briefing archive cards + subnav ── */
 .briefing-subnav { display:flex; flex-wrap:wrap; gap:0.5rem; justify-content:center; margin:-0.35rem 0 1rem; }
 .briefing-subnav a { color:var(--text-muted); text-decoration:none; border:1px solid var(--border); background:var(--bg-card); border-radius:999px; padding:0.35rem 0.8rem; font-size:0.82rem; }
@@ -1251,14 +1444,12 @@ nav .links a.hermes-btn:hover {
 }
 
 .briefing-grid {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 1rem;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible;
     padding: 0.5rem 0.25rem 1rem;
     margin-bottom: 2rem;
-    scrollbar-width: none;
 }
 
 .briefing-grid::-webkit-scrollbar {
@@ -1489,34 +1680,11 @@ nav .links a.hermes-btn:hover {
 /* ── Horizontal scroll arrows ── */
 .briefing-scroll {
     position: relative;
+    overflow: visible;
 }
 
-.scroll-arrow {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 10;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: var(--bg-card);
-    border: 2px solid var(--border);
-    color: var(--text);
-    font-size: 1.1rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: border-color 0.2s, background 0.2s;
-}
-
-.scroll-arrow:hover {
-    border-color: var(--accent);
-    background: #1c2333;
-}
-
-.scroll-arrow.left  { left: -42px; }
-.scroll-arrow.right { right: -42px; }
+/* De-scrolled: cards wrap in a grid (.briefing-grid); arrows hidden. */
+.scroll-arrow { display: none; }
 
 .briefing-list a {
     display: block;
@@ -1708,7 +1876,6 @@ textarea:focus-visible,
 .category-pill:focus-visible,
 .category-tab:focus-visible,
 .bm-btn:focus-visible,
-.kanban-card:focus-visible,
 .link-card:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
@@ -2227,121 +2394,10 @@ textarea:focus-visible,
     color: var(--text);
 }
 
-/* ── Kanban Board ── */
-.kanban-board {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
-    margin: 1.5rem 0;
-    align-items: start;
-}
-
 @media (max-width: 900px) {
-    .kanban-board {
-        grid-template-columns: repeat(2, 1fr);
-    }
 }
 
 @media (max-width: 500px) {
-    .kanban-board {
-        grid-template-columns: 1fr;
-    }
-}
-
-.kanban-column {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1rem;
-    min-height: 200px;
-}
-
-.kanban-column h3 {
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-muted);
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.kanban-column h3 .count {
-    display: inline-block;
-    background: rgba(139, 148, 158, 0.15);
-    color: var(--text-muted);
-    border-radius: 10px;
-    padding: 0.1rem 0.5rem;
-    font-size: 0.7rem;
-    font-weight: 600;
-}
-
-.kanban-card {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.75rem;
-    margin-bottom: 0.75rem;
-    cursor: pointer;
-    transition: border-color 0.2s;
-}
-
-.kanban-card:hover {
-    border-color: var(--accent);
-}
-
-.kanban-card .kc-title {
-    font-size: 0.85rem;
-    font-weight: 600;
-    margin-bottom: 0.35rem;
-    line-height: 1.3;
-}
-
-.kanban-card .kc-meta {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    display: flex;
-    gap: 0.75rem;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.kanban-card .kc-meta .prio {
-    font-weight: 600;
-}
-
-.kanban-card .kc-body {
-    display: none;
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--border);
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    line-height: 1.5;
-    white-space: pre-wrap;
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.kanban-card.expanded .kc-body {
-    display: block;
-}
-
-.kanban-card .kc-comment {
-    margin-top: 0.5rem;
-    padding: 0.5rem;
-    background: var(--bg-card);
-    border-radius: 6px;
-    font-size: 0.75rem;
-}
-
-.kanban-card .kc-comment .comment-author {
-    color: var(--accent-hover);
-    font-weight: 600;
-    margin-bottom: 0.2rem;
 }
 
 /* ── Page header with back link ── */
@@ -2401,24 +2457,6 @@ footer {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 0.75rem;
     margin-bottom: 2rem;
-}
-
-.cc-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    transition: border-color 0.2s, transform 0.2s;
-    text-decoration: none;
-    color: var(--text);
-}
-
-.cc-card:hover {
-    border-color: var(--accent);
-    transform: translateY(-1px);
 }
 
 .cc-header {
@@ -2492,10 +2530,13 @@ footer {
 /* ── Section timestamp ── */
 .section-timestamp {
     font-size: 0.72rem;
-    color: var(--text-muted);
+    color: #9aa4b2;
     margin: -0.5rem 0 0.75rem;
     font-style: italic;
 }
+
+/* Long/preformatted output never forces the page to scroll horizontally. */
+pre { overflow-x: auto; }
 
 /* ── Card action link ── */
 .card-action {
@@ -3051,14 +3092,6 @@ footer {
         padding: 1.5rem 1rem;
     }
 
-    /* Kanban board */
-    .kanban-board {
-        grid-template-columns: 1fr;
-    }
-    .kanban-column {
-        padding: 0.75rem;
-    }
-
     /* Search bar */
     .search-bar {
         flex-direction: column;
@@ -3098,17 +3131,6 @@ footer {
         font-size: 1rem;
     }
 
-    /* Quick actions */
-    .quick-actions {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    .qa-card {
-        padding: 0.75rem 0.5rem;
-    }
-    .qa-icon { font-size: 1.3rem; }
-    .qa-label { font-size: 0.85rem; }
-    .qa-desc { font-size: 0.7rem; }
-
     /* Footer nav */
     .footer-nav { gap: 1rem; }
 
@@ -3135,16 +3157,6 @@ footer {
     }
     .sys-summary-grid {
         grid-template-columns: 1fr;
-    }
-
-    /* Compact command center — tighter chips on mobile */
-    .cc-compact {
-        gap: 0.35rem;
-        margin: 1rem 0;
-    }
-    .cc-chip {
-        font-size: 0.72rem;
-        padding: 0.25rem 0.55rem;
     }
 }
 
@@ -3447,16 +3459,17 @@ def cron_page() -> str:
     return html_page("Cron Jobs", body, active_nav="cron")
 
 
-def cron_job_detail_page(job_id: str) -> str:
-    """Render a detail page for a single cron job showing recent outputs."""
+def cron_job_detail_page(job_id: str) -> tuple[int, str]:
+    """Render a detail page for a single cron job showing recent outputs.
+    Returns (status_code, html) so the handler can 404 an unknown job id."""
     jobs = load_cron_jobs()
     job = next((j for j in jobs if j.get("id") == job_id), None)
 
     body = '<div class="page-back"><a href="/cron">← Back to all cron jobs</a></div>'
 
     if not job:
-        body += f'<div class="empty-state" style="margin-top:2rem"><p>Cron job {job_id} not found.</p></div>'
-        return html_page(f"Cron — {job_id}", body, active_nav="cron")
+        body += f'<div class="empty-state" style="margin-top:2rem"><p>Cron job {html.escape(job_id)} not found.</p></div>'
+        return 404, html_page(f"Cron — {job_id}", body, active_nav="cron")
 
     name = job.get("name", job_id)
     schedule = _format_schedule(job)
@@ -3500,7 +3513,7 @@ def cron_job_detail_page(job_id: str) -> str:
             body += '</a>'
         body += '</div>'
 
-    return html_page(f"Cron — {name}", body, active_nav="cron")
+    return 200, html_page(f"Cron — {name}", body, active_nav="cron")
 
 
 def cron_output_preview_page(job_id: str, filename: str) -> str:
@@ -4282,7 +4295,6 @@ def models_section() -> str:
     body += '</div>'
 
     # JavaScript for model management (pull, refresh, delete)
-    body += '<script src="/models.js"></script>'
     body += '<script>'
     body += 'onModelDelete = function(name) {'
     body += '  fetch("/api/ollama/models/delete", {'
@@ -4488,7 +4500,7 @@ def models_section() -> str:
 def hermes_page() -> str:
     """Consolidated Hermes dashboard."""
     body = '<div class="hero" style="padding:2rem 0 1rem"><h1>Hermes</h1>'
-    body += '<p>AI agent dashboard — cron, kanban, briefings.</p></div>'
+    body += '<p>AI agent dashboard — cron, briefings.</p></div>'
     body += '<div style="text-align:center;margin:0 0 2rem 0">'
     body += '<a href="https://hermes.devmclovin.com" target="_blank" rel="noopener" class="cta-button">🚀 Open Hermes Web UI →</a></div>'
 
@@ -4503,7 +4515,6 @@ def hermes_page() -> str:
         ("Server Logs", "link", "/logs", "View systemd journal"),
         ("Router Logs", "link", "/logs/router", "View LLM router logs"),
         ("Docker Status", "link", "/status", "Containers + disk"),
-        ("Ollama Models", "external", "http://localhost:11434", "Local Ollama UI"),
     ]
     for label, kind, endpoint, hint in sc_cards:
         if kind == "safe":
@@ -4554,33 +4565,6 @@ def hermes_page() -> str:
     body += '<div class="card-summary">Compare pricing, view installed Ollama models, pull new models, and run benchmarks.</div>'
     body += '<span class="card-action">Open models →</span></a></div>'
 
-    # ── Kanban Board (grid) ──
-    body += '<a href=/kanban style=text-decoration:none;color:inherit><div class="section-title" style="margin-top:2rem">📋 Kanban Board</div></a>'
-    tasks = load_kanban_tasks()
-    if tasks and any(len(v) > 0 for v in tasks.values()):
-        body += '<div class="dashboard-grid">'
-        cols = [("ready","Ready","📥"),("running","Running","⚡"),("blocked","Blocked","🚧"),("done","Done","✅")]
-        for col_key, col_label, col_emoji in cols:
-            col_tasks = tasks.get(col_key, [])
-            body += '<div class="briefing-card">'
-            body += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">'
-            body += '<span style="font-size:1.5rem">' + col_emoji + '</span>'
-            body += '<span class="card-num" style="font-size:1.8rem;font-weight:700">' + str(len(col_tasks)) + '</span>'
-            body += '</div>'
-            body += '<h3>' + col_label + '</h3>'
-            if col_tasks:
-                body += '<div class="card-summary" style="font-size:0.8rem">'
-                for t in col_tasks[:3]:
-                    body += '&bull; ' + t["title"][:50] + '<br>'
-                if len(col_tasks) > 3:
-                    body += '<span style="color:var(--text-muted);font-size:0.75rem">+' + str(len(col_tasks)-3) + ' more</span>'
-                body += '</div>'
-            body += '<span class="card-action">Open board →</span>'
-            body += '</div>'
-        body += '</div>'
-    else:
-        body += '<div class="empty-state"><p>No kanban tasks yet.</p></div>'
-
     # ── Recent Briefings (grid) ──
     body += '<a href=/briefings style=text-decoration:none;color:inherit><div class="section-title" style="margin-top:2rem">📰 Recent Briefings</div></a>'
     files = sorted(glob.glob(str(BRIEFING_DIR / "*.md")), reverse=True)[:4]
@@ -4607,22 +4591,6 @@ def hermes_page() -> str:
         body += '<div class="empty-state"><p>No briefings found.</p></div>'
 
     return html_page("Hermes", body, active_nav="hermes")
-def kanban_page(msg: str = "") -> str:
-    """Full-featured Kanban board — mock-style layout with real DB data."""
-    tasks = load_kanban_tasks_full()
-    tasks_json = json.dumps(tasks)
-
-    # Load template
-    tpl_path = SITE_DIR / "kanban_template.html"
-    try:
-        tpl = tpl_path.read_text(encoding="utf-8")
-    except (FileNotFoundError, OSError):
-        return html_page("Kanban Board", "<p>Kanban template not found.</p>", active_nav="hermes")
-
-    # Inject tasks JSON
-    tpl = tpl.replace("const TASKS = /*TASKS_JSON*/[];", "const TASKS = " + tasks_json + ";")
-
-    return tpl
 
 # ═══════════════════════════════════════════════════════════════
 #  HTML helpers
@@ -4630,51 +4598,7 @@ def kanban_page(msg: str = "") -> str:
 
 
 def html_page(title: str, body: str, active_nav: str = "home", extra_head: str = "") -> str:
-    nav_html = ""
-    # Keep the top bar task-oriented. Secondary destinations are grouped so the
-    # site no longer feels like one long row of unrelated links.
-    top_links = [
-        ("/", "Home", "home"),
-        ("/briefings", "Briefings", "briefings"),
-        ("/projects", "Projects", "projects"),
-        ("/hermes", "Hermes", "hermes"),
-    ]
-    for href, label, key in top_links:
-        cls = 'active' if active_nav == key else ''
-        nav_html += f'<a href="{href}" class="{cls}">{label}</a>'
-
-    nav_groups = [
-        ("Tools", {"status", "notes", "inbox", "runbooks"}, [
-            ("__label__", "Status & workflow", ""),
-            ("/status", "Status", "Service health board", "status"),
-            ("/notes", "Notes", "Personal notes", "notes"),
-            ("/inbox", "Inbox", "Agent intake queue", "inbox"),
-            ("/runbooks", "Runbooks", "Copy-paste server fixes", "runbooks"),
-        ]),
-        ("System", {"cron", "models", "model-tuning", "llm-lab", "disk-cleanup", "tunnel", "logs"}, [
-            ("__label__", "Operations", ""),
-            ("/cron", "Cron Jobs", "Schedules and outputs", "cron"),
-            ("/models", "Models", "LLM pricing and local models", "models"),
-            ("/model-tuning", "Tuning", "Fine-tune datasets and HF pulls", "model-tuning"),
-            ("/llm-lab", "LLM Lab", "Evals, traces, arena, router, GGUF pulls", "llm-lab"),
-            ("/disk-cleanup", "Disk", "Storage usage and cleanup", "disk-cleanup"),
-            ("/tunnel", "Tunnel", "Cloudflare routes", "tunnel"),
-            ("/logs", "Logs", "Server and router journals", "logs"),
-        ]),
-    ]
-    for group_label, active_keys, items in nav_groups:
-        summary_cls = 'nav-more-summary' + (' active' if active_nav in active_keys else '')
-        nav_html += '<details class="nav-dropdown"><summary class="' + summary_cls + '">' + group_label + '</summary><div class="nav-dropdown-menu">'
-        for item in items:
-            if item[0] == "__label__":
-                nav_html += '<div class="nav-menu-label">' + item[1] + '</div>'
-                continue
-            href, label, hint, key = item
-            cls = 'active' if active_nav == key else ''
-            nav_html += '<a href="' + href + '" class="' + cls + '"><span class="nav-item-main">' + label + '</span><span class="nav-item-hint">' + hint + '</span></a>'
-        nav_html += '</div></details>'
-
-    nav_html += '<a href="https://ssh.devmclovin.com" class="hermes-btn">SSH</a>'
+    site_nav = render_nav(active_nav)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -4683,34 +4607,13 @@ def html_page(title: str, body: str, active_nav: str = "home", extra_head: str =
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     {extra_head}
     <title>{title} — devmclovin</title>
-    <style>{BASE_CSS}{BACKUP_CSS}
+    <style>{NAV_CSS}{BASE_CSS}
 </style>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
     <script>
 
     // ── Nav dropdown behavior: close menus when clicking off them ──
-    document.addEventListener('DOMContentLoaded', function() {{
-        var dropdowns = Array.prototype.slice.call(document.querySelectorAll('details.nav-dropdown'));
-        dropdowns.forEach(function(dropdown) {{
-            dropdown.addEventListener('toggle', function() {{
-                if (dropdown.open) {{
-                    dropdowns.forEach(function(other) {{
-                        if (other !== dropdown) other.open = false;
-                    }});
-                }}
-            }});
-        }});
-        document.addEventListener('click', function(e) {{
-            if (!e.target.closest('details.nav-dropdown')) {{
-                dropdowns.forEach(function(dropdown) {{ dropdown.open = false; }});
-            }}
-        }});
-        document.addEventListener('keydown', function(e) {{
-            if (e.key === 'Escape') {{
-                dropdowns.forEach(function(dropdown) {{ dropdown.open = false; }});
-            }}
-        }});
-    }});
+    {NAV_JS}
     // ── Confirmation dialog for destructive actions ──
     function showConfirmDialog(opts) {{
         var overlay = document.createElement('div');
@@ -4781,22 +4684,6 @@ def html_page(title: str, body: str, active_nav: str = "home", extra_head: str =
         okBtn.onclick = doConfirm;
     }}
 
-    // Convenience: show confirmation then POST to a URL
-    function confirmAndPost(title, desc, url, body, successMessage) {{
-        showConfirmDialog({{
-            title: title,
-            description: desc,
-            icon: '⚠️',
-            requireConfirmText: true,
-            confirmText: 'CONFIRM',
-            onConfirm: function() {{
-                fetch(url, {{method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify(body || {{}})}})
-                    .then(function(r) {{ return r.ok ? r.text() : Promise.reject(r.status); }})
-                    .then(function(txt) {{ alert(successMessage || 'Done.'); }})
-                    .catch(function(e) {{ alert('Error: ' + e); }});
-            }}
-        }});
-    }}
 
     // ── Safe action: POST to proxy, show loading/result on card ──
     function safeAction(cardEl, label, endpoint) {{
@@ -4889,10 +4776,7 @@ def html_page(title: str, body: str, active_nav: str = "home", extra_head: str =
 </head>
 <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>
-    <nav>
-        <a href="/" class="logo" aria-label="devmclovin home">dev<span>mclovin</span></a>
-        <div class="links">{nav_html}</div>
-    </nav>
+    {site_nav}
     <main id="main-content">
     <div class="container">
         {body}
@@ -5326,112 +5210,6 @@ def _relative_time(iso_str: str) -> str:
     return f"{days // 365}y ago"
 
 
-def github_projects_row() -> str:
-    """Render a responsive grid of GitHub repo cards with action links."""
-    repos, username = get_github_repos()
-
-    if not repos:
-        return (
-            '<div class="section-title">GitHub Projects</div>'
-            '<div class="empty-state"><p>🔑 GitHub token not found. '
-            'Set GITHUB_READ_TOKEN in ~/.hermes/.env to show your projects.</p></div>'
-        )
-
-    html = f'<div class="section-title">GitHub Projects <span style="font-weight:400;color:var(--text-muted);font-size:0.85rem">@{username}</span></div>'
-    html += '<div class="section-timestamp">Last updated: ' + datetime.now().strftime('%Y-%m-%d %H:%M UTC') + '</div>'
-    html += '<div class="dashboard-grid">'
-
-    configs = load_project_configs()
-
-    for r in repos:
-        desc = r["description"]
-        if not desc:
-            cfg = configs.get(r["name"], {})
-            desc = cfg.get("description", "")
-        if len(desc) > 140:
-            desc = desc[:137].rsplit(" ", 1)[0] + "…"
-
-        badges = ""
-        if r["private"]:
-            badges += '<span class="repo-badge private">private</span> '
-        if r["fork"]:
-            badges += '<span class="repo-badge fork">fork</span> '
-
-        html += '<div class="repo-card">'
-        html += f'<h3>{badges}<a href="{r["html_url"]}" target="_blank" rel="noopener">{r["name"]}</a></h3>'
-        if desc:
-            html += f'<div class="repo-desc">{desc}</div>'
-        else:
-            html += '<div class="repo-desc" style="font-style:italic">No description provided</div>'
-
-        html += '<div class="repo-meta">'
-        if r["language"]:
-            html += f'<span class="lang"><span class="repo-lang-dot" style="background:{_lang_color(r["language"])}"></span>{r["language"]}</span>'
-        if r["stars"]:
-            html += f'<span class="stars">⭐ {r["stars"]}</span>'
-        if r["updated_at"]:
-            html += f'<span>{_relative_time(r["updated_at"])}</span>'
-        html += '</div>'
-
-        html += f'<a href="{r["html_url"]}" target="_blank" rel="noopener" class="card-action">View on GitHub →</a>'
-
-        html += '</div>'
-
-    html += '</div>'
-    return html
-def spending_card_row() -> str:
-    """Render a responsive grid of OpenRouter spending cards with status badges."""
-    data = get_openrouter_data()
-
-    if data["error"]:
-        return (
-            '<div class="section-title">OpenRouter Spend</div>'
-            f'<div class="empty-state"><p>🔑 {data["error"]}. '
-            'Set OPENROUTER_API_KEY in ~/.hermes/.env.</p></div>'
-        )
-
-    balance = data["balance"]
-    total_usage = data["total_usage"]
-    remaining = (balance - total_usage) if (balance is not None and total_usage is not None) else None
-
-    html = '<div class="section-title">OpenRouter Spend</div>'
-    html += '<div class="section-timestamp">Last updated: ' + datetime.now().strftime('%Y-%m-%d %H:%M UTC') + '</div>'
-    html += '<div class="dashboard-grid">'
-
-    rem_class = "positive" if (remaining is not None and remaining > 0) else "negative"
-    html += '<div class="spending-mini">'
-    html += '<div class="spend-mini-label">Credits Remaining</div>'
-    html += f'<div class="spend-mini-value {rem_class}">${remaining:.2f}</div>' if remaining is not None else '<div class="spend-mini-value">--</div>'
-    html += f'<div class="spend-mini-sub">of ${balance:.2f} purchased</div>' if balance else ''
-    if remaining is not None and remaining > 0:
-        html += '<span class="status-badge online" style="margin-top:0.5rem;display:inline-block">OK</span>'
-    elif remaining is not None:
-        html += '<span class="status-badge warning" style="margin-top:0.5rem;display:inline-block">Low</span>'
-    html += '</div>'
-
-    html += '<div class="spending-mini">'
-    html += '<div class="spend-mini-label">Lifetime Usage</div>'
-    html += f'<div class="spend-mini-value">${total_usage:.2f}</div>' if total_usage else '<div class="spend-mini-value">--</div>'
-    if balance and total_usage:
-        pct = (total_usage / balance * 100) if balance > 0 else 0
-        html += f'<div class="spend-mini-sub">{pct:.0f}% of credits</div>'
-    html += '</div>'
-
-    html += '<div class="spending-mini">'
-    html += '<div class="spend-mini-label">Model Analytics</div>'
-    html += '<div class="spend-mini-value" style="font-size:1.1rem;color:var(--text-muted)">Per-model data</div>'
-    html += '<div class="spend-mini-sub">available on <a href="https://openrouter.ai/activity" target="_blank" rel="noopener" style="color:var(--accent-hover)">OpenRouter →</a></div>'
-    html += '</div>'
-
-    html += '<a href="https://openrouter.ai/activity" target="_blank" rel="noopener" style="text-decoration:none">'
-    html += '<div class="spending-mini" style="border-color:var(--accent);justify-content:center;align-items:center">'
-    html += '<div style="color:var(--accent-hover);font-size:1rem;font-weight:600">Open in OpenRouter →</div>'
-    html += '<div class="spend-mini-sub">Full activity &amp; models</div>'
-    html += '</div></a>'
-
-    html += '</div>'
-    return html
-
 # ── Cloudflare Tunnel Monitor UI ──
 
 def _cf_dashboard_url(account_id, path=""):
@@ -5449,90 +5227,6 @@ def _cf_timestamp(iso_str):
         if delta.seconds >= 60: return f"{delta.seconds//60}m ago"
         return "just now"
     except: return iso_str[:19] if iso_str else "Never"
-
-def cloudflare_tunnel_row():
-    cf = get_cloudflare_tunnel_data()
-    account_id = cf.get("account_id", "")
-    import time as _t
-    checked = cf.get("checked_at", 0)
-    ct = "never"
-    if checked:
-        from datetime import datetime, timezone
-        ct = datetime.fromtimestamp(checked, tz=timezone.utc).strftime("%H:%M:%S UTC")
-
-    h = '<div class="section-title"><a href="/tunnel" style="text-decoration:none;color:inherit">🌐 Cloudflare Tunnel</a></div>'
-    h += f'<div class="section-timestamp">checked: {ct}</div>'
-
-    if not cf.get("ok"):
-        err = cf.get("error", "Unknown error")
-        if not account_id:
-            # Credentials not configured — show a clean info card, not a warning
-            h += '<div class="dashboard-grid"><div class="briefing-card tunnel-status-card" style="opacity:0.6">'
-            h += '<div class="card-title">🔒 Tunnel Monitoring</div>'
-            h += '<div class="card-meta">Not configured — set CF_API_TOKEN and CF_ACCOUNT_ID to enable</div>'
-            h += '<div class="card-meta" style="font-size:0.75rem;margin-top:0.5rem">Fetch live tunnel status, hostnames, connections, and access policies from the Cloudflare API.</div>'
-            h += '</div></div>'
-        else:
-            h += f'<div class="empty-state"><p>⚠️ Cloudflare tunnel data unavailable<br><small>{err}</small></p></div>'
-        return h
-
-    d = cf["data"]; tid = d["tunnel_id"]
-    dash = _cf_dashboard_url(account_id, "networks/tunnels")
-    is_up = d["is_up"]; sc = "var(--green)" if is_up else "#f85149"
-    st = "UP" if is_up else "DOWN"
-
-    h += '<div class="dashboard-grid">'
-
-    # Tunnel Status card
-    h += '<div class="briefing-card tunnel-status-card">'
-    h += f'<div class="card-title"><span class="status-dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;background:{sc}"></span>Tunnel: {d["tunnel_name"]}</div>'
-    h += f'<div class="card-meta">Status: <strong style="color:{sc}">{st}</strong></div>'
-    h += f'<div class="card-meta">ID: <code>{tid[:12]}...</code></div>'
-    h += f'<div class="card-meta">Connections: <strong>{len(d["connections"])}</strong></div>'
-    h += f'<div class="card-meta">Last reconnect: {_cf_timestamp(d["last_reconnect_at"])}</div>'
-    h += f'<a href="{dash}" target="_blank" rel="noopener" class="card-action">Zero Trust →</a></div>'
-
-    # Public Hostnames card
-    h += '<div class="briefing-card tunnel-hostnames-card"><div class="card-title">🔗 Public Hostnames</div>'
-    hostnames = d["hostnames"]
-    if hostnames:
-        h += '<table class="tunnel-table"><thead><tr><th>Hostname</th><th>Origin</th></tr></thead><tbody>'
-        apps = _cf_dashboard_url(account_id, "access/apps")
-        for hn in hostnames:
-            h += f'<tr><td><a href="{apps}" target="_blank" rel="noopener" title="Manage in Zero Trust">{hn["hostname"]}</a></td><td><code>{hn["service"]}</code></td></tr>'
-        h += '</tbody></table>'
-    else: h += '<div class="card-summary">No public hostnames configured.</div>'
-    h += '</div>'
-
-    # Port Mappings card
-    h += '<div class="briefing-card tunnel-ports-card"><div class="card-title">📡 Port Mappings</div>'
-    ports = d["port_mappings"]
-    if ports:
-        h += '<table class="tunnel-table"><thead><tr><th>Protocol</th><th>Local</th><th>Port</th></tr></thead><tbody>'
-        for pm in ports: h += f'<tr><td><span class="badge">{pm["protocol"].upper()}</span></td><td>{pm["host"]}</td><td><code>{pm["port"]}</code></td></tr>'
-        h += '</tbody></table>'
-    else: h += '<div class="card-summary">No port mappings detected.</div>'
-    h += '</div>'
-
-    # Access Policies card
-    ap = d["access_policies"]
-    h += '<div class="briefing-card tunnel-policies-card"><div class="card-title">🛡️ Access Policies</div>'
-    h += f'<div class="card-meta">Total: <strong>{ap["total_policies"]}</strong></div>'
-    bd = ap.get("types_breakdown", {})
-    if bd: h += f'<div class="card-summary">{", ".join(f"{k}: {v}" for k, v in sorted(bd.items()))}</div>'
-    policies = ap.get("policies", [])
-    if policies:
-        h += '<div style="margin-top:0.5rem">'
-        colors = {"allow": "var(--green)", "deny": "#f85149", "bypass": "var(--orange)", "non_identity": "var(--text-muted)"}
-        for p in policies[:3]:
-            dc = colors.get(p["decision"], "var(--text-muted)")
-            h += f'<div class="card-meta" style="font-size:0.8rem;margin-bottom:2px"><span style="color:{dc}">●</span> <strong>{p["name"] or "Unnamed"}</strong> ({p["decision"]}, incl:{p["include_count"]} excl:{p["exclude_count"]})</div>'
-        if len(policies) > 3: h += f'<div class="card-meta" style="font-size:0.75rem;color:var(--text-muted)">+{len(policies)-3} more</div>'
-        h += '</div>'
-    access = _cf_dashboard_url(account_id, "access/policies")
-    h += f'<a href="{access}" target="_blank" rel="noopener" class="card-action">Manage in Zero Trust →</a></div>'
-    h += '</div>'
-    return h
 
 def cloudflare_tunnel_page():
     cf = get_cloudflare_tunnel_data()
@@ -5623,25 +5317,9 @@ def cloudflare_tunnel_page():
 
 
 def system_summary_row() -> str:
-    """Render a compact summary row for system sections (Backups, Spend, GitHub, Tunnel)."""
+    """Render a compact summary row for system sections (Spend, GitHub, Tunnel)."""
     html = '<div class="section-title-mini">📊 System Overview</div>'
     html += '<div class="sys-summary-grid">'
-
-    # ── Backups summary ──
-    from backup_panel import get_backup_status
-    bu = get_backup_status()
-    if bu:
-        h_status = bu.get("hermes", {}).get("last_status", "unknown")
-        g_status = bu.get("github", {}).get("last_status", "unknown")
-        bu_text = f"Hermes: {h_status}, GitHub: {g_status}"
-    else:
-        bu_text = "Backup status unavailable"
-    html += '<a href="/hermes" class="sys-summary-card">'
-    html += '<span class="sys-summary-icon">🛡️</span>'
-    html += '<div class="sys-summary-info">'
-    html += '<div class="sys-summary-label">Backups</div>'
-    html += f'<div class="sys-summary-metric">{bu_text}</div>'
-    html += '</div></a>'
 
     # ── OpenRouter Spend summary ──
     or_data = get_openrouter_data()
@@ -5695,39 +5373,71 @@ def system_summary_row() -> str:
     return html
 
 def home_hub_html() -> str:
-    """Task-oriented homepage hub: groups the site by user intent."""
+    """Task-oriented homepage hub: one compact row per intent (icon + label + chips)."""
     groups = [
-        ("📰", "Read", "Catch up and save what matters.", [
+        ("📰", "Read", [
             ("/briefings", "Briefings"), ("/bookmarks", "Saved"), ("/notes", "Notes")
         ]),
-        ("🛠️", "Build", "Jump into projects and agent work.", [
+        ("🛠️", "Build", [
             ("/projects", "Projects"), ("/hermes", "Hermes"), ("/inbox", "Inbox")
         ]),
-        ("📡", "Monitor", "Check the health of the home-server stack.", [
+        ("📡", "Monitor", [
             ("/status", "Status"), ("/tunnel", "Tunnel"), ("/logs", "Logs")
         ]),
-        ("⚙️", "Maintain", "Scheduled jobs, storage, models, and runbooks.", [
+        ("⚙️", "Maintain", [
             ("/cron", "Cron"), ("/disk-cleanup", "Disk"), ("/models", "Models"), ("/model-tuning", "Tuning"), ("/llm-lab", "LLM Lab"), ("/runbooks", "Runbooks")
         ]),
     ]
-    html = '<div class="site-hub" aria-label="Organized site sections">'
-    for icon, title, desc, links in groups:
-        html += '<section class="hub-card">'
-        html += '<div class="hub-kicker"><span>' + icon + '</span><span>' + title + '</span></div>'
-        html += '<div class="hub-desc">' + desc + '</div>'
-        html += '<div class="hub-links">'
+    html = '<div class="hub-rows" aria-label="Organized site sections">'
+    for icon, title, links in groups:
+        html += '<div class="hub-row">'
+        html += '<span class="hub-row-label"><span>' + icon + '</span><span>' + title + '</span></span>'
+        html += '<span class="hub-chips">'
         for href, label in links:
-            html += '<a href="' + href + '">' + label + '</a>'
-        html += '</div></section>'
+            html += '<a class="hub-chip" href="' + href + '">' + label + '</a>'
+        html += '</span></div>'
     html += '</div>'
     return html
 
-def home_status_strip() -> str:
-    """Extremely compact service status on the landing page; expands on demand."""
+
+def briefing_list_home(articles: list[dict], date_str: str) -> str:
+    """Today's stories on the homepage as a plain vertical list (max 5 rows), no
+    horizontal scroll and no bookmark toggle. Used ONLY by home_page(); the archive
+    page keeps briefing_card_from_db / briefing_card unchanged."""
+    rows = articles[:5]
+    h = '<div class="briefing-home">'
+    for a in rows:
+        title = a.get("title", "Untitled")
+        url = a.get("source_url", "")
+        summary = a.get("summary") or a.get("impact") or a.get("body") or ""
+        categories = a.get("categories", "")
+        first_cat = ""
+        if categories:
+            parts = [c.strip() for c in categories.split(",") if c.strip() and c.strip() != "general"]
+            first_cat = parts[0] if parts else ""
+        h += '<div class="briefing-home-row">'
+        if first_cat:
+            bg, fg = CATEGORY_COLORS.get(first_cat, ("#6b7280", "#f3f4f6"))
+            h += f'<span class="bh-badge category-badge" style="background:{bg};color:{fg}">{html.escape(first_cat)}</span>'
+        h += '<div class="bh-main">'
+        href = url or f"/briefing/{date_str}"
+        target = ' target="_blank" rel="noopener"' if url else ''
+        h += f'<a class="bh-title" href="{html.escape(href, quote=True)}"{target}>{html.escape(title)}</a>'
+        if summary:
+            h += f'<div class="bh-impact">{html.escape(first_sentence(summary))}</div>'
+        h += '</div></div>'
+    h += '</div>'
+    return h
+
+def status_strip() -> str:
+    """Topmost homepage element: a 44px health bar. Green dot + 'All systems normal'
+    or red dot + 'K services need attention' (auto-opens the details on issues).
+    Amber dot + 'Status API unavailable' on fetch failure."""
     return '''<details class="landing-status-strip" id="landing-status-strip">
         <summary>
             <span class="status-summary-left">
-                <span class="status-summary-title">📡 Service status</span>
+                <span class="status-strip-dot" id="status-strip-dot"></span>
+                <span class="status-summary-title">Service status</span>
                 <span class="status-summary-meta" id="status-summary-meta">Checking services…</span>
             </span>
             <span class="status-summary-right">
@@ -5743,6 +5453,7 @@ def home_status_strip() -> str:
     <script>
     (function(){
         var names=["hermes_dashboard","ollama","cloudflare_tunnel","searxng","llm_router","github_backup"];
+        var dot=document.getElementById('status-strip-dot');
         fetch("/api/status").then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
         .then(function(data){
             var svcs=data.services||{}; var ok=0; var bad=0; var h='<div class="status-mini-grid">';
@@ -5752,11 +5463,14 @@ def home_status_strip() -> str:
                      '<small>' + (s.status || (healthy?'Online':'Issue')) + '</small></a>';
             });
             h += '</div><div style="margin-top:.55rem"><a href="/status" class="card-action">Open full status board →</a></div>';
-            var meta=document.getElementById('status-summary-meta'); if(meta) meta.textContent = bad ? (bad + ' need attention') : 'All monitored services online';
+            var meta=document.getElementById('status-summary-meta'); if(meta) meta.textContent = bad ? (bad + ' service' + (bad>1?'s':'') + ' need attention') : 'All systems normal';
+            if(dot) dot.classList.add(bad?'red':'green');
             var okP=document.getElementById('status-ok-pill'); if(okP){ okP.textContent=ok+' OK'; okP.classList.add('ok'); }
             var badP=document.getElementById('status-issue-pill'); if(badP){ badP.textContent=bad+' issues'; badP.classList.add(bad?'warn':'ok'); }
             var body=document.getElementById('landing-status-body'); if(body) body.innerHTML=h;
+            if(bad>0){ var d=document.getElementById('landing-status-strip'); if(d) d.open=true; }
         }).catch(function(){
+            if(dot) dot.classList.add('amber');
             var meta=document.getElementById('status-summary-meta'); if(meta) meta.textContent='Status API unavailable';
             var body=document.getElementById('landing-status-body'); if(body) body.innerHTML='<div class="services-error">Service status unavailable. Open the full status page for static checks.</div><a href="/status" class="card-action">Open full status board →</a>';
         });
@@ -5764,50 +5478,58 @@ def home_status_strip() -> str:
     </script>'''
 
 def home_page() -> str:
-    body = """
-    <div class="hero">
-        <h1>devmclovin</h1>
-        <p>Personal projects, daily briefings, and AI-powered tools — organized by what you want to do.</p>
-    </div>
-    """
-    body += home_hub_html()
+    now = datetime.now()
+    today = now.strftime("%Y-%m-%d")
+    page_date = now.strftime("%A, %B ") + str(now.day)  # cross-platform "no leading zero"
 
-    # Ultra-compact service status with expandable details
-    body += home_status_strip()
+    # 1) Header row (replaces the hero tagline)
+    body = ('<div class="page-head"><h1>devmclovin</h1>'
+            f'<span class="page-date">{page_date}</span></div>')
 
-    # Today's briefing (from DB)
-    body += '<div class="section-title">Today\'s Briefing</div>'
-    today = datetime.now().strftime("%Y-%m-%d")
+    # 2) Status strip (topmost interactive element; auto-opens on issues)
+    body += status_strip()
+
+    # 3) Today's Briefing — same 3-level fallback chain as before, rendered as a
+    #    vertical list (briefing_list_home) instead of the horizontal-scroll cards.
     archive = _get_archive()
+    stories = []            # articles found through any path
+    iso_for_links = today   # ISO date used for per-story fallback links
+    section_date = now.strftime("%b ") + str(now.day)
+
     briefing = archive.get_briefing(today)
-    stories = []  # track whether we found stories through any path
     if briefing and briefing.get("articles"):
-        date_str = _render_briefing_date(briefing.get("full_date"), briefing["date"])
-        body += briefing_card_from_db(briefing["articles"], date_str)
         stories = briefing["articles"]
+        iso_for_links = briefing["date"]
     else:
-        # Fallback 1: try today's raw .md file on disk (may not be in DB yet)
+        # Fallback 1: today's raw .md on disk (may not be in DB yet)
         today_files = sorted(BRIEFING_DIR.glob(f"{today}_*.md"), reverse=True)
         if today_files:
             raw = today_files[0].read_text(encoding="utf-8")
-            stories, date_str = parse_briefing_stories(raw)
-            if stories:
-                body += briefing_card(stories, date_str)
-            # If raw file exists but has no stories (template / empty), fall through to DB fallback
+            file_stories, _ = parse_briefing_stories(raw)
+            if file_stories:
+                stories = file_stories
         if not stories:
-            # Fallback 2: try the most recent briefing from DB
+            # Fallback 2: most recent briefing from DB
             recent = archive.get_briefings(limit=1)
             if recent:
                 b = archive.get_briefing(recent[0]["date"])
                 if b and b.get("articles"):
-                    date_str = _render_briefing_date(b.get("full_date"), b["date"])
-                    body += briefing_card_from_db(b["articles"], date_str)
-                else:
-                    body += '<div class="empty-state"><p>☕ No briefings found. The morning briefing runs at 7am UTC.</p></div>'
-            else:
-                body += '<div class="empty-state"><p>☕ No briefings found. The morning briefing runs at 7am UTC.</p></div>'
+                    stories = b["articles"]
+                    iso_for_links = b["date"]
+                    section_date = _render_briefing_date(b.get("full_date"), b["date"])
 
-    # ── System Overview (collapsible secondary section) ──
+    body += ('<div class="section-head"><h2>Today\'s Briefing — '
+             + html.escape(section_date) + '</h2>'
+             '<a href="/briefings">All briefings →</a></div>')
+    if stories:
+        body += briefing_list_home(stories, iso_for_links)
+    else:
+        body += '<div class="empty-state"><p>☕ No briefings found. The morning briefing runs at 7am UTC.</p></div>'
+
+    # 4) Compact hub chips
+    body += home_hub_html()
+
+    # 5) System Overview (collapsed secondary section)
     body += '<details class="system-overview">'
     body += '<summary>📊 System Overview</summary>'
     body += '<div class="system-overview-body">'
@@ -6053,26 +5775,21 @@ def briefing_detail_page(date: str, category: str = "") -> str:
 #  Logs Pages
 # ═══════════════════════════════════════════════════════════════
 
-def logs_page() -> str:
-    """Server logs (journalctl)."""
+def _read_server_logs() -> str:
+    """Last 100 journalctl lines (server)."""
     import subprocess
     try:
         out = subprocess.run(
             ["journalctl", "--no-pager", "-n", "100", "-o", "short-iso"],
             capture_output=True, text=True, timeout=5
         )
-        log_text = out.stdout or "(no output)"
+        return out.stdout or "No recent entries."
     except Exception as e:
-        log_text = f"Error reading logs: {e}"
-    body = '<h1 class="section-title">📋 Server Logs</h1>'
-    body += '<p class="section-timestamp">Last 100 lines from journalctl</p>'
-    body += '<pre style="background:var(--bg-card);padding:1rem;border-radius:8px;overflow-x:auto;font-size:0.8rem">' + html.escape(log_text) + "</pre>"
-    body += '<p style="margin-top:1rem"><a href=/hermes style="color:var(--accent)">Back to Hermes</a></p>'
-    return html_page("Server Logs", body, active_nav="logs")
+        return f"Error reading logs: {e}"
 
 
-def router_logs_page() -> str:
-    """Router logs."""
+def _read_router_logs() -> str:
+    """Last 100 lines of the router + gateway log files."""
     import subprocess
     paths = [
         os.path.expanduser("~/.hermes/logs/router.log"),
@@ -6089,13 +5806,28 @@ def router_logs_page() -> str:
                 log_text += "\n=== " + lp + " ===\n" + out.stdout
         except Exception:
             pass
-    if not log_text:
-        log_text = "No router log files found."
-    body = '<h1 class="section-title">🔀 Router Logs</h1>'
-    body += '<p class="section-timestamp">Last 100 lines from router and gateway logs</p>'
+    return log_text or "No recent entries."
+
+
+def logs_page(tab: str = "server") -> str:
+    """Merged journal viewer with Server / Router tabs (replaces the two pages)."""
+    tab = tab if tab in ("server", "router") else "server"
+    if tab == "router":
+        log_text = _read_router_logs()
+        note = "Last 100 lines from router and gateway logs"
+    else:
+        log_text = _read_server_logs()
+        note = "Last 100 lines from journalctl"
+
+    body = '<h1 class="section-title">📋 Logs</h1>'
+    body += '<div class="logs-tabs">'
+    body += '<a href="/logs" class="logs-tab' + (' active' if tab == "server" else '') + '">Server</a>'
+    body += '<a href="/logs?tab=router" class="logs-tab' + (' active' if tab == "router" else '') + '">Router</a>'
+    body += '</div>'
+    body += '<p class="section-timestamp">' + note + '</p>'
     body += '<pre style="background:var(--bg-card);padding:1rem;border-radius:8px;overflow-x:auto;font-size:0.8rem">' + html.escape(log_text) + "</pre>"
     body += '<p style="margin-top:1rem"><a href=/hermes style="color:var(--accent)">Back to Hermes</a></p>'
-    return html_page("Router Logs", body, active_nav="logs")
+    return html_page("Logs", body, active_nav="logs")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -6103,10 +5835,10 @@ def router_logs_page() -> str:
 # ═══════════════════════════════════════════════════════════════
 
 def status_page() -> str:
-    """Serve the standalone status-board.html page."""
+    """Serve the standalone status-board.html page (with shared nav injected)."""
     status_html = SITE_DIR / "status-board.html"
     if status_html.exists():
-        return status_html.read_text()
+        return inject_nav(status_html.read_text(), "status")
     return "<html><body><h1>Status Board Not Found</h1></body></html>"
 
 
@@ -7973,30 +7705,30 @@ def _llm_lab_hf_pull_stream(handler, payload: dict) -> None:
 def llm_lab_page() -> str:
     lab_html = SITE_DIR / "llm_lab.html"
     if lab_html.exists():
-        return lab_html.read_text()
+        return inject_nav(lab_html.read_text(), "llm-lab")
     return "<html><body><h1>LLM Lab page not found</h1></body></html>"
 
 def model_tuning_page() -> str:
     tuning_html = SITE_DIR / "model_tuning.html"
     if tuning_html.exists():
-        return tuning_html.read_text()
+        return inject_nav(tuning_html.read_text(), "model-tuning")
     return "<html><body><h1>Model tuning page not found</h1></body></html>"
 
 def notes_page() -> str:
-    """Serve the standalone notes.html page."""
+    """Serve the standalone notes.html page (with shared nav injected)."""
     notes_html = SITE_DIR / "notes.html"
     if notes_html.exists():
         with open(notes_html, "r") as f:
-            return f.read()
+            return inject_nav(f.read(), "notes")
     return "<html><body><h1>Notes page not found</h1></body></html>"
 
 
 def inbox_page() -> str:
-    """Serve the standalone inbox.html page."""
+    """Serve the standalone inbox.html page (with shared nav injected)."""
     inbox_html = SITE_DIR / "inbox.html"
     if inbox_html.exists():
         with open(inbox_html, "r") as f:
-            return f.read()
+            return inject_nav(f.read(), "inbox")
     return "<html><body><h1>Inbox page not found</h1></body></html>"
 
 
@@ -8043,62 +7775,28 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif path == "/runbooks":
             content = runbooks_page().encode()
             self._respond(200, "text/html", content)
-        elif path == "/kanban":
-            content = kanban_page().encode()
-            self._respond(200, "text/html", content)
         elif path == "/api/models":
-            import sqlite3 as _sql2
-            _conn = _sql2.connect(MODELS_DB)
-            _conn.row_factory = _sql2.Row
-            _rows = _conn.execute(
-                "SELECT model_id, name, provider, input_price_per_mtok, "
-                "output_price_per_mtok, context_window, best_use_case, "
-                "preferred_role, notes FROM models ORDER BY provider, name"
-            ).fetchall()
-            _conn.close()
-            _data = [{
-                "model_id": r["model_id"], "name": r["name"], "provider": r["provider"],
-                "input_price_per_mtok": r["input_price_per_mtok"],
-                "output_price_per_mtok": r["output_price_per_mtok"],
-                "context_window": r["context_window"],
-                "best_use_case": r["best_use_case"],
-                "preferred_role": r["preferred_role"], "notes": r["notes"] or "",
-            } for r in _rows]
-            self._respond(200, "application/json", json.dumps(_data).encode())
+            _data, _err = fetch_models()
+            if _err:
+                self._respond(503, "application/json", json.dumps({"error": _err, "models": []}).encode())
+            else:
+                self._respond(200, "application/json", json.dumps(_data).encode())
         elif path == "/models":
             if not is_authenticated(self):
                 self._respond(403, "text/html", _UNAUTH_PAGE.encode())
                 return
-            try:
-                import sqlite3 as _sql
-                conn = _sql.connect(MODELS_DB)
-                conn.row_factory = _sql.Row
-                rows = conn.execute(
-                    "SELECT model_id, name, provider, input_price_per_mtok, "
-                    "output_price_per_mtok, context_window, best_use_case, "
-                    "preferred_role, notes FROM models ORDER BY provider, name"
-                ).fetchall()
-                conn.close()
-                models_data = []
-                for r in rows:
-                    models_data.append({
-                        "model_id": r["model_id"],
-                        "name": r["name"],
-                        "provider": r["provider"],
-                        "input_price_per_mtok": r["input_price_per_mtok"],
-                        "output_price_per_mtok": r["output_price_per_mtok"],
-                        "context_window": r["context_window"],
-                        "best_use_case": r["best_use_case"],
-                        "preferred_role": r["preferred_role"],
-                        "notes": r["notes"] or "",
-                    })
+            models_data, err = fetch_models()
+            if err:
+                body = ('<div class="hero" style="padding:2rem 0 1rem"><h1>Models</h1></div>'
+                        '<div class="empty-state" style="margin-top:2rem"><p>📦 Model comparison is '
+                        'temporarily unavailable.<br><small>' + html.escape(err) + '</small></p></div>')
+                self._respond(200, "text/html", html_page("Models", body, active_nav="models").encode())
+            else:
                 models_json = json.dumps(models_data)
                 html_template = (SITE_DIR / "model_comparison.html").read_text()
+                html_template = inject_nav(html_template, "models")
                 content = html_template.replace("__MODELS_JSON__", models_json).encode()
                 self._respond(200, "text/html", content)
-            except Exception as e:
-                self._respond(500, "text/html",
-                    f"<h1>500</h1><p>Error loading models: {html.escape(str(e))}</p>".encode())
         elif path == "/model-tuning":
             if not is_authenticated(self):
                 self._respond(403, "text/html", _UNAUTH_PAGE.encode())
@@ -8120,13 +7818,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif path == "/api/tuning/messages/export":
             body = _tuning_dataset_jsonl().encode()
             self._respond(200, "application/x-ndjson", body)
-        elif path == "/models.js":
-            models_js = SITE_DIR / "models.js"
-            if models_js.exists():
-                content = models_js.read_bytes()
-                self._respond(200, "application/javascript", content)
-            else:
-                self._respond(404, "text/plain", b"Not Found")
         elif path == "/cron":
             content = cron_page().encode()
             self._respond(200, "text/html", content)
@@ -8136,8 +7827,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             # parts: ["", "cron", "job_id"] or ["", "cron", "job_id", "filename"]
             if len(parts) == 3:
                 job_id = parts[2]
-                content = cron_job_detail_page(job_id).encode()
-                self._respond(200, "text/html", content)
+                status_code, page = cron_job_detail_page(job_id)
+                self._respond(status_code, "text/html", page.encode())
             elif len(parts) >= 4:
                 job_id = parts[2]
                 filename = "/".join(parts[3:])
@@ -8156,6 +7847,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._respond(200, "application/json", json.dumps(_gguf_health()).encode())
         elif path == "/api/notes" or path.startswith("/api/notes/"):
             self._proxy_notes(self.command)
+            return
+        elif path == "/api/inbox" or path.startswith("/api/inbox/"):
+            self._proxy_inbox()
             return
         elif path == "/notes":
             content = notes_page().encode()
@@ -8188,11 +7882,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 })
             self._respond(200, "application/json", json.dumps(out).encode())
         elif path == "/logs":
-            content = logs_page().encode()
+            content = logs_page(qs.get("tab", [""])[0]).encode()
             self._respond(200, "text/html", content)
         elif path == "/logs/router":
-            content = router_logs_page().encode()
-            self._respond(200, "text/html", content)
+            self.send_response(301)
+            self.send_header("Location", "/logs?tab=router")
+            self.end_headers()
         elif path == "/status":
             content = status_page().encode()
             self._respond(200, "text/html", content)
@@ -8615,6 +8310,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif path == "/api/notes" or path.startswith("/api/notes/"):
             self._proxy_notes(self.command, body=raw.encode() if raw else None)
             return
+        elif path == "/api/inbox" or path.startswith("/api/inbox/"):
+            self._proxy_inbox(body=raw.encode() if raw else None)
+            return
         elif path.startswith("/api/proxy/commands/"):
             # Proxy to commands API on port 8092 with API key auth
             action = path[len("/api/proxy/commands/"):]
@@ -8628,7 +8326,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 req_data = raw.encode() if raw else b"{}"
                 req = _ur.Request(commands_url, data=req_data, method="POST")
                 req.add_header("Content-Type", "application/json")
-                req.add_header("X-API-Key", "hermes-commands-api-key-change-me")
+                _commands_key = _load_env_var("COMMANDS_API_KEY") or "hermes-commands-api-key-change-me"
+                req.add_header("X-API-Key", _commands_key)
                 resp = _ur.urlopen(req, timeout=65)
                 proxied_body = resp.read()
                 self._respond(resp.status, "application/json", proxied_body)
@@ -8683,6 +8382,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._proxy_api()
         elif path.startswith("/api/status"):
             self._proxy_api()
+        elif path.startswith("/api/inbox"):
+            self._proxy_inbox()
         else:
             self.send_response(405); self.end_headers()
 
@@ -8709,6 +8410,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Headers", "Content-Type")
             self.send_header("Access-Control-Max-Age", "86400")
             self.end_headers()
+        elif self.path.startswith("/api/inbox"):
+            self.send_response(200)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, X-API-Key")
+            self.send_header("Access-Control-Max-Age", "86400")
+            self.end_headers()
         else:
             self.send_response(405); self.end_headers()
 
@@ -8725,8 +8433,59 @@ class Handler(http.server.BaseHTTPRequestHandler):
         path = self.path.rstrip("/") or "/"
         if path.startswith("/api/notes/"):
             self._proxy_notes("DELETE")
+        elif path.startswith("/api/inbox"):
+            self._proxy_inbox()
         else:
             self.send_response(405); self.end_headers()
+
+    def _proxy_inbox(self, body: bytes = None):
+        """Proxy /api/inbox/* to the Agent Inbox API on 127.0.0.1:8000.
+
+        Strips ONLY the /api/inbox prefix and forwards the remainder (path + query),
+        method, body and status verbatim. Adds no auth header — the inbox guide
+        specifies none — but relays the client's Content-Type / X-API-Key if present.
+        `body` is passed in by do_POST (which already consumed the request body);
+        for other methods it is read here.
+        """
+        import urllib.request as _ur
+        from urllib.error import HTTPError
+        # /api/inbox            -> /            on the API
+        # /api/inbox/api/v1/... -> /api/v1/...  on the API (query preserved)
+        rest = self.path[len("/api/inbox"):] or "/"
+        url = "http://127.0.0.1:8000" + rest
+
+        if body is None:
+            length = int(self.headers.get("Content-Length", 0))
+            if length > 0:
+                body = self.rfile.read(length)
+
+        req = _ur.Request(url, data=body, method=self.command)
+        for h in ("Content-Type", "X-API-Key"):
+            v = self.headers.get(h)
+            if v:
+                req.add_header(h, v)
+
+        try:
+            with _ur.urlopen(req, timeout=15) as resp:
+                resp_body = resp.read()
+                self.send_response(resp.status)
+                for k, v in resp.getheaders():
+                    if k.lower() not in ("transfer-encoding", "connection"):
+                        self.send_header(k, v)
+                self.send_header("Content-Length", str(len(resp_body)))
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(resp_body)
+        except HTTPError as e:
+            err_body = e.read()
+            self.send_response(e.code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(err_body)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(err_body)
+        except Exception as e:
+            self._respond(502, "application/json", json.dumps({"error": f"Inbox API unreachable: {e}"}).encode())
 
     def _proxy_notes(self, method: str, body: bytes = None):
         """Proxy /api/notes/* requests to the Notes API on port 8081 with auth."""
@@ -8737,7 +8496,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         api_path = "/notes" + self.path[len("/api/notes"):]  # strip prefix, keep rest + id
         url = f"http://127.0.0.1:8081{api_path}"
         req = _ur.Request(url, method=method)
-        req.add_header("Authorization", "Bearer notes-secret-token")
+        _notes_token = _load_env_var("NOTES_API_TOKEN") or "notes-secret-token"
+        req.add_header("Authorization", "Bearer " + _notes_token)
 
         # Forward body for POST/PATCH
         if method in ("POST", "PATCH") and body:

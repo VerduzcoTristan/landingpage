@@ -25,18 +25,7 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
     background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh;
 }
-nav {
-    background: var(--bg-nav); border-bottom: 1px solid var(--border);
-    padding: 0 2rem; display: flex; align-items: center; justify-content: space-between;
-    height: 60px; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px);
-}
-nav .logo { font-size: 1.25rem; font-weight: 700; color: var(--text); text-decoration: none; }
-nav .logo span { color: var(--accent); }
-nav .links { display: flex; gap: 1.5rem; align-items: center; }
-nav .links a { color: var(--text-muted); text-decoration: none; font-size: 0.9rem; }
-nav .links a:hover, nav .links a.active { color: var(--text); }
-
-.nav-dropdown{position:relative;display:flex;align-items:center}.nav-more-summary{color:var(--text-muted);font-size:.9rem;cursor:pointer;padding:.5rem 0;white-space:nowrap;list-style:none;user-select:none}.nav-more-summary::-webkit-details-marker{display:none}.nav-more-summary::after{content:" ▾";font-size:.7rem}.nav-more-summary:hover,.nav-more-summary.active{color:var(--text)}.nav-dropdown-menu{position:absolute;top:100%;right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:.4rem 0;min-width:210px;z-index:150;box-shadow:0 8px 30px rgba(0,0,0,.4);display:flex;flex-direction:column}.nav-dropdown-menu a{padding:.5rem 1rem!important}.nav-dropdown-menu a:hover{background:rgba(124,58,237,.1)}.nav-menu-label{padding:.35rem 1rem .2rem;color:var(--text-muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;opacity:.75}.hermes-btn{background:var(--accent);color:#fff!important;padding:.4rem 1rem!important;border-radius:6px;font-weight:600}.hermes-btn:hover{background:var(--accent-hover)}
+__SITE_NAV_CSS__
 
 .container { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem 3rem; }
 
@@ -245,31 +234,7 @@ nav .links a:hover, nav .links a.active { color: var(--text); }
 </head>
 <body>
 
-<nav>
-  <a href="/" class="logo" aria-label="devmclovin home">dev<span>mclovin</span></a>
-  <div class="links">
-    <a href="/">Home</a>
-    <a href="/briefings">Briefings</a>
-    <a href="/projects">Projects</a>
-    <a href="/hermes">Hermes</a>
-    <details class="nav-dropdown"><summary class="nav-more-summary active">Tools</summary><div class="nav-dropdown-menu">
-      <div class="nav-menu-label">Status & workflow</div>
-      <a href="/status">Status</a>
-      <a href="/notes" class="active">Notes</a>
-      <a href="/inbox">Inbox</a>
-      <a href="/runbooks">Runbooks</a>
-    </div></details>
-    <details class="nav-dropdown"><summary class="nav-more-summary">System</summary><div class="nav-dropdown-menu">
-      <div class="nav-menu-label">Operations</div>
-      <a href="/cron">Cron Jobs</a>
-      <a href="/models">Models</a>
-      <a href="/disk-cleanup">Disk</a>
-      <a href="/tunnel">Tunnel</a>
-      <a href="/logs">Logs</a>
-    </div></details>
-    <a href="https://ssh.devmclovin.com" class="hermes-btn">SSH</a>
-  </div>
-</nav>
+__SITE_NAV__
 
 <div class="container">
   <div class="notes-hero">
