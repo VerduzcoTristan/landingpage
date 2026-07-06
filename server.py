@@ -616,6 +616,293 @@ def simple_md_to_html(text: str) -> str:
     return f'<p>{text}</p>'
 
 
+# ── Shared nav assets (single source of truth for the top nav) ──────────────
+# NAV_CSS is a faithful copy of every nav-related rule in BASE_CSS. html_page()
+# emits {NAV_CSS}{BASE_CSS} (duplicate-but-identical rules on server pages), and
+# the six template pages receive NAV_CSS via the __SITE_NAV_CSS__ placeholder so
+# the injected nav is styled everywhere. NAV_JS holds the dropdown close-behaviour
+# handlers, embedded by html_page and injected into templates via __SITE_NAV_JS__.
+NAV_CSS = """
+.skip-link {
+    position: absolute;
+    top: -100px;
+    left: 1rem;
+    background: var(--accent);
+    color: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 0 0 6px 6px;
+    z-index: 200;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: top 0.2s;
+}
+.skip-link:focus { top: 0; }
+
+nav {
+    background: var(--bg-nav);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+    flex-wrap: wrap;
+}
+nav .logo {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+nav .logo span { color: var(--accent); }
+nav .links {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+nav .links a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.2s;
+    padding: 0.5rem 0;
+    white-space: nowrap;
+}
+nav .links a:hover,
+nav .links a.active { color: var(--text); }
+nav .links a.hermes-btn {
+    background: var(--accent);
+    color: #fff;
+    padding: 0.4rem 1rem;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: background 0.2s, box-shadow 0.2s;
+}
+nav .links a.hermes-btn:hover {
+    background: var(--accent-hover);
+    box-shadow: 0 0 20px var(--accent-glow);
+}
+.nav-dropdown {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.nav-more-summary {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: 0.5rem 0;
+    white-space: nowrap;
+    list-style: none;
+    user-select: none;
+    transition: color 0.2s;
+}
+.nav-more-summary::-webkit-details-marker { display: none; }
+.nav-more-summary::after { content: " ▾"; font-size: 0.7rem; }
+.nav-more-summary:hover,
+.nav-more-summary.active { color: var(--text); }
+.nav-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.4rem 0;
+    min-width: 230px;
+    z-index: 150;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    display: flex;
+    flex-direction: column;
+}
+.nav-menu-label {
+    padding: 0.35rem 1rem 0.25rem;
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.75;
+}
+.nav-dropdown-menu a {
+    color: var(--text-muted) !important;
+    text-decoration: none;
+    font-size: 0.85rem !important;
+    padding: 0.5rem 1rem !important;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+.nav-dropdown-menu a:hover {
+    background: rgba(124,58,237,0.1);
+    color: var(--text) !important;
+}
+.nav-dropdown-menu a.active { color: var(--accent-hover) !important; }
+.nav-item-main { color: inherit; font-weight: 600; }
+.nav-item-hint {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    line-height: 1.25;
+}
+.nav-dropdown-menu a:hover .nav-item-hint { color: var(--text-muted); }
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.category-pill:focus-visible,
+.category-tab:focus-visible,
+.bm-btn:focus-visible,
+.link-card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+footer {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    border-top: 1px solid var(--border);
+    margin-top: 3rem;
+}
+.footer-nav {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+}
+.footer-nav a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.78rem;
+}
+.footer-nav a:hover { color: var(--accent-hover); }
+
+@media (min-width: 481px) and (max-width: 900px) {
+    nav { padding: 0 1.25rem; }
+    nav .links { gap: 1rem; }
+    nav .links a { font-size: 0.82rem; }
+}
+@media (max-width: 480px) {
+    nav {
+        padding: 0 0.75rem;
+        height: auto;
+        min-height: 52px;
+    }
+    nav .links {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 0.75rem;
+        padding-bottom: 0.25rem;
+        scrollbar-width: none;
+    }
+    nav .links::-webkit-scrollbar { display: none; }
+    nav .links a { font-size: 0.8rem; padding: 0.45rem 0; }
+    nav .logo { font-size: 1.05rem; }
+    .footer-nav { gap: 1rem; }
+}
+"""
+
+NAV_JS = """
+document.addEventListener('DOMContentLoaded', function() {
+    var dropdowns = Array.prototype.slice.call(document.querySelectorAll('details.nav-dropdown'));
+    dropdowns.forEach(function(dropdown) {
+        dropdown.addEventListener('toggle', function() {
+            if (dropdown.open) {
+                dropdowns.forEach(function(other) {
+                    if (other !== dropdown) other.open = false;
+                });
+            }
+        });
+    });
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('details.nav-dropdown')) {
+            dropdowns.forEach(function(dropdown) { dropdown.open = false; });
+        }
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            dropdowns.forEach(function(dropdown) { dropdown.open = false; });
+        }
+    });
+});
+"""
+
+
+def render_nav(active: str = "home") -> str:
+    """Single source of truth for the top nav (see section 3 of the redesign plan).
+    Returns the full <nav>…</nav> block: used by html_page() and injected verbatim
+    into the six template pages so the nav is byte-identical everywhere."""
+    top_links = [
+        ("/", "Home", "home"),
+        ("/briefings", "Briefings", "briefings"),
+        ("/projects", "Projects", "projects"),
+        ("/status", "Status", "status"),
+        ("/hermes", "Hermes", "hermes"),
+    ]
+    links = ""
+    for href, label, key in top_links:
+        cls = 'active' if active == key else ''
+        links += f'<a href="{href}" class="{cls}">{label}</a>'
+
+    tool_keys = {"notes", "inbox", "runbooks", "cron", "models",
+                 "model-tuning", "llm-lab", "disk-cleanup", "tunnel", "logs"}
+    items = [
+        ("__label__", "Daily", ""),
+        ("/notes", "Notes", "Personal notes", "notes"),
+        ("/inbox", "Inbox", "Agent intake queue", "inbox"),
+        ("/runbooks", "Runbooks", "Copy-paste server fixes", "runbooks"),
+        ("__label__", "Ops", ""),
+        ("/cron", "Cron Jobs", "Schedules and outputs", "cron"),
+        ("/models", "Models", "LLM pricing and local models", "models"),
+        ("/model-tuning", "Tuning", "Fine-tune datasets and HF pulls", "model-tuning"),
+        ("/llm-lab", "LLM Lab", "Evals, traces, arena, GGUF pulls", "llm-lab"),
+        ("/disk-cleanup", "Disk", "Storage usage and cleanup", "disk-cleanup"),
+        ("/tunnel", "Tunnel", "Cloudflare routes", "tunnel"),
+        ("/logs", "Logs", "Server and router journals", "logs"),
+    ]
+    summary_cls = 'nav-more-summary' + (' active' if active in tool_keys else '')
+    links += '<details class="nav-dropdown"><summary class="' + summary_cls + '">Tools</summary><div class="nav-dropdown-menu">'
+    for item in items:
+        if item[0] == "__label__":
+            links += '<div class="nav-menu-label">' + item[1] + '</div>'
+            continue
+        href, label, hint, key = item
+        cls = 'active' if active == key else ''
+        links += '<a href="' + href + '" class="' + cls + '"><span class="nav-item-main">' + label + '</span><span class="nav-item-hint">' + hint + '</span></a>'
+    links += '</div></details>'
+    links += '<a href="https://ssh.devmclovin.com" class="hermes-btn">SSH</a>'
+
+    return ('<nav>'
+            '<a href="/" class="logo" aria-label="devmclovin home">dev<span>mclovin</span></a>'
+            '<div class="links">' + links + '</div>'
+            '</nav>')
+
+
+def inject_nav(page_html: str, active: str) -> str:
+    """Fill the NavInjection placeholders in a template page so it shares the exact
+    same nav, nav CSS and nav JS as server-rendered pages (kills nav drift)."""
+    return (page_html
+            .replace("__SITE_NAV_CSS__", NAV_CSS)
+            .replace("__SITE_NAV_JS__", NAV_JS)
+            .replace("__SITE_NAV__", render_nav(active)))
+
+
 BASE_CSS = """
 :root {
     --bg: #0d1117;
@@ -1182,6 +1469,12 @@ nav .links a.hermes-btn:hover {
 .hub-chip { color:var(--accent-hover); text-decoration:none; font-size:0.8rem; border:1px solid var(--border); border-radius:999px; padding:0.35rem 0.7rem; background:var(--bg-card); }
 .hub-chip:hover { border-color:var(--accent); color:var(--text); }
 @media (max-width:480px) { .hub-row-label { min-width:100%; } }
+
+/* ── Logs tabs (Server | Router) ── */
+.logs-tabs { display:flex; gap:1.25rem; border-bottom:1px solid var(--border); margin:0.75rem 0 1rem; }
+.logs-tab { color:var(--text-muted); text-decoration:none; font-size:0.9rem; padding:0.4rem 0.1rem; border-bottom:2px solid transparent; margin-bottom:-1px; }
+.logs-tab:hover { color:var(--text); }
+.logs-tab.active { color:var(--text); border-bottom-color:var(--accent); }
 
 /* ── Briefing archive cards + subnav ── */
 .briefing-subnav { display:flex; flex-wrap:wrap; gap:0.5rem; justify-content:center; margin:-0.35rem 0 1rem; }
@@ -4605,51 +4898,7 @@ def hermes_page() -> str:
 
 
 def html_page(title: str, body: str, active_nav: str = "home", extra_head: str = "") -> str:
-    nav_html = ""
-    # Keep the top bar task-oriented. Secondary destinations are grouped so the
-    # site no longer feels like one long row of unrelated links.
-    top_links = [
-        ("/", "Home", "home"),
-        ("/briefings", "Briefings", "briefings"),
-        ("/projects", "Projects", "projects"),
-        ("/hermes", "Hermes", "hermes"),
-    ]
-    for href, label, key in top_links:
-        cls = 'active' if active_nav == key else ''
-        nav_html += f'<a href="{href}" class="{cls}">{label}</a>'
-
-    nav_groups = [
-        ("Tools", {"status", "notes", "inbox", "runbooks"}, [
-            ("__label__", "Status & workflow", ""),
-            ("/status", "Status", "Service health board", "status"),
-            ("/notes", "Notes", "Personal notes", "notes"),
-            ("/inbox", "Inbox", "Agent intake queue", "inbox"),
-            ("/runbooks", "Runbooks", "Copy-paste server fixes", "runbooks"),
-        ]),
-        ("System", {"cron", "models", "model-tuning", "llm-lab", "disk-cleanup", "tunnel", "logs"}, [
-            ("__label__", "Operations", ""),
-            ("/cron", "Cron Jobs", "Schedules and outputs", "cron"),
-            ("/models", "Models", "LLM pricing and local models", "models"),
-            ("/model-tuning", "Tuning", "Fine-tune datasets and HF pulls", "model-tuning"),
-            ("/llm-lab", "LLM Lab", "Evals, traces, arena, router, GGUF pulls", "llm-lab"),
-            ("/disk-cleanup", "Disk", "Storage usage and cleanup", "disk-cleanup"),
-            ("/tunnel", "Tunnel", "Cloudflare routes", "tunnel"),
-            ("/logs", "Logs", "Server and router journals", "logs"),
-        ]),
-    ]
-    for group_label, active_keys, items in nav_groups:
-        summary_cls = 'nav-more-summary' + (' active' if active_nav in active_keys else '')
-        nav_html += '<details class="nav-dropdown"><summary class="' + summary_cls + '">' + group_label + '</summary><div class="nav-dropdown-menu">'
-        for item in items:
-            if item[0] == "__label__":
-                nav_html += '<div class="nav-menu-label">' + item[1] + '</div>'
-                continue
-            href, label, hint, key = item
-            cls = 'active' if active_nav == key else ''
-            nav_html += '<a href="' + href + '" class="' + cls + '"><span class="nav-item-main">' + label + '</span><span class="nav-item-hint">' + hint + '</span></a>'
-        nav_html += '</div></details>'
-
-    nav_html += '<a href="https://ssh.devmclovin.com" class="hermes-btn">SSH</a>'
+    site_nav = render_nav(active_nav)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -4658,34 +4907,13 @@ def html_page(title: str, body: str, active_nav: str = "home", extra_head: str =
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     {extra_head}
     <title>{title} — devmclovin</title>
-    <style>{BASE_CSS}
+    <style>{NAV_CSS}{BASE_CSS}
 </style>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
     <script>
 
     // ── Nav dropdown behavior: close menus when clicking off them ──
-    document.addEventListener('DOMContentLoaded', function() {{
-        var dropdowns = Array.prototype.slice.call(document.querySelectorAll('details.nav-dropdown'));
-        dropdowns.forEach(function(dropdown) {{
-            dropdown.addEventListener('toggle', function() {{
-                if (dropdown.open) {{
-                    dropdowns.forEach(function(other) {{
-                        if (other !== dropdown) other.open = false;
-                    }});
-                }}
-            }});
-        }});
-        document.addEventListener('click', function(e) {{
-            if (!e.target.closest('details.nav-dropdown')) {{
-                dropdowns.forEach(function(dropdown) {{ dropdown.open = false; }});
-            }}
-        }});
-        document.addEventListener('keydown', function(e) {{
-            if (e.key === 'Escape') {{
-                dropdowns.forEach(function(dropdown) {{ dropdown.open = false; }});
-            }}
-        }});
-    }});
+    {NAV_JS}
     // ── Confirmation dialog for destructive actions ──
     function showConfirmDialog(opts) {{
         var overlay = document.createElement('div');
@@ -4864,10 +5092,7 @@ def html_page(title: str, body: str, active_nav: str = "home", extra_head: str =
 </head>
 <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>
-    <nav>
-        <a href="/" class="logo" aria-label="devmclovin home">dev<span>mclovin</span></a>
-        <div class="links">{nav_html}</div>
-    </nav>
+    {site_nav}
     <main id="main-content">
     <div class="container">
         {body}
@@ -5866,26 +6091,21 @@ def briefing_detail_page(date: str, category: str = "") -> str:
 #  Logs Pages
 # ═══════════════════════════════════════════════════════════════
 
-def logs_page() -> str:
-    """Server logs (journalctl)."""
+def _read_server_logs() -> str:
+    """Last 100 journalctl lines (server)."""
     import subprocess
     try:
         out = subprocess.run(
             ["journalctl", "--no-pager", "-n", "100", "-o", "short-iso"],
             capture_output=True, text=True, timeout=5
         )
-        log_text = out.stdout or "(no output)"
+        return out.stdout or "No recent entries."
     except Exception as e:
-        log_text = f"Error reading logs: {e}"
-    body = '<h1 class="section-title">📋 Server Logs</h1>'
-    body += '<p class="section-timestamp">Last 100 lines from journalctl</p>'
-    body += '<pre style="background:var(--bg-card);padding:1rem;border-radius:8px;overflow-x:auto;font-size:0.8rem">' + html.escape(log_text) + "</pre>"
-    body += '<p style="margin-top:1rem"><a href=/hermes style="color:var(--accent)">Back to Hermes</a></p>'
-    return html_page("Server Logs", body, active_nav="logs")
+        return f"Error reading logs: {e}"
 
 
-def router_logs_page() -> str:
-    """Router logs."""
+def _read_router_logs() -> str:
+    """Last 100 lines of the router + gateway log files."""
     import subprocess
     paths = [
         os.path.expanduser("~/.hermes/logs/router.log"),
@@ -5902,13 +6122,28 @@ def router_logs_page() -> str:
                 log_text += "\n=== " + lp + " ===\n" + out.stdout
         except Exception:
             pass
-    if not log_text:
-        log_text = "No router log files found."
-    body = '<h1 class="section-title">🔀 Router Logs</h1>'
-    body += '<p class="section-timestamp">Last 100 lines from router and gateway logs</p>'
+    return log_text or "No recent entries."
+
+
+def logs_page(tab: str = "server") -> str:
+    """Merged journal viewer with Server / Router tabs (replaces the two pages)."""
+    tab = tab if tab in ("server", "router") else "server"
+    if tab == "router":
+        log_text = _read_router_logs()
+        note = "Last 100 lines from router and gateway logs"
+    else:
+        log_text = _read_server_logs()
+        note = "Last 100 lines from journalctl"
+
+    body = '<h1 class="section-title">📋 Logs</h1>'
+    body += '<div class="logs-tabs">'
+    body += '<a href="/logs" class="logs-tab' + (' active' if tab == "server" else '') + '">Server</a>'
+    body += '<a href="/logs?tab=router" class="logs-tab' + (' active' if tab == "router" else '') + '">Router</a>'
+    body += '</div>'
+    body += '<p class="section-timestamp">' + note + '</p>'
     body += '<pre style="background:var(--bg-card);padding:1rem;border-radius:8px;overflow-x:auto;font-size:0.8rem">' + html.escape(log_text) + "</pre>"
     body += '<p style="margin-top:1rem"><a href=/hermes style="color:var(--accent)">Back to Hermes</a></p>'
-    return html_page("Router Logs", body, active_nav="logs")
+    return html_page("Logs", body, active_nav="logs")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -5916,10 +6151,10 @@ def router_logs_page() -> str:
 # ═══════════════════════════════════════════════════════════════
 
 def status_page() -> str:
-    """Serve the standalone status-board.html page."""
+    """Serve the standalone status-board.html page (with shared nav injected)."""
     status_html = SITE_DIR / "status-board.html"
     if status_html.exists():
-        return status_html.read_text()
+        return inject_nav(status_html.read_text(), "status")
     return "<html><body><h1>Status Board Not Found</h1></body></html>"
 
 
@@ -7786,30 +8021,30 @@ def _llm_lab_hf_pull_stream(handler, payload: dict) -> None:
 def llm_lab_page() -> str:
     lab_html = SITE_DIR / "llm_lab.html"
     if lab_html.exists():
-        return lab_html.read_text()
+        return inject_nav(lab_html.read_text(), "llm-lab")
     return "<html><body><h1>LLM Lab page not found</h1></body></html>"
 
 def model_tuning_page() -> str:
     tuning_html = SITE_DIR / "model_tuning.html"
     if tuning_html.exists():
-        return tuning_html.read_text()
+        return inject_nav(tuning_html.read_text(), "model-tuning")
     return "<html><body><h1>Model tuning page not found</h1></body></html>"
 
 def notes_page() -> str:
-    """Serve the standalone notes.html page."""
+    """Serve the standalone notes.html page (with shared nav injected)."""
     notes_html = SITE_DIR / "notes.html"
     if notes_html.exists():
         with open(notes_html, "r") as f:
-            return f.read()
+            return inject_nav(f.read(), "notes")
     return "<html><body><h1>Notes page not found</h1></body></html>"
 
 
 def inbox_page() -> str:
-    """Serve the standalone inbox.html page."""
+    """Serve the standalone inbox.html page (with shared nav injected)."""
     inbox_html = SITE_DIR / "inbox.html"
     if inbox_html.exists():
         with open(inbox_html, "r") as f:
-            return f.read()
+            return inject_nav(f.read(), "inbox")
     return "<html><body><h1>Inbox page not found</h1></body></html>"
 
 
@@ -7875,6 +8110,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             else:
                 models_json = json.dumps(models_data)
                 html_template = (SITE_DIR / "model_comparison.html").read_text()
+                html_template = inject_nav(html_template, "models")
                 content = html_template.replace("__MODELS_JSON__", models_json).encode()
                 self._respond(200, "text/html", content)
         elif path == "/model-tuning":
@@ -7962,11 +8198,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 })
             self._respond(200, "application/json", json.dumps(out).encode())
         elif path == "/logs":
-            content = logs_page().encode()
+            content = logs_page(qs.get("tab", [""])[0]).encode()
             self._respond(200, "text/html", content)
         elif path == "/logs/router":
-            content = router_logs_page().encode()
-            self._respond(200, "text/html", content)
+            self.send_response(301)
+            self.send_header("Location", "/logs?tab=router")
+            self.end_headers()
         elif path == "/status":
             content = status_page().encode()
             self._respond(200, "text/html", content)

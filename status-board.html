@@ -35,102 +35,7 @@ body {
     min-height: 100vh;
 }
 
-/* ── Navigation ── */
-nav {
-    background: var(--bg-nav);
-    border-bottom: 1px solid var(--border);
-    padding: 0 2rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 60px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    backdrop-filter: blur(10px);
-}
-nav .logo { font-size: 1.25rem; font-weight: 700; color: var(--text); text-decoration: none; display: flex; align-items: center; gap: 0.5rem; }
-nav .logo span { color: var(--accent); }
-nav .links { display: flex; gap: 1.5rem; align-items: center; }
-nav .links a { color: var(--text-muted); text-decoration: none; font-size: 0.9rem; transition: color 0.2s; padding: 0.5rem 0; }
-nav .links a:hover, nav .links a.active { color: var(--text); }
-
-.nav-dropdown{position:relative;display:flex;align-items:center}.nav-more-summary{color:var(--text-muted);font-size:.9rem;cursor:pointer;padding:.5rem 0;white-space:nowrap;list-style:none;user-select:none}.nav-more-summary::-webkit-details-marker{display:none}.nav-more-summary::after{content:" ▾";font-size:.7rem}.nav-more-summary:hover,.nav-more-summary.active{color:var(--text)}.nav-dropdown-menu{position:absolute;top:100%;right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:.4rem 0;min-width:210px;z-index:150;box-shadow:0 8px 30px rgba(0,0,0,.4);display:flex;flex-direction:column}.nav-dropdown-menu a{padding:.5rem 1rem!important}.nav-dropdown-menu a:hover{background:rgba(124,58,237,.1)}.nav-menu-label{padding:.35rem 1rem .2rem;color:var(--text-muted);font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;opacity:.75}.hermes-btn{background:var(--accent);color:#fff!important;padding:.4rem 1rem!important;border-radius:6px;font-weight:600}.hermes-btn:hover{background:var(--accent-hover)}
-
-
-/* ── SSH button ── */
-nav .links a.hermes-btn {
-    background: var(--accent);
-    color: #fff;
-    padding: 0.4rem 1rem;
-    border-radius: 6px;
-    font-weight: 600;
-    text-decoration: none;
-}
-nav .links a.hermes-btn:hover {
-    background: var(--accent-hover);
-    box-shadow: 0 0 20px var(--accent-glow);
-}
-
-/* ── Nav separator ── */
-.nav-sep {
-    display: inline-block;
-    width: 1px;
-    height: 20px;
-    background: var(--border);
-    margin: 0 0.25rem;
-    vertical-align: middle;
-}
-
-/* ── Nav dropdown (More menu) ── */
-.nav-dropdown {
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-.nav-more-summary {
-    color: var(--text-muted);
-    font-size: 0.9rem;
-    cursor: pointer;
-    padding: 0.5rem 0;
-    white-space: nowrap;
-    list-style: none;
-    user-select: none;
-    transition: color 0.2s;
-}
-.nav-more-summary::-webkit-details-marker { display: none; }
-.nav-more-summary::after {
-    content: " ▾";
-    font-size: 0.7rem;
-}
-.nav-more-summary:hover { color: var(--text); }
-.nav-dropdown-menu {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 0.4rem 0;
-    min-width: 160px;
-    z-index: 150;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
-    display: flex;
-    flex-direction: column;
-}
-.nav-dropdown-menu a {
-    color: var(--text-muted);
-    text-decoration: none;
-    font-size: 0.85rem;
-    padding: 0.5rem 1rem;
-    transition: background 0.15s, color 0.15s;
-    white-space: nowrap;
-}
-.nav-dropdown-menu a:hover {
-    background: rgba(124,58,237,0.1);
-    color: var(--text);
-}
-.nav-dropdown-menu a.active { color: var(--accent-hover); }
+__SITE_NAV_CSS__
 
 /* ── Accessibility ── */
 a:focus-visible,
@@ -590,31 +495,7 @@ button:focus-visible {
 </style>
 </head>
 <body>
-    <nav>
-  <a href="/" class="logo" aria-label="devmclovin home">dev<span>mclovin</span></a>
-  <div class="links">
-    <a href="/">Home</a>
-    <a href="/briefings">Briefings</a>
-    <a href="/projects">Projects</a>
-    <a href="/hermes">Hermes</a>
-    <details class="nav-dropdown"><summary class="nav-more-summary active">Tools</summary><div class="nav-dropdown-menu">
-      <div class="nav-menu-label">Status & workflow</div>
-      <a href="/status" class="active">Status</a>
-      <a href="/notes">Notes</a>
-      <a href="/inbox">Inbox</a>
-      <a href="/runbooks">Runbooks</a>
-    </div></details>
-    <details class="nav-dropdown"><summary class="nav-more-summary">System</summary><div class="nav-dropdown-menu">
-      <div class="nav-menu-label">Operations</div>
-      <a href="/cron">Cron Jobs</a>
-      <a href="/models">Models</a>
-      <a href="/disk-cleanup">Disk</a>
-      <a href="/tunnel">Tunnel</a>
-      <a href="/logs">Logs</a>
-    </div></details>
-    <a href="https://ssh.devmclovin.com" class="hermes-btn">SSH</a>
-  </div>
-</nav>
+    __SITE_NAV__
 
     <div style="max-width:1100px; margin: 0 auto; padding: 2rem;">
         <div class="page-header">
