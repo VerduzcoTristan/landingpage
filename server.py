@@ -750,7 +750,7 @@ nav .links a.hermes-btn:hover {
 .nav-dropdown-menu a.active { color: var(--accent-hover) !important; }
 .nav-item-main { color: inherit; font-weight: 600; }
 .nav-item-hint {
-    color: var(--text-muted);
+    color: #9aa4b2;
     font-size: 0.7rem;
     line-height: 1.25;
 }
@@ -1012,15 +1012,6 @@ nav .links a.hermes-btn:hover {
     box-shadow: 0 0 20px var(--accent-glow);
 }
 
-.nav-sep {
-    width: 1px;
-    height: 20px;
-    background: var(--border);
-    margin: 0 0.25rem;
-    align-self: center;
-    flex-shrink: 0;
-}
-
 /* ── Nav dropdown (More menu) ── */
 .nav-dropdown {
     position: relative;
@@ -1101,49 +1092,6 @@ nav .links a.hermes-btn:hover {
 .hero p {
     color: var(--text-muted);
     font-size: 1.1rem;
-}
-
-/* ── Quick actions row (homepage hero) ── */
-.quick-actions {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 0.75rem;
-    margin: 0.5rem 0 1rem;
-}
-
-.qa-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1rem 1.25rem;
-    text-decoration: none;
-    color: var(--text);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.35rem;
-    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
-}
-
-.qa-card:hover {
-    border-color: var(--accent);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.15);
-}
-
-.qa-icon {
-    font-size: 1.6rem;
-    line-height: 1;
-}
-
-.qa-label {
-    font-weight: 600;
-    font-size: 0.95rem;
-}
-
-.qa-desc {
-    font-size: 0.75rem;
-    color: var(--text-muted);
 }
 /* ── System Overview collapsible ── */
 .system-overview {
@@ -1227,37 +1175,6 @@ nav .links a.hermes-btn:hover {
     text-overflow: ellipsis;
 }
 
-/* ── Compact command center (inline status bar) ── */
-.cc-compact {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin: 1.5rem 0;
-    align-items: center;
-}
-.cc-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.3rem 0.7rem;
-    border-radius: 20px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    text-decoration: none;
-    transition: border-color 0.2s, color 0.2s;
-    white-space: nowrap;
-}
-.cc-chip:hover {
-    border-color: var(--accent);
-    color: var(--text);
-}
-.cc-chip .status-dot {
-    width: 7px;
-    height: 7px;
-}
-
 
 /* ── Organized navigation + page hubs ── */
 .nav-dropdown-menu {
@@ -1281,48 +1198,13 @@ nav .links a.hermes-btn:hover {
     font-weight: 600;
 }
 .nav-item-hint {
-    color: var(--text-muted);
+    color: #9aa4b2;
     font-size: 0.7rem;
     line-height: 1.25;
 }
 .nav-dropdown-menu a:hover .nav-item-hint {
     color: var(--text-muted);
 }
-.site-hub {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-    gap: 0.85rem;
-    margin: 0.75rem 0 1.25rem;
-}
-.hub-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-    min-height: 150px;
-}
-.hub-kicker {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-weight: 700;
-    color: var(--text);
-}
-.hub-desc {
-    color: var(--text-muted);
-    font-size: 0.82rem;
-    line-height: 1.45;
-}
-.hub-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-top: auto;
-}
-.hub-links a,
 .page-toolbar a {
     color: var(--accent-hover);
     text-decoration: none;
@@ -1332,7 +1214,6 @@ nav .links a.hermes-btn:hover {
     padding: 0.25rem 0.55rem;
     background: rgba(124,58,237,0.08);
 }
-.hub-links a:hover,
 .page-toolbar a:hover {
     border-color: var(--accent);
     color: var(--text);
@@ -1563,14 +1444,12 @@ nav .links a.hermes-btn:hover {
 }
 
 .briefing-grid {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 1rem;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible;
     padding: 0.5rem 0.25rem 1rem;
     margin-bottom: 2rem;
-    scrollbar-width: none;
 }
 
 .briefing-grid::-webkit-scrollbar {
@@ -1801,34 +1680,11 @@ nav .links a.hermes-btn:hover {
 /* ── Horizontal scroll arrows ── */
 .briefing-scroll {
     position: relative;
+    overflow: visible;
 }
 
-.scroll-arrow {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 10;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: var(--bg-card);
-    border: 2px solid var(--border);
-    color: var(--text);
-    font-size: 1.1rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: border-color 0.2s, background 0.2s;
-}
-
-.scroll-arrow:hover {
-    border-color: var(--accent);
-    background: #1c2333;
-}
-
-.scroll-arrow.left  { left: -42px; }
-.scroll-arrow.right { right: -42px; }
+/* De-scrolled: cards wrap in a grid (.briefing-grid); arrows hidden. */
+.scroll-arrow { display: none; }
 
 .briefing-list a {
     display: block;
@@ -2020,7 +1876,6 @@ textarea:focus-visible,
 .category-pill:focus-visible,
 .category-tab:focus-visible,
 .bm-btn:focus-visible,
-.kanban-card:focus-visible,
 .link-card:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
@@ -2539,121 +2394,10 @@ textarea:focus-visible,
     color: var(--text);
 }
 
-/* ── Kanban Board ── */
-.kanban-board {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
-    margin: 1.5rem 0;
-    align-items: start;
-}
-
 @media (max-width: 900px) {
-    .kanban-board {
-        grid-template-columns: repeat(2, 1fr);
-    }
 }
 
 @media (max-width: 500px) {
-    .kanban-board {
-        grid-template-columns: 1fr;
-    }
-}
-
-.kanban-column {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1rem;
-    min-height: 200px;
-}
-
-.kanban-column h3 {
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-muted);
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.kanban-column h3 .count {
-    display: inline-block;
-    background: rgba(139, 148, 158, 0.15);
-    color: var(--text-muted);
-    border-radius: 10px;
-    padding: 0.1rem 0.5rem;
-    font-size: 0.7rem;
-    font-weight: 600;
-}
-
-.kanban-card {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.75rem;
-    margin-bottom: 0.75rem;
-    cursor: pointer;
-    transition: border-color 0.2s;
-}
-
-.kanban-card:hover {
-    border-color: var(--accent);
-}
-
-.kanban-card .kc-title {
-    font-size: 0.85rem;
-    font-weight: 600;
-    margin-bottom: 0.35rem;
-    line-height: 1.3;
-}
-
-.kanban-card .kc-meta {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    display: flex;
-    gap: 0.75rem;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.kanban-card .kc-meta .prio {
-    font-weight: 600;
-}
-
-.kanban-card .kc-body {
-    display: none;
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--border);
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    line-height: 1.5;
-    white-space: pre-wrap;
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.kanban-card.expanded .kc-body {
-    display: block;
-}
-
-.kanban-card .kc-comment {
-    margin-top: 0.5rem;
-    padding: 0.5rem;
-    background: var(--bg-card);
-    border-radius: 6px;
-    font-size: 0.75rem;
-}
-
-.kanban-card .kc-comment .comment-author {
-    color: var(--accent-hover);
-    font-weight: 600;
-    margin-bottom: 0.2rem;
 }
 
 /* ── Page header with back link ── */
@@ -2713,24 +2457,6 @@ footer {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 0.75rem;
     margin-bottom: 2rem;
-}
-
-.cc-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    transition: border-color 0.2s, transform 0.2s;
-    text-decoration: none;
-    color: var(--text);
-}
-
-.cc-card:hover {
-    border-color: var(--accent);
-    transform: translateY(-1px);
 }
 
 .cc-header {
@@ -2804,10 +2530,13 @@ footer {
 /* ── Section timestamp ── */
 .section-timestamp {
     font-size: 0.72rem;
-    color: var(--text-muted);
+    color: #9aa4b2;
     margin: -0.5rem 0 0.75rem;
     font-style: italic;
 }
+
+/* Long/preformatted output never forces the page to scroll horizontally. */
+pre { overflow-x: auto; }
 
 /* ── Card action link ── */
 .card-action {
@@ -3363,14 +3092,6 @@ footer {
         padding: 1.5rem 1rem;
     }
 
-    /* Kanban board */
-    .kanban-board {
-        grid-template-columns: 1fr;
-    }
-    .kanban-column {
-        padding: 0.75rem;
-    }
-
     /* Search bar */
     .search-bar {
         flex-direction: column;
@@ -3410,17 +3131,6 @@ footer {
         font-size: 1rem;
     }
 
-    /* Quick actions */
-    .quick-actions {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    .qa-card {
-        padding: 0.75rem 0.5rem;
-    }
-    .qa-icon { font-size: 1.3rem; }
-    .qa-label { font-size: 0.85rem; }
-    .qa-desc { font-size: 0.7rem; }
-
     /* Footer nav */
     .footer-nav { gap: 1rem; }
 
@@ -3447,16 +3157,6 @@ footer {
     }
     .sys-summary-grid {
         grid-template-columns: 1fr;
-    }
-
-    /* Compact command center — tighter chips on mobile */
-    .cc-compact {
-        gap: 0.35rem;
-        margin: 1rem 0;
-    }
-    .cc-chip {
-        font-size: 0.72rem;
-        padding: 0.25rem 0.55rem;
     }
 }
 
@@ -4984,22 +4684,6 @@ def html_page(title: str, body: str, active_nav: str = "home", extra_head: str =
         okBtn.onclick = doConfirm;
     }}
 
-    // Convenience: show confirmation then POST to a URL
-    function confirmAndPost(title, desc, url, body, successMessage) {{
-        showConfirmDialog({{
-            title: title,
-            description: desc,
-            icon: '⚠️',
-            requireConfirmText: true,
-            confirmText: 'CONFIRM',
-            onConfirm: function() {{
-                fetch(url, {{method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify(body || {{}})}})
-                    .then(function(r) {{ return r.ok ? r.text() : Promise.reject(r.status); }})
-                    .then(function(txt) {{ alert(successMessage || 'Done.'); }})
-                    .catch(function(e) {{ alert('Error: ' + e); }});
-            }}
-        }});
-    }}
 
     // ── Safe action: POST to proxy, show loading/result on card ──
     function safeAction(cardEl, label, endpoint) {{
