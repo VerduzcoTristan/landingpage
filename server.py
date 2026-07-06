@@ -1068,7 +1068,7 @@ nav .links a.hermes-btn:hover {
 }
 
 .container {
-    max-width: 960px;
+    max-width: 1100px;
     margin: 0 auto;
     padding: 2rem;
 }
