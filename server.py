@@ -16,30 +16,39 @@ from pathlib import Path
 
 from runbook_data import runbooks_page
 
-# ── Model Comparison DB helpers ──
-import importlib.util as _importlib_util
-_MODEL_DB_INIT_PATH = "/home/hermes/projects/model-price-comparison/init_db.py"
-_MODEL_DB_PATH = "/home/hermes/projects/model-price-comparison/models.db"
-_init_spec = _importlib_util.spec_from_file_location("init_db", _MODEL_DB_INIT_PATH)
-_init_db_mod = _importlib_util.module_from_spec(_init_spec)
-_init_spec.loader.exec_module(_init_db_mod)
-ensure_schema = _init_db_mod.ensure_schema
-list_models = _init_db_mod.list_models
-
-def _get_models_data():
-    """Return list of model dicts from the SQLite database."""
-    conn = ensure_schema(_MODEL_DB_PATH)
-    rows = list_models(conn)
-    conn.close()
-    return rows
-
-
 PORT = 3002
 BRIEFING_DIR = Path(os.path.expanduser("~/.hermes/cron/output/7dc1d641173d"))
 SITE_DIR = Path(__file__).parent
 
 # ── Model Comparison DB ──
+# The price-comparison DB lives in a separate repo that may be absent/moved.
+# fetch_models() is the SINGLE read path for both /models and /api/models and
+# never crashes the server on a missing DB — it returns an error string instead.
 MODELS_DB = os.path.expanduser("~/projects/model-price-comparison/models.db")
+
+
+def fetch_models() -> tuple[list[dict], str | None]:
+    """Return (rows, error). error is a message when the models DB is unavailable
+    so callers can render a friendly state instead of raising at import/route time."""
+    try:
+        conn = sqlite3.connect(MODELS_DB)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT model_id, name, provider, input_price_per_mtok, "
+            "output_price_per_mtok, context_window, best_use_case, "
+            "preferred_role, notes FROM models ORDER BY provider, name"
+        ).fetchall()
+        conn.close()
+    except Exception as e:
+        return [], f"Models DB unavailable: {e}"
+    return [{
+        "model_id": r["model_id"], "name": r["name"], "provider": r["provider"],
+        "input_price_per_mtok": r["input_price_per_mtok"],
+        "output_price_per_mtok": r["output_price_per_mtok"],
+        "context_window": r["context_window"],
+        "best_use_case": r["best_use_case"],
+        "preferred_role": r["preferred_role"], "notes": r["notes"] or "",
+    } for r in rows], None
 
 # ── Auth helpers (Cloudflare Access) ──
 def is_authenticated(handler) -> bool:
@@ -3421,16 +3430,17 @@ def cron_page() -> str:
     return html_page("Cron Jobs", body, active_nav="cron")
 
 
-def cron_job_detail_page(job_id: str) -> str:
-    """Render a detail page for a single cron job showing recent outputs."""
+def cron_job_detail_page(job_id: str) -> tuple[int, str]:
+    """Render a detail page for a single cron job showing recent outputs.
+    Returns (status_code, html) so the handler can 404 an unknown job id."""
     jobs = load_cron_jobs()
     job = next((j for j in jobs if j.get("id") == job_id), None)
 
     body = '<div class="page-back"><a href="/cron">← Back to all cron jobs</a></div>'
 
     if not job:
-        body += f'<div class="empty-state" style="margin-top:2rem"><p>Cron job {job_id} not found.</p></div>'
-        return html_page(f"Cron — {job_id}", body, active_nav="cron")
+        body += f'<div class="empty-state" style="margin-top:2rem"><p>Cron job {html.escape(job_id)} not found.</p></div>'
+        return 404, html_page(f"Cron — {job_id}", body, active_nav="cron")
 
     name = job.get("name", job_id)
     schedule = _format_schedule(job)
@@ -3474,7 +3484,7 @@ def cron_job_detail_page(job_id: str) -> str:
             body += '</a>'
         body += '</div>'
 
-    return html_page(f"Cron — {name}", body, active_nav="cron")
+    return 200, html_page(f"Cron — {name}", body, active_nav="cron")
 
 
 def cron_output_preview_page(job_id: str, filename: str) -> str:
@@ -4476,7 +4486,6 @@ def hermes_page() -> str:
         ("Server Logs", "link", "/logs", "View systemd journal"),
         ("Router Logs", "link", "/logs/router", "View LLM router logs"),
         ("Docker Status", "link", "/status", "Containers + disk"),
-        ("Ollama Models", "external", "http://localhost:11434", "Local Ollama UI"),
     ]
     for label, kind, endpoint, hint in sc_cards:
         if kind == "safe":
@@ -7768,58 +7777,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
             content = runbooks_page().encode()
             self._respond(200, "text/html", content)
         elif path == "/api/models":
-            import sqlite3 as _sql2
-            _conn = _sql2.connect(MODELS_DB)
-            _conn.row_factory = _sql2.Row
-            _rows = _conn.execute(
-                "SELECT model_id, name, provider, input_price_per_mtok, "
-                "output_price_per_mtok, context_window, best_use_case, "
-                "preferred_role, notes FROM models ORDER BY provider, name"
-            ).fetchall()
-            _conn.close()
-            _data = [{
-                "model_id": r["model_id"], "name": r["name"], "provider": r["provider"],
-                "input_price_per_mtok": r["input_price_per_mtok"],
-                "output_price_per_mtok": r["output_price_per_mtok"],
-                "context_window": r["context_window"],
-                "best_use_case": r["best_use_case"],
-                "preferred_role": r["preferred_role"], "notes": r["notes"] or "",
-            } for r in _rows]
-            self._respond(200, "application/json", json.dumps(_data).encode())
+            _data, _err = fetch_models()
+            if _err:
+                self._respond(503, "application/json", json.dumps({"error": _err, "models": []}).encode())
+            else:
+                self._respond(200, "application/json", json.dumps(_data).encode())
         elif path == "/models":
             if not is_authenticated(self):
                 self._respond(403, "text/html", _UNAUTH_PAGE.encode())
                 return
-            try:
-                import sqlite3 as _sql
-                conn = _sql.connect(MODELS_DB)
-                conn.row_factory = _sql.Row
-                rows = conn.execute(
-                    "SELECT model_id, name, provider, input_price_per_mtok, "
-                    "output_price_per_mtok, context_window, best_use_case, "
-                    "preferred_role, notes FROM models ORDER BY provider, name"
-                ).fetchall()
-                conn.close()
-                models_data = []
-                for r in rows:
-                    models_data.append({
-                        "model_id": r["model_id"],
-                        "name": r["name"],
-                        "provider": r["provider"],
-                        "input_price_per_mtok": r["input_price_per_mtok"],
-                        "output_price_per_mtok": r["output_price_per_mtok"],
-                        "context_window": r["context_window"],
-                        "best_use_case": r["best_use_case"],
-                        "preferred_role": r["preferred_role"],
-                        "notes": r["notes"] or "",
-                    })
+            models_data, err = fetch_models()
+            if err:
+                body = ('<div class="hero" style="padding:2rem 0 1rem"><h1>Models</h1></div>'
+                        '<div class="empty-state" style="margin-top:2rem"><p>📦 Model comparison is '
+                        'temporarily unavailable.<br><small>' + html.escape(err) + '</small></p></div>')
+                self._respond(200, "text/html", html_page("Models", body, active_nav="models").encode())
+            else:
                 models_json = json.dumps(models_data)
                 html_template = (SITE_DIR / "model_comparison.html").read_text()
                 content = html_template.replace("__MODELS_JSON__", models_json).encode()
                 self._respond(200, "text/html", content)
-            except Exception as e:
-                self._respond(500, "text/html",
-                    f"<h1>500</h1><p>Error loading models: {html.escape(str(e))}</p>".encode())
         elif path == "/model-tuning":
             if not is_authenticated(self):
                 self._respond(403, "text/html", _UNAUTH_PAGE.encode())
@@ -7850,8 +7827,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             # parts: ["", "cron", "job_id"] or ["", "cron", "job_id", "filename"]
             if len(parts) == 3:
                 job_id = parts[2]
-                content = cron_job_detail_page(job_id).encode()
-                self._respond(200, "text/html", content)
+                status_code, page = cron_job_detail_page(job_id)
+                self._respond(status_code, "text/html", page.encode())
             elif len(parts) >= 4:
                 job_id = parts[2]
                 filename = "/".join(parts[3:])
@@ -7870,6 +7847,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._respond(200, "application/json", json.dumps(_gguf_health()).encode())
         elif path == "/api/notes" or path.startswith("/api/notes/"):
             self._proxy_notes(self.command)
+            return
+        elif path == "/api/inbox" or path.startswith("/api/inbox/"):
+            self._proxy_inbox()
             return
         elif path == "/notes":
             content = notes_page().encode()
@@ -8329,6 +8309,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif path == "/api/notes" or path.startswith("/api/notes/"):
             self._proxy_notes(self.command, body=raw.encode() if raw else None)
             return
+        elif path == "/api/inbox" or path.startswith("/api/inbox/"):
+            self._proxy_inbox(body=raw.encode() if raw else None)
+            return
         elif path.startswith("/api/proxy/commands/"):
             # Proxy to commands API on port 8092 with API key auth
             action = path[len("/api/proxy/commands/"):]
@@ -8342,7 +8325,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 req_data = raw.encode() if raw else b"{}"
                 req = _ur.Request(commands_url, data=req_data, method="POST")
                 req.add_header("Content-Type", "application/json")
-                req.add_header("X-API-Key", "hermes-commands-api-key-change-me")
+                _commands_key = _load_env_var("COMMANDS_API_KEY") or "hermes-commands-api-key-change-me"
+                req.add_header("X-API-Key", _commands_key)
                 resp = _ur.urlopen(req, timeout=65)
                 proxied_body = resp.read()
                 self._respond(resp.status, "application/json", proxied_body)
@@ -8397,6 +8381,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._proxy_api()
         elif path.startswith("/api/status"):
             self._proxy_api()
+        elif path.startswith("/api/inbox"):
+            self._proxy_inbox()
         else:
             self.send_response(405); self.end_headers()
 
@@ -8423,6 +8409,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Headers", "Content-Type")
             self.send_header("Access-Control-Max-Age", "86400")
             self.end_headers()
+        elif self.path.startswith("/api/inbox"):
+            self.send_response(200)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, X-API-Key")
+            self.send_header("Access-Control-Max-Age", "86400")
+            self.end_headers()
         else:
             self.send_response(405); self.end_headers()
 
@@ -8439,8 +8432,59 @@ class Handler(http.server.BaseHTTPRequestHandler):
         path = self.path.rstrip("/") or "/"
         if path.startswith("/api/notes/"):
             self._proxy_notes("DELETE")
+        elif path.startswith("/api/inbox"):
+            self._proxy_inbox()
         else:
             self.send_response(405); self.end_headers()
+
+    def _proxy_inbox(self, body: bytes = None):
+        """Proxy /api/inbox/* to the Agent Inbox API on 127.0.0.1:8000.
+
+        Strips ONLY the /api/inbox prefix and forwards the remainder (path + query),
+        method, body and status verbatim. Adds no auth header — the inbox guide
+        specifies none — but relays the client's Content-Type / X-API-Key if present.
+        `body` is passed in by do_POST (which already consumed the request body);
+        for other methods it is read here.
+        """
+        import urllib.request as _ur
+        from urllib.error import HTTPError
+        # /api/inbox            -> /            on the API
+        # /api/inbox/api/v1/... -> /api/v1/...  on the API (query preserved)
+        rest = self.path[len("/api/inbox"):] or "/"
+        url = "http://127.0.0.1:8000" + rest
+
+        if body is None:
+            length = int(self.headers.get("Content-Length", 0))
+            if length > 0:
+                body = self.rfile.read(length)
+
+        req = _ur.Request(url, data=body, method=self.command)
+        for h in ("Content-Type", "X-API-Key"):
+            v = self.headers.get(h)
+            if v:
+                req.add_header(h, v)
+
+        try:
+            with _ur.urlopen(req, timeout=15) as resp:
+                resp_body = resp.read()
+                self.send_response(resp.status)
+                for k, v in resp.getheaders():
+                    if k.lower() not in ("transfer-encoding", "connection"):
+                        self.send_header(k, v)
+                self.send_header("Content-Length", str(len(resp_body)))
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(resp_body)
+        except HTTPError as e:
+            err_body = e.read()
+            self.send_response(e.code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(err_body)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(err_body)
+        except Exception as e:
+            self._respond(502, "application/json", json.dumps({"error": f"Inbox API unreachable: {e}"}).encode())
 
     def _proxy_notes(self, method: str, body: bytes = None):
         """Proxy /api/notes/* requests to the Notes API on port 8081 with auth."""
@@ -8451,7 +8495,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         api_path = "/notes" + self.path[len("/api/notes"):]  # strip prefix, keep rest + id
         url = f"http://127.0.0.1:8081{api_path}"
         req = _ur.Request(url, method=method)
-        req.add_header("Authorization", "Bearer notes-secret-token")
+        _notes_token = _load_env_var("NOTES_API_TOKEN") or "notes-secret-token"
+        req.add_header("Authorization", "Bearer " + _notes_token)
 
         # Forward body for POST/PATCH
         if method in ("POST", "PATCH") and body:
