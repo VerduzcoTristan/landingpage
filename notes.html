@@ -489,35 +489,7 @@ document.addEventListener('keydown', function(e) {
 // ── Init ──
 document.addEventListener('DOMContentLoaded', loadNotes);
 </script>
-<script>
-(function() {
-  function setupNavDropdowns() {
-    var dropdowns = Array.prototype.slice.call(document.querySelectorAll('details.nav-dropdown'));
-    dropdowns.forEach(function(dropdown) {
-      dropdown.addEventListener('toggle', function() {
-        if (dropdown.open) {
-          dropdowns.forEach(function(other) { if (other !== dropdown) other.open = false; });
-        }
-      });
-    });
-    document.addEventListener('click', function(e) {
-      if (!e.target.closest('details.nav-dropdown')) {
-        dropdowns.forEach(function(dropdown) { dropdown.open = false; });
-      }
-    });
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') {
-        dropdowns.forEach(function(dropdown) { dropdown.open = false; });
-      }
-    });
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setupNavDropdowns);
-  } else {
-    setupNavDropdowns();
-  }
-})();
-</script>
+<script>__SITE_NAV_JS__</script>
 
 </body>
 </html>
