@@ -8615,6 +8615,6 @@ if __name__ == "__main__":
                 pass
             http.server.HTTPServer.server_bind(self)
 
-    server = ReuseHTTPServer(("127.0.0.1", port), Handler)
+    server = ReuseHTTPServer((os.environ.get("BIND_HOST", "127.0.0.1"), port), Handler)
     print(f"devmclovin landing page → http://127.0.0.1:{port}")
     server.serve_forever()
