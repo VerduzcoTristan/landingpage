@@ -7703,10 +7703,20 @@ def _llm_lab_hf_pull_stream(handler, payload: dict) -> None:
 
 
 def llm_lab_page() -> str:
-    lab_html = SITE_DIR / "llm_lab.html"
-    if lab_html.exists():
-        return inject_nav(lab_html.read_text(), "llm-lab")
-    return "<html><body><h1>LLM Lab page not found</h1></body></html>"
+    """Placeholder for the LLM Lab. The real Lab is moving to its own Docker
+    container on this host, fronted by Caddy (Caddy will route /llm-lab straight
+    to the container). Until that container is live this renders a 'coming soon'
+    notice in the shared shell. The old llm_lab.html and /api/llm-lab/* handlers
+    stay in the repo unused — swapping the Lab back in is a one-function change."""
+    body = (
+        '<div class="hero" style="padding:2rem 0 1rem"><h1>🧪 LLM Lab</h1></div>'
+        '<div class="empty-state" style="margin-top:1rem">'
+        '<p style="font-size:1.05rem;color:var(--text)">🚧 The LLM Lab is moving to its own service.</p>'
+        '<p style="margin-top:0.6rem">It will run in a separate Docker container on this machine, '
+        'routed here by Caddy. Check back soon.</p>'
+        '</div>'
+    )
+    return html_page("LLM Lab", body, active_nav="llm-lab")
 
 def model_tuning_page() -> str:
     tuning_html = SITE_DIR / "model_tuning.html"
