@@ -85,13 +85,13 @@ __SITE_NAV__
         <span class="badge phase-build"><span class="dot"></span>build</span>
       </header>
       <p class="goal">Portfolio dashboard live at devmclovin.com/portfolio behind Cloudflare Access, updated by one command from the desktop</p>
-      <div class="next"><span class="next-label">Next action</span>Run Prompt C (deploy) from docs/portfolio-deploy-prompts.md in a fresh Codex conversation, then the phone check, then Prompt D</div>
+      <div class="next"><span class="next-label">Next action</span>Manual milestone gate — phone check of devmclovin.com/portfolio behind Access (per docs/portfolio-deploy-prompts.md), then tick the last ledger checkbox in docs/deploy-facts.md</div>
       
-      <div class="milestone"><span class="m-label">Milestone</span>M1 â€” /portfolio route serves the dashboard; verified from phone behind Access login</div>
+      <div class="milestone"><span class="m-label">Milestone</span>M1 — /portfolio route serves the dashboard; verified from phone behind Access login</div>
       <footer>
         <span class="stale good"><span class="s-icon good">●</span>updated -1d ago</span>
         <div class="meta">Parked: 6 items</div>
-        <div class="lastlog">2026-07-11 — Prompts A+B done. A: server tree reconciled (c801a91), systemd unit gone, cloudflaredâ†’caddy:80â†’landing-page. B: /portfolio route+nav+gate written by Codex, stopped on cp1252/`â†’` banner crash â€” verified locally in planning session with PYTHONUTF8=1 (200, no placeholders). Stop rules loosened per feedback: agents resolve local obstacles themselves; STOP reserved for production-safety lines.</div>
+        <div class="lastlog">2026-07-11 — Prompts C+D done. C: /portfolio deployed (a32b603), container rebuilt, in-container 200/200. D: publish-dashboard.bat created in Skills and tested end to end (real commit d6886e9 + rebuild, then clean no-op run). Codex&#x27;s STATE.md edit corrupted the file&#x27;s encoding (cp1252 mojibake), which leaked into the live dashboard — fixed and republished by Claude review session. Remaining: phone gate.</div>
       </footer>
     </article>
 
