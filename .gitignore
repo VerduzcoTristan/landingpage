@@ -16,6 +16,7 @@ htmlcov/
 .env.*
 tunnel-config.yml
 docs/deploy-facts.md
+docs/server-remediation-*.md
 
 # Generated backups/snapshots from iterative server edits
 *.bak
