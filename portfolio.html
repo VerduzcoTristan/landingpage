@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portfolio — 2026-07-10</title>
+<style>
+__SITE_NAV_CSS__
+  :root {
+    --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e;
+    --muted: #898781; --hairline: #e1e0d9; --ring: rgba(11,11,11,0.10);
+    --good: #0ca30c; --warning: #fab219; --critical: #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7;
+      --muted: #898781; --hairline: #2c2c2a; --ring: rgba(255,255,255,0.10);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--page); color: var(--ink);
+        font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+        max-width: 980px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 22px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 2px 0 24px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+           gap: 12px; margin-bottom: 28px; }
+  .tile { background: var(--surface); border: 1px solid var(--ring); border-radius: 10px;
+          padding: 14px 16px; }
+  .tile .v { font-size: 30px; font-weight: 650; }
+  .tile .k { color: var(--ink-2); font-size: 12.5px; }
+  .tile .note { font-size: 12px; margin-top: 2px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px;
+          padding: 18px 18px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .card header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .card h2 { font-size: 17px; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+           color: var(--ink-2); border: 1px solid var(--hairline); border-radius: 999px;
+           padding: 2px 10px; text-transform: capitalize; white-space: nowrap; }
+  .badge .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .phase-proposal .dot { background: #4a3aa7; }
+@media (prefers-color-scheme: dark) { .phase-proposal .dot { background: #9085e9; } }
+.phase-planning .dot { background: #eda100; }
+@media (prefers-color-scheme: dark) { .phase-planning .dot { background: #c98500; } }
+.phase-build .dot { background: #2a78d6; }
+@media (prefers-color-scheme: dark) { .phase-build .dot { background: #3987e5; } }
+.phase-ship .dot { background: #1baf7a; }
+@media (prefers-color-scheme: dark) { .phase-ship .dot { background: #199e70; } }
+.phase-maintain .dot { background: #008300; }
+@media (prefers-color-scheme: dark) { .phase-maintain .dot { background: #008300; } }
+  .goal { color: var(--ink-2); font-size: 13.5px; }
+  .next { border: 1px solid var(--hairline); border-left: 3px solid var(--ink);
+          border-radius: 6px; padding: 8px 12px; font-size: 14px; }
+  .next-label, .m-label { display: block; font-size: 11px; text-transform: uppercase;
+          letter-spacing: 0.06em; color: var(--muted); margin-bottom: 2px; }
+  .milestone { font-size: 13px; color: var(--ink-2); }
+  .blocked { font-size: 13px; display: flex; gap: 6px; align-items: baseline; }
+  .s-icon { font-size: 11px; }
+  .s-icon.good { color: var(--good); } .s-icon.warning { color: var(--warning); }
+  .s-icon.critical { color: var(--critical); }
+  .card footer { margin-top: auto; border-top: 1px solid var(--hairline); padding-top: 10px;
+                 font-size: 12.5px; color: var(--ink-2); display: flex; flex-direction: column; gap: 3px; }
+  .stale { display: inline-flex; gap: 6px; align-items: baseline; }
+  .meta { color: var(--muted); }
+  .lastlog { color: var(--muted); font-variant-numeric: tabular-nums;
+             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .empty { color: var(--muted); }
+  .foot { margin-top: 32px; color: var(--muted); font-size: 12px; }
+  code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+</style></head><body>
+__SITE_NAV__
+  <h1>Portfolio</h1>
+  <p class="sub">Generated 2026-07-10 from STATE.md files under <code>Code/Active/</code></p>
+  <div class="stats">
+    <div class="tile"><div class="v">3</div><div class="k">active projects</div>
+      <div class="note"><span class="s-icon critical">■</span> over the 2-slot limit</div></div>
+    <div class="tile"><div class="v">1</div><div class="k">blocked</div></div>
+    <div class="tile"><div class="v">0d</div><div class="k">stalest project</div>
+      <div class="note"><span class="s-icon good">●</span>
+      all fresh</div></div>
+  </div>
+  <div class="cards">
+    <article class="card">
+      <header>
+        <h2>landingpage</h2>
+        <span class="badge phase-build"><span class="dot"></span>build</span>
+      </header>
+      <p class="goal">Portfolio dashboard live at devmclovin.com/portfolio behind Cloudflare Access, updated by one command from the desktop</p>
+      <div class="next"><span class="next-label">Next action</span>Run Prompt 1b from docs/portfolio-deploy-prompts.md (capture the server&#x27;s dirty diff + finish skipped checks), then paste the diff back here to reconcile; also still owed: manual Cloudflare Access path-scope check (FACTS item 9)</div>
+      <div class="blocked"><span class="s-icon critical">■</span>Blocked on: server repo has uncommitted on-box edits (briefing_archive.py, compose.yml) — no deploy until reconciled</div>
+      <div class="milestone"><span class="m-label">Milestone</span>M1 — /portfolio route serves the dashboard; verified from phone behind Access login</div>
+      <footer>
+        <span class="stale good"><span class="s-icon good">●</span>updated today</span>
+        <div class="meta">Parked: 5 items</div>
+        <div class="lastlog">2026-07-10 — Prompt 1 ran — verdict BAKED; stopped on dirty server tree (briefing_archive.py, compose.yml modified on-box; likely the live bind-mount config that never got committed). Desktop synced to 4df0883 (containerize commit was on GitHub). Discovered container has NO published host port (expose 3002 on proxy_net) — wrote Prompt 1b and fixed Prompt 4&#x27;s curl steps to use docker exec.</div>
+      </footer>
+    </article>
+
+    <article class="card">
+      <header>
+        <h2>LLM-Router</h2>
+        <span class="badge phase-build"><span class="dot"></span>build</span>
+      </header>
+      <p class="goal">Local/remote routing with PII redaction and tool-call pass-through, running on the home server and used daily</p>
+      <div class="next"><span class="next-label">Next action</span>Open test-suites/pii-redaction/README.md, implement the ~50-line Python harness it specifies, run it against the router&#x27;s redaction module</div>
+      
+      <div class="milestone"><span class="m-label">Milestone</span>PII harness passing — implement the harness from test-suites/pii-redaction/README.md and log a score table</div>
+      <footer>
+        <span class="stale good"><span class="s-icon good">●</span>updated today</span>
+        <div class="meta">Parked: 2 items</div>
+        <div class="lastlog">2026-07-10 — STATE.md created from operating manual; flagship per TRIAGE-2026-07-10.</div>
+      </footer>
+    </article>
+
+    <article class="card">
+      <header>
+        <h2>Skills</h2>
+        <span class="badge phase-maintain"><span class="dot"></span>maintain</span>
+      </header>
+      <p class="goal">Leverage library that lets cheap models execute reliably; frontier backlog fired in priority order</p>
+      <div class="next"><span class="next-label">Next action</span>Run the archive-mechanics handoff prompt from TRIAGE-2026-07-10.md with a cheap model</div>
+      
+      <div class="milestone"><span class="m-label">Milestone</span>Triage executed — archive mechanics done, hermes-router merged, Active/ down to ≤6 folders</div>
+      <footer>
+        <span class="stale good"><span class="s-icon good">●</span>updated today</span>
+        <div class="meta">Parked: 2 items</div>
+        <div class="lastlog">2026-07-10 — Triage doc + project operating manual + dashboard created.</div>
+      </footer>
+    </article></div>
+  <p class="foot">Regenerate: <code>python Skills/dashboard.py</code> &middot; card order follows the lifecycle
+  (proposal &rarr; planning &rarr; build &rarr; ship &rarr; maintain) &middot; staleness: &#9679; &le;7d,
+  &#9650; 8&ndash;14d, &#9632; &gt;14d since last logged session</p>
+<script>__SITE_NAV_JS__</script>
+</body></html>
