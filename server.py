@@ -852,6 +852,7 @@ def render_nav(active: str = "home") -> str:
         ("/", "Home", "home"),
         ("/briefings", "Briefings", "briefings"),
         ("/projects", "Projects", "projects"),
+        ("/portfolio", "Portfolio", "portfolio"),
         ("/status", "Status", "status"),
         ("/hermes", "Hermes", "hermes"),
     ]
@@ -5842,6 +5843,14 @@ def status_page() -> str:
     return "<html><body><h1>Status Board Not Found</h1></body></html>"
 
 
+def portfolio_page() -> str:
+    """Serve the standalone portfolio.html page (with shared nav injected)."""
+    portfolio_html = SITE_DIR / "portfolio.html"
+    if portfolio_html.exists():
+        return inject_nav(portfolio_html.read_text(), "portfolio")
+    return "<html><body><h1>Portfolio Not Found</h1></body></html>"
+
+
 
 def bookmarks_page() -> str:
     bookmarks = _load_bookmarks()
@@ -7900,6 +7909,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
         elif path == "/status":
             content = status_page().encode()
+            self._respond(200, "text/html", content)
+        elif path == "/portfolio":
+            if not is_authenticated(self):
+                self._respond(403, "text/html", _UNAUTH_PAGE.encode())
+                return
+            content = portfolio_page().encode()
             self._respond(200, "text/html", content)
         elif path.startswith("/api/service/"):
             self._proxy_api()

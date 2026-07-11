@@ -2,10 +2,11 @@
 **Phase:** build
 **Goal:** Portfolio dashboard live at devmclovin.com/portfolio behind Cloudflare Access, updated by one command from the desktop
 **Current milestone:** M1 — /portfolio route serves the dashboard; verified from phone behind Access login
-**Next action:** Run Prompt A from docs/portfolio-deploy-prompts.md (v2) in a fresh Codex conversation — then B, C, D in order; each is copy-paste ready, state persists in docs/deploy-facts.md (gitignored)
-**Blocked on:** nothing — Prompt A handles the server-tree reconciliation itself
+**Next action:** Run Prompt C (deploy) from docs/portfolio-deploy-prompts.md in a fresh Codex conversation, then the phone check, then Prompt D
+**Blocked on:** nothing
 
 ## Log (newest first, one line per session)
+- 2026-07-11: Prompts A+B done. A: server tree reconciled (c801a91), systemd unit gone, cloudflared→caddy:80→landing-page. B: /portfolio route+nav+gate written by Codex, stopped on cp1252/`→` banner crash — verified locally in planning session with PYTHONUTF8=1 (200, no placeholders). Stop rules loosened per feedback: agents resolve local obstacles themselves; STOP reserved for production-safety lines.
 - 2026-07-10: Prompt sequence rewritten as v2 — 4 self-contained prompts (A reconcile, B route, C deploy, D publish.bat), zero fill-ins/pasting; persistent memory file docs/deploy-facts.md seeded with all verified facts (ssh alias `server`, BAKED, no host port, auth pattern). Auth question resolved without dashboard check: is_authenticated() just validates the Access header, so /portfolio gets the gate unconditionally.
 - 2026-07-10: Prompt 4 attempted out of order — correctly stopped at step 1. Confirmed: Prompt 2 done (portfolio.html has all 3 placeholders once each), Prompt 3 NOT done (server.py has no /portfolio route), Prompt 1b diff still not captured. .claude/ scare was a false alarm (globally gitignored on desktop, Codex env lacks that config). Prompt 4 step 1 rewritten with an explicit file allowlist + "server.py must be modified" gate.
 - 2026-07-10: Prompt 1 ran — verdict BAKED; stopped on dirty server tree (briefing_archive.py, compose.yml modified on-box; likely the live bind-mount config that never got committed). Desktop synced to 4df0883 (containerize commit was on GitHub). Discovered container has NO published host port (expose 3002 on proxy_net) — wrote Prompt 1b and fixed Prompt 4's curl steps to use docker exec.

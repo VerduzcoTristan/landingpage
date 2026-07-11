@@ -2,13 +2,17 @@
 
 **Goal:** Portfolio dashboard live at `devmclovin.com/portfolio` behind Cloudflare Access, updated by one command from the desktop.
 
-**How to run:** Four prompts, A → B → C → D, each pasted **verbatim** into a **fresh Codex conversation** in the stated working directory. Nothing to fill in, nothing to paste between prompts. Persistent state lives in the project memory file `C:\Users\Admin\Desktop\Code\Active\landingpage\docs\deploy-facts.md` — every prompt reads it first and writes its results back before finishing, so each fresh conversation self-orients. If a prompt reports a STOP, don't run the next one; bring the report back to the planning session.
+**How to run:** Prompts pasted **verbatim** into a **fresh Codex conversation** in the stated working directory. Nothing to fill in, nothing to paste between prompts. Persistent state lives in the project memory file `C:\Users\Admin\Desktop\Code\Active\landingpage\docs\deploy-facts.md` — every prompt reads it first and writes its results back before finishing, so each fresh conversation self-orients.
 
-Already done (recorded in the memory file): server verification (verdict **BAKED**, no published host port), desktop repo synced to `4df0883`, `portfolio.html` generated with its three nav placeholders.
+**Obstacle policy (applies to every prompt):** local/desktop obstacles — environment quirks, encoding errors, ports in use, tool differences, files in an unexpected-but-explainable state — are yours to diagnose and resolve; do so, keep going, and record what you found and did in the memory file. Reserve STOP for the short list each prompt names: those are production-safety lines (touching the server outside the allowed commands, weakening auth, resolving git conflicts on the production box), not puzzles to route around. When you resolve an obstacle, prefer changing your *procedure* (env vars, different invocation, different check) over changing project code beyond the task's scope.
+
+Already done (recorded in the memory file): server verification (**BAKED**, no published host port, cloudflared → `http://caddy:80` → landing-page), server tree reconciled at `c801a91` (Prompt A ✅), `/portfolio` route implemented and locally verified (Prompt B ✅ — pending diff in server.py, uncommitted). **Next up: Prompt C.**
 
 ---
 
-## Prompt A — Reconcile server tree + finish verification
+## Prompt A — Reconcile server tree + finish verification ✅ DONE 2026-07-11
+
+Completed — server reconciled at `c801a91`, systemd unit gone, cloudflared → caddy → landing-page, in-container HTTP 200/404. Kept for reference; do not re-run.
 
 Fresh Codex conversation, working directory `C:\Users\Admin\Desktop\Code\Active\landingpage`. Needs shell + SSH.
 
@@ -35,7 +39,9 @@ Hard rules: never edit files on the server; never print environment values, toke
 
 ---
 
-## Prompt B — /portfolio route in server.py
+## Prompt B — /portfolio route in server.py ✅ DONE 2026-07-11
+
+Completed — route + nav + auth gate implemented and locally verified (`/portfolio` 200, no literal placeholders; the earlier "could not run" was just the cp1252 console vs the `→` banner, fixed with `PYTHONUTF8=1`). The diff sits uncommitted in server.py; Prompt C commits it. Kept for reference; do not re-run.
 
 Fresh Codex conversation, working directory `C:\Users\Admin\Desktop\Code\Active\landingpage`. No server contact.
 
@@ -69,9 +75,9 @@ Working directory: C:\Users\Admin\Desktop\Code\Active\landingpage (Windows deskt
 
 Task: deploy the /portfolio page. Steps in order, stopping at any failure.
 
-1. Desktop preflight: `git status --short` must show exactly — modified: server.py; untracked: portfolio.html, STATE.md, docs/portfolio-deploy-prompts.md. Nothing else (docs/deploy-facts.md is gitignored — NEVER commit it; a .claude/ entry, if your environment shows one, is ignored on this machine — leave it, never add it). Verify server.py contains a /portfolio route with the is_authenticated gate, and portfolio.html contains each of __SITE_NAV_CSS__, __SITE_NAV__, __SITE_NAV_JS__ exactly once. STOP on any mismatch.
-2. Server preflight: ssh server 'git -C /srv/apps/landing-page/repo status --short' must be CLEAN — if not, STOP (Prompt A's reconciliation regressed). Record ROLLBACK-COMMIT: ssh server 'git -C /srv/apps/landing-page/repo log --oneline -1'.
-3. Desktop: `git add server.py portfolio.html STATE.md docs/portfolio-deploy-prompts.md` (exactly these), commit with message "feat: /portfolio dashboard page (template + route)", push.
+1. Desktop preflight: `git status --short` — expected: modified server.py and .gitignore; untracked portfolio.html, STATE.md, docs/portfolio-deploy-prompts.md. Deviations are yours to handle, not stop on: extra untracked files (including .claude/) are simply left out of the commit and noted in the memory file; extra modified tracked files are likewise left uncommitted and noted. docs/deploy-facts.md is gitignored — never commit it. Sanity checks: server.py's diff is the /portfolio route + nav entry + is_authenticated gate described in the memory file (Prompt B results) and nothing more; portfolio.html contains each of __SITE_NAV_CSS__, __SITE_NAV__, __SITE_NAV_JS__ exactly once. If a sanity check fails, diagnose and fix it locally using the memory file before proceeding — the one hard rule is that the auth gate ships with the route.
+2. Server preflight: ssh server 'git -C /srv/apps/landing-page/repo status --short'. Untracked noise there is ignorable (note it); MODIFIED tracked files mean someone edited the box again since reconciliation — that is a real STOP (never fix production files in place). Record ROLLBACK-COMMIT: ssh server 'git -C /srv/apps/landing-page/repo log --oneline -1' (expect c801a91).
+3. Desktop: `git add server.py .gitignore portfolio.html STATE.md docs/portfolio-deploy-prompts.md` (exactly these), commit with message "feat: /portfolio dashboard page (template + route)", push.
 4. Server deploy (the DEPLOY-COMMAND from the memory file): ssh server 'cd /srv/apps/landing-page/repo && git pull --ff-only && docker compose up -d --build landing-page'. STOP on merge conflict or non-fast-forward — never resolve conflicts on the production box.
 5. Verify: ssh server 'docker ps' shows landing-page Up; ssh server 'docker logs landing-page --tail 30' shows a clean start; confirm the image was actually rebuilt from fresh code — ssh server 'docker inspect --format {{.Created}} repo-landing-page' must be from the last few minutes (a cached stale image looks exactly like "deploy did nothing"). Then HTTP from inside the container (docker exec pattern from the memory file): '/portfolio' → expect 200 (the localhost bypass applies inside the container — 200 here does NOT mean the page is public) and '/' → 200.
 6. On container failure or crash-loop: ssh server 'docker logs landing-page --tail 50', report the error, then roll back — ssh server 'git -C /srv/apps/landing-page/repo reset --hard <ROLLBACK-COMMIT>' followed by the same compose up -d --build command, confirm Up — then STOP. Never debug on the server.
