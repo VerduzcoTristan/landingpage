@@ -73,7 +73,7 @@ __SITE_NAV__
   <div class="stats">
     <div class="tile"><div class="v">3</div><div class="k">active projects</div>
       <div class="note"><span class="s-icon critical">■</span> over the 2-slot limit</div></div>
-    <div class="tile"><div class="v">1</div><div class="k">blocked</div></div>
+    <div class="tile"><div class="v">0</div><div class="k">blocked</div></div>
     <div class="tile"><div class="v">0d</div><div class="k">stalest project</div>
       <div class="note"><span class="s-icon good">●</span>
       all fresh</div></div>
@@ -85,13 +85,13 @@ __SITE_NAV__
         <span class="badge phase-build"><span class="dot"></span>build</span>
       </header>
       <p class="goal">Portfolio dashboard live at devmclovin.com/portfolio behind Cloudflare Access, updated by one command from the desktop</p>
-      <div class="next"><span class="next-label">Next action</span>Run Prompt 1b from docs/portfolio-deploy-prompts.md (capture the server&#x27;s dirty diff + finish skipped checks), then paste the diff back here to reconcile; also still owed: manual Cloudflare Access path-scope check (FACTS item 9)</div>
-      <div class="blocked"><span class="s-icon critical">■</span>Blocked on: server repo has uncommitted on-box edits (briefing_archive.py, compose.yml) — no deploy until reconciled</div>
-      <div class="milestone"><span class="m-label">Milestone</span>M1 — /portfolio route serves the dashboard; verified from phone behind Access login</div>
+      <div class="next"><span class="next-label">Next action</span>Run Prompt C (deploy) from docs/portfolio-deploy-prompts.md in a fresh Codex conversation, then the phone check, then Prompt D</div>
+      
+      <div class="milestone"><span class="m-label">Milestone</span>M1 â€” /portfolio route serves the dashboard; verified from phone behind Access login</div>
       <footer>
-        <span class="stale good"><span class="s-icon good">●</span>updated today</span>
-        <div class="meta">Parked: 5 items</div>
-        <div class="lastlog">2026-07-10 — Prompt 1 ran — verdict BAKED; stopped on dirty server tree (briefing_archive.py, compose.yml modified on-box; likely the live bind-mount config that never got committed). Desktop synced to 4df0883 (containerize commit was on GitHub). Discovered container has NO published host port (expose 3002 on proxy_net) — wrote Prompt 1b and fixed Prompt 4&#x27;s curl steps to use docker exec.</div>
+        <span class="stale good"><span class="s-icon good">●</span>updated -1d ago</span>
+        <div class="meta">Parked: 6 items</div>
+        <div class="lastlog">2026-07-11 — Prompts A+B done. A: server tree reconciled (c801a91), systemd unit gone, cloudflaredâ†’caddy:80â†’landing-page. B: /portfolio route+nav+gate written by Codex, stopped on cp1252/`â†’` banner crash â€” verified locally in planning session with PYTHONUTF8=1 (200, no placeholders). Stop rules loosened per feedback: agents resolve local obstacles themselves; STOP reserved for production-safety lines.</div>
       </footer>
     </article>
 
