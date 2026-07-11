@@ -2,10 +2,11 @@
 **Phase:** build
 **Goal:** Portfolio dashboard live at devmclovin.com/portfolio behind Cloudflare Access, updated by one command from the desktop
 **Current milestone:** M1 — /portfolio route serves the dashboard; verified from phone behind Access login
-**Next action:** Run Prompt C (deploy) from docs/portfolio-deploy-prompts.md in a fresh Codex conversation, then the phone check, then Prompt D
+**Next action:** Manual milestone gate — phone check of devmclovin.com/portfolio behind Access (per docs/portfolio-deploy-prompts.md), then tick the last ledger checkbox in docs/deploy-facts.md
 **Blocked on:** nothing
 
 ## Log (newest first, one line per session)
+- 2026-07-11: Prompts C+D done. C: /portfolio deployed (a32b603), container rebuilt, in-container 200/200. D: publish-dashboard.bat created in Skills and tested end to end (real commit d6886e9 + rebuild, then clean no-op run). Codex's STATE.md edit corrupted the file's encoding (cp1252 mojibake), which leaked into the live dashboard — fixed and republished by Claude review session. Remaining: phone gate.
 - 2026-07-11: Prompts A+B done. A: server tree reconciled (c801a91), systemd unit gone, cloudflared→caddy:80→landing-page. B: /portfolio route+nav+gate written by Codex, stopped on cp1252/`→` banner crash — verified locally in planning session with PYTHONUTF8=1 (200, no placeholders). Stop rules loosened per feedback: agents resolve local obstacles themselves; STOP reserved for production-safety lines.
 - 2026-07-10: Prompt sequence rewritten as v2 — 4 self-contained prompts (A reconcile, B route, C deploy, D publish.bat), zero fill-ins/pasting; persistent memory file docs/deploy-facts.md seeded with all verified facts (ssh alias `server`, BAKED, no host port, auth pattern). Auth question resolved without dashboard check: is_authenticated() just validates the Access header, so /portfolio gets the gate unconditionally.
 - 2026-07-10: Prompt 4 attempted out of order — correctly stopped at step 1. Confirmed: Prompt 2 done (portfolio.html has all 3 placeholders once each), Prompt 3 NOT done (server.py has no /portfolio route), Prompt 1b diff still not captured. .claude/ scare was a false alarm (globally gitignored on desktop, Codex env lacks that config). Prompt 4 step 1 rewritten with an explicit file allowlist + "server.py must be modified" gate.

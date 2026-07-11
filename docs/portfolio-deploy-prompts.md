@@ -6,7 +6,7 @@
 
 **Obstacle policy (applies to every prompt):** local/desktop obstacles — environment quirks, encoding errors, ports in use, tool differences, files in an unexpected-but-explainable state — are yours to diagnose and resolve; do so, keep going, and record what you found and did in the memory file. Reserve STOP for the short list each prompt names: those are production-safety lines (touching the server outside the allowed commands, weakening auth, resolving git conflicts on the production box), not puzzles to route around. When you resolve an obstacle, prefer changing your *procedure* (env vars, different invocation, different check) over changing project code beyond the task's scope.
 
-Already done (recorded in the memory file): server verification (**BAKED**, no published host port, cloudflared → `http://caddy:80` → landing-page), server tree reconciled at `c801a91` (Prompt A ✅), `/portfolio` route implemented and locally verified (Prompt B ✅ — pending diff in server.py, uncommitted). **Next up: Prompt C.**
+Already done (recorded in the memory file): server verification (**BAKED**, no published host port, cloudflared → `http://caddy:80` → landing-page), server tree reconciled at `c801a91` (Prompt A ✅), `/portfolio` route implemented and locally verified (Prompt B ✅), deployed and verified in-container (Prompt C ✅, commit `a32b603`), publish loop built and tested (Prompt D ✅ — `publish-dashboard.bat` in Skills). **Next up: the manual milestone gate (phone check).**
 
 ---
 
@@ -66,7 +66,9 @@ STOP and record in the memory file instead of proceeding if: a /portfolio route 
 
 ---
 
-## Prompt C — Deploy and verify
+## Prompt C — Deploy and verify ✅ DONE 2026-07-11
+
+Completed — deployed `a32b603`, fresh image, container Up (healthy), in-container `/portfolio` and `/` both 200. Kept for reference; do not re-run.
 
 Fresh Codex conversation, working directory `C:\Users\Admin\Desktop\Code\Active\landingpage`. Needs shell + SSH. Touches production.
 
@@ -90,7 +92,9 @@ Never: edit files on the server, weaken or bypass Cloudflare Access or the app a
 
 ---
 
-## Prompt D — One-command publish loop
+## Prompt D — One-command publish loop ✅ DONE 2026-07-11
+
+Completed — `publish-dashboard.bat` created in Skills, tested end to end (real publish `d6886e9` + rebuild, then clean "dashboard unchanged" no-op). Note: the test's STATE.md edit corrupted that file's encoding (cp1252 mojibake) and the garbage shipped in the generated HTML; fixed and republished afterwards. Kept for reference; do not re-run.
 
 Fresh Codex conversation, working directory `C:\Users\Admin\Desktop\Code\Active\Skills`.
 
