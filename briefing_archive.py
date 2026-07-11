@@ -262,13 +262,23 @@ class BriefingArchive:
 
     def __init__(self, db_path: str = DB_PATH):
         self.db_path = db_path
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        self._init_schema()
+        self.read_only = os.environ.get("BRIEFING_DB_READ_ONLY", "").lower() in {
+            "1", "true", "yes"
+        }
+
+        if not self.read_only:
+            os.makedirs(os.path.dirname(db_path), exist_ok=True)
+            self._init_schema()
 
     def _get_conn(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
+        if self.read_only:
+            uri = f"file:{self.db_path}?mode=ro&immutable=1"
+            conn = sqlite3.connect(uri, uri=True)
+        else:
+            conn = sqlite3.connect(self.db_path)
+            conn.execute("PRAGMA journal_mode=WAL")
+
         conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")
         return conn
 

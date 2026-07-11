@@ -7,6 +7,7 @@ services:
     environment:
       BIND_HOST: 0.0.0.0
       HOME: /home/landing
+      BRIEFING_DB_READ_ONLY: "true"
     networks:
       - proxy_net
     expose:
@@ -25,6 +26,9 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    volumes:
+      - /home/hermes/.hermes/data/briefings.db:/home/landing/.hermes/data/briefings.db:ro
+      - /home/hermes/.hermes/cron/output/7dc1d641173d:/home/landing/.hermes/cron/output/7dc1d641173d:ro
 
 networks:
   proxy_net:
