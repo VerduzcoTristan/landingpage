@@ -115,7 +115,6 @@ Persistent files are under `/srv/apps/landing-page/data/`:
 - `monitors.json` — live HTTP checks and links to existing monitoring tools.
 - `projects.json` — ordered project entries managed through `/projects/admin`.
 - `bookmarks.json` — saved briefing stories.
-- `impacts/` — cached generated briefing impact text.
 
 The container owns these files as uid 10001. Do not store user data inside the
 repository or container layer.

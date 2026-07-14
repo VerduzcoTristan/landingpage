@@ -117,22 +117,6 @@ __SITE_NAV__
   <div class="cards">
     <article class="card">
       <header>
-        <h2>landingpage</h2>
-        <span class="badge phase-build"><span class="dot"></span>build</span>
-      </header>
-      <p class="goal">Control Center portfolio live behind Cloudflare Access, updated by one command from the desktop</p>
-      <div class="next"><span class="next-label">Next action</span>Choose what&#x27;s next: README deploy-section rewrite (parked, now unblocked) or M2 auto-publish on session end</div>
-      
-      <div class="milestone"><span class="m-label">Milestone</span>M1 SHIPPED 2026-07-11 — dashboard live behind Access, one-command publish working; next milestone not yet chosen</div>
-      <footer>
-        <span class="stale good"><span class="s-icon good">●</span>updated 3d ago</span>
-        <div class="meta">Parked: 6 items</div>
-        <div class="lastlog">2026-07-11 — Prompts C+D done. C: /portfolio deployed (a32b603), container rebuilt, in-container 200/200. D: publish-dashboard.bat created in Skills and tested end to end (real commit d6886e9 + rebuild, then clean no-op run). Codex&#x27;s STATE.md edit corrupted the file&#x27;s encoding (cp1252 mojibake), which leaked into the live dashboard — fixed and republished by Claude review session. Remaining: phone gate.</div>
-      </footer>
-    </article>
-
-    <article class="card">
-      <header>
         <h2>LLM-Router</h2>
         <span class="badge phase-build"><span class="dot"></span>build</span>
       </header>
@@ -144,6 +128,22 @@ __SITE_NAV__
         <span class="stale good"><span class="s-icon good">●</span>updated 4d ago</span>
         <div class="meta">Parked: 2 items</div>
         <div class="lastlog">2026-07-10 — STATE.md created from operating manual; flagship per TRIAGE-2026-07-10.</div>
+      </footer>
+    </article>
+
+    <article class="card">
+      <header>
+        <h2>landingpage</h2>
+        <span class="badge phase-maintain"><span class="dot"></span>maintain</span>
+      </header>
+      <p class="goal">Control Center serves daily briefings, live monitoring, project management, and portfolio behind Cloudflare Access</p>
+      <div class="next"><span class="next-label">Next action</span>Tristan confirms the authenticated desktop and phone layout, then resumes normal daily use</div>
+      
+      <div class="milestone"><span class="m-label">Milestone</span>Control Center overhaul shipped to production on 2026-07-14 with the full route and operations audit green</div>
+      <footer>
+        <span class="stale good"><span class="s-icon good">●</span>updated today</span>
+        <div class="meta">Parked: 6 items</div>
+        <div class="lastlog">2026-07-14 — Control Center overhaul shipped. Briefings are primary (7 live homepage rows, 27 archive cards); Control Center and Caddy monitors are healthy; production project add/update/hide/delete passed with data restored; all 24 retained/removed route checks passed; Cloudflare Access returns 302 before content; operations, backup, Compose hardening, two-network wiring, and legacy-code deletion audited green.</div>
       </footer>
     </article>
 

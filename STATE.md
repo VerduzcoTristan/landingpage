@@ -1,11 +1,12 @@
 # STATE — landingpage
-**Phase:** build
-**Goal:** Control Center portfolio live behind Cloudflare Access, updated by one command from the desktop
-**Current milestone:** M1 SHIPPED 2026-07-11 — dashboard live behind Access, one-command publish working; next milestone not yet chosen
-**Next action:** Choose what's next: README deploy-section rewrite (parked, now unblocked) or M2 auto-publish on session end
+**Phase:** maintain
+**Goal:** Control Center serves daily briefings, live monitoring, project management, and portfolio behind Cloudflare Access
+**Current milestone:** Control Center overhaul shipped to production on 2026-07-14 with the full route and operations audit green
+**Next action:** Tristan confirms the authenticated desktop and phone layout, then resumes normal daily use
 **Blocked on:** nothing
 
 ## Log (newest first, one line per session)
+- 2026-07-14: Control Center overhaul shipped. Briefings are primary (7 live homepage rows, 27 archive cards); Control Center and Caddy monitors are healthy; production project add/update/hide/delete passed with data restored; all 24 retained/removed route checks passed; Cloudflare Access returns 302 before content; operations, backup, Compose hardening, two-network wiring, and legacy-code deletion audited green.
 - 2026-07-11: M1 SHIPPED. Milestone gate verified: unauthenticated /portfolio → 302 to Access login with zero content leak; authenticated view renders dashboard with nav and all cards. publish-dashboard.bat validated 3x (two real publishes d6886e9/26bfe3e + clean no-op). Ledger fully ticked in docs/deploy-facts.md.
 - 2026-07-11: Prompts C+D done. C: /portfolio deployed (a32b603), container rebuilt, in-container 200/200. D: publish-dashboard.bat created in Skills and tested end to end (real commit d6886e9 + rebuild, then clean no-op run). Codex's STATE.md edit corrupted the file's encoding (cp1252 mojibake), which leaked into the live dashboard — fixed and republished by Claude review session. Remaining: phone gate.
 - 2026-07-11: Prompts A+B done. A: server tree reconciled (c801a91), systemd unit gone, cloudflared→caddy:80→landing-page. B: /portfolio route+nav+gate written by Codex, stopped on cp1252/`→` banner crash — verified locally in planning session with PYTHONUTF8=1 (200, no placeholders). Stop rules loosened per feedback: agents resolve local obstacles themselves; STOP reserved for production-safety lines.

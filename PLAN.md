@@ -262,7 +262,7 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
   --ff-only && docker compose up -d --build landing-page`. Verify: container Up
   (healthy); in-container 200s on the matrix; external `https://<domain>/` → 302 to
   Access (no leak); monitors show live correct data.
-- [ ] **Step 20 — Definition-of-done audit.** Walk AGENTS.md's checklist: grep zero;
+- [x] **Step 20 — Definition-of-done audit.** Walk AGENTS.md's checklist: grep zero;
   compose-up reachable via Caddy; briefings primary; monitoring live+correct;
   projects/portfolio manageable without code edits; removed code actually gone;
   OPERATIONS.md matches reality. Record results here; update STATE.md log; ask
@@ -275,6 +275,27 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
 - Regression tripwire for briefings: `/briefings` and `/briefing/<date>` byte-diff
   of article content before/after (only shell/nav/CSS may change).
 
+## Definition-of-done audit — 2026-07-14
+
+- PASS — tracked legacy-brand grep returns zero hits locally and on the server.
+- PASS — the hardened image builds; the `landing-page` stack is healthy, non-root,
+  on internal `app_net` plus external `proxy_net`, with no published host port;
+  Caddy returns the Control Center page on its existing route.
+- PASS — briefings are the first homepage section; production renders 7 homepage
+  story rows and 27 archive cards, with the complete local/production route suites green.
+- PASS — `/api/status` reports both configured checks (Control Center and Caddy)
+  healthy with live status codes and latency.
+- PASS — project add/update/hide/delete completed through the production admin
+  routes and restored `projects.json` to its original empty state; portfolio content
+  remains managed from non-code `STATE.md` files through the external generator.
+- PASS — deleted routes return 404, audited retired files are absent, and the final
+  AST reachability pass removed the remaining orphan helpers rather than hiding them.
+- PASS — `OPERATIONS.md`, Compose configuration, data ACL, `.env`, export script,
+  backup location, mounts, healthcheck, logs, deployment, and troubleshooting match
+  the live server.
+- HUMAN CHECK REQUESTED — authenticated desktop and phone visual confirmation is
+  the only remaining user-owned observation; all machine-owned acceptance checks pass.
+
 ## Decision log
 
 (build pass appends one line per mid-run decision)
@@ -284,3 +305,4 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
 - Step 19: omitted Uptime Kuma and Dozzle links because the documented monitoring stack and containers are absent on the server; seeded only the live Control Center and Caddy checks, both verified healthy.
 - Step 19: granted container uid 10001 a scoped data-directory ACL because non-interactive sudo is unavailable; the directory remains owned by the deploy user and inaccessible to other users.
 - Step 19: removed the old `repo` Compose project before starting the explicitly named `landing-page` project to avoid a container-name collision during the one-time stack-name migration.
+- Step 20: removed 587 lines of unreachable legacy helpers and the orphan impact-generation path found by the final AST reachability audit, then reran the complete local suite.

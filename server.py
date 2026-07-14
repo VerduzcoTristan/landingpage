@@ -6,7 +6,6 @@ import html
 import json
 import os
 import re
-import glob
 import sys
 import time
 import urllib.error
@@ -42,7 +41,6 @@ _UNAUTH_PAGE = """<!DOCTYPE html>
 .access-card{width:min(100%,28rem);padding:2.5rem;border:1px solid var(--border);border-radius:1.25rem;background:linear-gradient(145deg,rgba(255,255,255,.04),transparent),var(--surface);box-shadow:0 24px 70px rgba(0,0,0,.45);text-align:center}.eyebrow{color:var(--accent);font-size:.75rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase}h1{margin:.5rem 0;font-size:2rem}p{margin:0;color:var(--muted)}
 </style></head><body><main class="access-card"><div class="eyebrow">Control Center</div><h1>Access required</h1><p>Authenticate through Cloudflare Access to continue.</p></main></body></html>"""
 
-
 # ── Briefing Archive (DB-backed) ──
 sys.path.insert(0, os.path.expanduser("~/.hermes/tools"))
 from briefing_archive import BriefingArchive
@@ -67,16 +65,8 @@ CATEGORY_COLORS = {
     "general":   ("#6b7280", "#f3f4f6"),  # gray
 }
 
-# ── New feature paths ──
-BRIEFING_DB = Path(os.path.expanduser("~/.hermes/data/briefings.db"))
-IMPACT_CACHE_DIR = DATA_DIR / "impacts"
+# ── Storage paths ──
 BOOKMARKS_FILE = DATA_DIR / "bookmarks.json"
-
-# ── GitHub projects cache ──
-# ── System status cache ──
-# ── Link Health Check ──
-# ── Cloudflare tunnel cache ──
-
 
 # ── Bookmark helpers ──
 
@@ -143,62 +133,9 @@ def _is_bookmarked(sid: str, bookmark_type: str) -> bool:
     _, _, current_type = _find_bookmark(bookmarks, sid)
     return current_type == bookmark_type
 
-
-
-
-def _load_env_var(name: str) -> str | None:
-    """Read a variable from the Hermes .env file."""
-    env_path = Path(os.path.expanduser("~/.hermes/.env"))
-    if not env_path.exists():
-        return None
-    for line in env_path.read_text().splitlines():
-        line = line.strip()
-        if line.startswith(f"{name}="):
-            return line.split("=", 1)[1].strip().strip('"').strip("'")
-    return None
-
-
-
-
-
-
-
-
-
-
-
-
-
-# ── Cloudflare Tunnel API ──
-
-
-
-
-
-
-
-def simple_md_to_html(text: str) -> str:
-    """Convert a subset of markdown to HTML — enough for the briefing format."""
-    text = re.sub(r'^#### (.+)$', r'<h4>\1</h4>', text, flags=re.MULTILINE)
-    text = re.sub(r'^### (.+)$', r'<h3>\1</h3>', text, flags=re.MULTILINE)
-    text = re.sub(r'^## (.+)$', r'<h2>\1</h2>', text, flags=re.MULTILINE)
-    text = re.sub(r'^# (.+)$', r'<h1>\1</h1>', text, flags=re.MULTILINE)
-    text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
-    text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', text)
-    text = re.sub(r'`([^`]+)`', r'<code>\1</code>', text)
-    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2" target="_blank" rel="noopener">\1</a>', text)
-    text = re.sub(r'^---$', r'<hr>', text, flags=re.MULTILINE)
-    text = re.sub(r'\n\n', '</p><p>', text)
-    text = re.sub(r'\n', '<br>', text)
-    return f'<p>{text}</p>'
-
-
 # ── Shared nav assets (single source of truth for the top nav) ──────────────
-# NAV_CSS is a faithful copy of every nav-related rule in BASE_CSS. html_page()
-# emits {NAV_CSS}{BASE_CSS} (duplicate-but-identical rules on server pages), and
-# the six template pages receive NAV_CSS via the __SITE_NAV_CSS__ placeholder so
-# the injected nav is styled everywhere. NAV_JS holds the dropdown close-behaviour
-# handlers, embedded by html_page and injected into templates via __SITE_NAV_JS__.
+# Server-rendered pages use NAV_CSS directly; the generated portfolio receives
+# the same rules and markup through its three shell placeholders.
 NAV_CSS = """
 :root{--page:#080b12;--surface:#101624;--surface-raised:#151d2e;--overlay:#1b2538;--border:#28344b;--border-strong:#3b4964;--text:#eef3ff;--muted:#9ba9c1;--subtle:#6f7d95;--accent:#8b7cff;--accent-strong:#a99eff;--accent-soft:rgba(139,124,255,.13);--success:#45d69a;--warning:#f3b95f;--danger:#ff6b7a;--shadow-1:0 10px 30px rgba(0,0,0,.22);--shadow-2:0 24px 70px rgba(0,0,0,.38);--radius-sm:.55rem;--radius-md:.85rem;--radius-lg:1.2rem;--shell:72rem;--ease:180ms ease}
 .skip-link{position:fixed;left:1rem;top:-5rem;z-index:500;padding:.65rem 1rem;border-radius:0 0 var(--radius-sm) var(--radius-sm);background:var(--accent);color:#fff;font-weight:800;text-decoration:none;transition:top var(--ease)}.skip-link:focus{top:0}
@@ -207,9 +144,6 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .site-footer{width:min(100% - 2rem,var(--shell));margin:4rem auto 0;padding:1.5rem 0 2.5rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;gap:1rem;color:var(--subtle);font-size:.8rem}.site-footer nav{display:flex;gap:1rem}.site-footer a{color:var(--muted);text-decoration:none}.site-footer a:hover{color:var(--text)}
 @media(max-width:720px){.nav-shell{align-items:flex-start;flex-direction:column;gap:.1rem;padding-top:.8rem}.nav-links{width:100%;gap:1rem;overflow-x:auto;scrollbar-width:none}.nav-links::-webkit-scrollbar{display:none}.nav-links a{padding:.7rem 0 1rem}.nav-links a::after{bottom:.5rem}.site-footer{align-items:flex-start;flex-direction:column}}
 """
-
-
-
 
 def render_nav(active: str = "home") -> str:
     links = []
@@ -226,16 +160,12 @@ def render_nav(active: str = "home") -> str:
             '<a href="/" class="brand" aria-label="Control Center home"><span class="brand-mark" aria-hidden="true">◆</span><span>Control Center</span></a>'
             '<div class="nav-links">' + "".join(links) + '</div></div></nav>')
 
-
-
 def inject_nav(page_html: str, active: str) -> str:
     """Apply the shared shell to the generated portfolio template."""
     return (page_html
             .replace("__SITE_NAV_CSS__", NAV_CSS)
             .replace("__SITE_NAV_JS__", "")
             .replace("__SITE_NAV__", render_nav(active)))
-
-
 
 BASE_CSS = """
 *{box-sizing:border-box}html{color-scheme:dark;scroll-behavior:smooth}body{margin:0;min-height:100vh;background:radial-gradient(circle at 15% -10%,rgba(139,124,255,.16),transparent 30rem),radial-gradient(circle at 100% 15%,rgba(69,214,154,.07),transparent 26rem),var(--page);color:var(--text);font:400 16px/1.65 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-rendering:optimizeLegibility}button,input,select,textarea{font:inherit}a{color:var(--accent-strong)}img{max-width:100%}.container{width:min(100% - 2rem,var(--shell));margin:auto;padding:2.5rem 0 0}main{min-height:70vh}
@@ -254,142 +184,7 @@ code{padding:.15rem .35rem;border:1px solid var(--border);border-radius:.35rem;b
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
 """
 
-# ═══════════════════════════════════════════════════════════════
-#  Quick Links
-# ═══════════════════════════════════════════════════════════════
-# ═══════════════════════════════════════════════════════════════
-
-def _esc(text: str) -> str:
-    """Minimal HTML-escape for attribute-safe rendering."""
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") \
-               .replace('"', "&quot;").replace("'", "&#39;")
-
-
-# Valid bookmark categories — referenced by load_quick_links() and UI components
-BOOKMARK_CATEGORIES = [
-    "AI / models",
-    "Homelab",
-    "Coding",
-    "Cloudflare",
-    "GitHub",
-    "Docs",
-    "Dashboards",
-]
-
-
-
-
-# ── Link Health Check helpers ──
-
-
-
-
-
-
-
-
-
-# ═══════════════════════════════════════════════════════════════
-#  Cron Job Status Viewer
-# ═══════════════════════════════════════════════════════════════
-
-
-
-
-
-
-
-def _format_schedule(job: dict) -> str:
-    """Format the schedule display for a cron job."""
-    sched = job.get("schedule", {})
-    display = sched.get("display", "") if isinstance(sched, dict) else ""
-    if not display:
-        display = job.get("schedule_display", "")
-    return display
-
-
-def _format_iso_time(iso_str: str | None) -> str:
-    """Format an ISO timestamp for display."""
-    if not iso_str:
-        return "—"
-    try:
-        ts = iso_str.replace("+00:00", "").replace("Z", "")
-        # Strip microseconds if present
-        if "." in ts:
-            ts = ts[:19]
-        dt = datetime.strptime(ts[:19], "%Y-%m-%dT%H:%M:%S")
-    except (ValueError, Exception):
-        return iso_str[:19] if len(iso_str) >= 19 else iso_str
-    return dt.strftime("%Y-%m-%d %H:%M UTC")
-
-
-
-
-
-
-
-
-# ═══════════════════════════════════════════════════════════════
-#  Kanban Board Dashboard
-# ═══════════════════════════════════════════════════════════════
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# ═══════════════════════════════════════════════════════════════
 #  HTML helpers
-# ═══════════════════════════════════════════════════════════════
-
 
 def html_page(title: str, body: str, active_nav: str = "home", extra_head: str = "") -> str:
     page_title = "Control Center" if title == "Control Center" else f"{title} — Control Center"
@@ -419,183 +214,6 @@ def html_page(title: str, body: str, active_nav: str = "home", extra_head: str =
 </body>
 </html>"""
 
-
-
-def first_sentence(text: str) -> str:
-    """Extract a good one-sentence summary. Splits on sentence-ending punctuation
-    followed by a capital letter, which naturally skips abbreviations like 'PHerc.' or 'U.S.'."""
-    text = text.strip()
-    sentences = re.split(r'(?<=[.!?])\s+(?=[A-Z])', text)
-    first = sentences[0].strip()
-    if len(first) < 80 and len(sentences) > 1:
-        first = first + ' ' + sentences[1].strip()
-    return first
-
-
-def _extract_impact(body_lines: list[str]) -> str:
-    """Extract a one-line 'why this matters' impact statement from the body.
-    Checks for explicit 'Impact:' prefix first; falls back to the last sentence."""
-    for line in body_lines:
-        m = re.match(r'^Impact:\s*(.+)', line.strip())
-        if m:
-            return m.group(1).strip()
-    # Fallback: extract the last sentence from the joined text
-    full = " ".join(body_lines).strip()
-    if not full:
-        return ""
-    sentences = re.split(r'(?<=[.!?])\s+(?=[A-Z])', full)
-    last = sentences[-1].strip()
-    if not last:
-        last = sentences[-2].strip() if len(sentences) > 1 else ""
-    return last
-
-
-# ── Impact generation for briefing stories ──
-
-def _openrouter_chat(messages: list[dict], model: str = "google/gemini-2.5-flash-lite") -> str | None:
-    """Call OpenRouter chat completions API. Returns response text or None."""
-    key = os.environ.get("OPENROUTER_API_KEY") or _load_env_var("OPENROUTER_API_KEY")
-    if not key:
-        return None
-    body = json.dumps({
-        "model": model,
-        "messages": messages,
-        "max_tokens": 256,
-        "temperature": 0.7,
-    }).encode()
-    req = urllib.request.Request(
-        "https://openrouter.ai/api/v1/chat/completions",
-        data=body,
-        headers={
-            "Authorization": f"Bearer {key}",
-            "Content-Type": "application/json",
-            "User-Agent": "control-center",
-        },
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read())
-            return data["choices"][0]["message"]["content"].strip()
-    except Exception:
-        return None
-
-
-def _load_impacts_cache(date_key: str) -> dict[str, str]:
-    """Load cached impacts for a briefing date. Returns {title: impact} dict."""
-    cache_file = IMPACT_CACHE_DIR / f"{date_key}.json"
-    if cache_file.exists():
-        try:
-            return json.loads(cache_file.read_text())
-        except (json.JSONDecodeError, OSError):
-            pass
-    return {}
-
-
-def _save_impacts_cache(date_key: str, impacts: dict[str, str]) -> None:
-    """Save impacts cache for a briefing date."""
-    IMPACT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    cache_file = IMPACT_CACHE_DIR / f"{date_key}.json"
-    cache_file.write_text(json.dumps(impacts, ensure_ascii=False, indent=2))
-
-
-def _generate_impacts_via_llm(stories: list[dict]) -> dict[str, str]:
-    """Use OpenRouter LLM to generate one-line impact statements for stories.
-    Returns {title: impact} dict. Falls back to empty impacts on failure."""
-    if not stories:
-        return {}
-
-    # Build a prompt with all stories in one API call
-    story_text = ""
-    for i, s in enumerate(stories, 1):
-        summary = first_sentence(s["body"]).replace("<br>", " ")
-        story_text += f"{i}. TITLE: {s['title']}\n   SUMMARY: {summary}\n\n"
-
-    prompt = (
-        "For each news story below, write a ONE-LINE 'why this matters' impact statement "
-        "(max 20 words). Make each statement specific, concrete, and insightful — "
-        "explain the real-world consequence or significance. "
-        "Respond with ONLY a JSON object mapping story numbers to impact strings. "
-        "Format: {\"1\": \"impact text\", \"2\": \"impact text\", ...}\n\n"
-        f"{story_text}"
-    )
-
-    messages = [
-        {"role": "system", "content": "You are a news analyst. Respond with ONLY valid JSON, no other text."},
-        {"role": "user", "content": prompt},
-    ]
-
-    response = _openrouter_chat(messages)
-    if not response:
-        return {}
-
-    # Parse the JSON response
-    try:
-        # Strip markdown code fences if present
-        response = response.strip()
-        if response.startswith("```"):
-            response = response.split("\n", 1)[1] if "\n" in response else response[3:]
-            if response.endswith("```"):
-                response = response[:-3]
-            response = response.strip()
-        result = json.loads(response)
-    except json.JSONDecodeError:
-        return {}
-
-    # Map numeric keys to story titles
-    impacts: dict[str, str] = {}
-    for i, s in enumerate(stories, 1):
-        key = str(i)
-        if key in result and isinstance(result[key], str):
-            impacts[s["title"]] = result[key].strip()
-
-    return impacts
-
-
-def _get_story_impacts(stories: list[dict], date_str: str) -> None:
-    """Ensure every story has an impact. Loads from cache, generates via LLM if missing."""
-    if not stories:
-        return
-
-    # Extract date key (e.g. "2026-06-28" from "Sunday, June 28, 2026")
-    date_key = date_str
-    try:
-        from datetime import datetime as _dt
-        for fmt in ("%A, %B %d, %Y", "%Y-%m-%d"):
-            try:
-                dt = _dt.strptime(date_str, fmt)
-                date_key = dt.strftime("%Y-%m-%d")
-                break
-            except ValueError:
-                continue
-    except Exception:
-        pass
-
-    # Load cache
-    cached = _load_impacts_cache(date_key)
-
-    # Fill from cache where available
-    missing = []
-    for s in stories:
-        if s["title"] in cached:
-            s["impact"] = cached[s["title"]]
-        else:
-            missing.append(s)
-
-    # Generate missing impacts via LLM
-    if missing and any(not s["impact"] for s in missing):
-        try:
-            new_impacts = _generate_impacts_via_llm(missing)
-            for title, impact in new_impacts.items():
-                cached[title] = impact
-            _save_impacts_cache(date_key, cached)
-            # Apply to stories
-            for s in missing:
-                if s["title"] in cached:
-                    s["impact"] = cached[s["title"]]
-        except Exception:
-            pass  # graceful degradation — cards show without impact
-
-
 # ── Category rendering helpers ──
 
 def category_badge_html(categories_str: str) -> str:
@@ -611,7 +229,6 @@ def category_badge_html(categories_str: str) -> str:
         html += f'<span class="category-badge" style="background:{bg};color:{fg}">{c}</span>'
     html += '</div>'
     return html
-
 
 def _category_filter_html(
     active_category: str = "All",
@@ -651,7 +268,6 @@ def _category_filter_html(
         html += f'<span class="tab-count">{saved_count}</span>'
     html += '</a></div>'
     return html
-
 
 def briefing_card_from_db(articles: list[dict], date_str: str, show_date: bool = True) -> str:
     """Render a responsive briefing card grid from DB-format articles."""
@@ -695,7 +311,6 @@ def briefing_card_from_db(articles: list[dict], date_str: str, show_date: bool =
     html += '</div>'
     return html
 
-
 def _render_briefing_date(full_date: str | None, iso_date: str) -> str:
     """Convert ISO or full date to a display-friendly string."""
     if full_date:
@@ -705,7 +320,6 @@ def _render_briefing_date(full_date: str | None, iso_date: str) -> str:
         return dt.strftime("%A, %B %d, %Y")
     except ValueError:
         return iso_date
-
 
 def parse_briefing_stories(raw_md: str) -> tuple[list[dict], str]:
     """Parse the cron output markdown into structured stories, skipping skill/prompt preamble."""
@@ -762,58 +376,6 @@ def parse_briefing_stories(raw_md: str) -> tuple[list[dict], str]:
         return [], ""
 
     return stories, date_str
-
-
-def briefing_card(stories: list[dict], date_str: str) -> str:
-    if not stories:
-        return '<div class="empty-state"><p>No briefing available for today yet. Check back after 7am UTC.</p></div>'
-
-    # Populate impact statements (cached, generated via LLM if needed)
-    _get_story_impacts(stories, date_str)
-
-    html = '<div class="briefing-header">'
-    html += f'<div class="date">{date_str}</div>'
-    html += '<h2>📰 Morning Briefing</h2>'
-    html += '<div class="section-timestamp">Generated: ' + date_str + '</div>'
-    html += '</div>'
-    html += '<div class="dashboard-grid">'
-    for i, s in enumerate(stories, 1):
-        summary = first_sentence(s["body"])
-        html += '<div class="briefing-card">'
-        html += f'<span class="card-num">{i}</span>'
-        html += f'<h3>{s["title"]}</h3>'
-        if s.get("impact"):
-            html += f'<div class="card-impact">💡 {s["impact"]}</div>'
-        html += f'<div class="card-summary">{summary}</div>'
-        html += '<div class="card-source">'
-        if s["source_url"]:
-            html += f'<a href="{s["source_url"]}" target="_blank" rel="noopener">{s["source_name"]}</a>'
-        else:
-            html += s["source_name"]
-        html += '</div>'
-        if s["source_url"]:
-            html += f'<a href="{s["source_url"]}" target="_blank" rel="noopener" class="card-action">Read full article →</a>'
-        # Bookmark buttons
-        sid = _story_id(date_str, s["title"], s.get("source_url", ""))
-        saved_active = ' active' if _is_bookmarked(sid, 'saved') else ''
-        saved_label = '⭐ Saved' if _is_bookmarked(sid, 'saved') else '⭐ Save'
-        import html as _html
-        args_saved = ','.join(["'"+_html.escape(str(x), quote=False)+"'" for x in [sid, date_str, s["title"], s.get("source_url", ""), s.get("source_name", ""), s.get("body", "")[:500], 'saved']])
-        html += f'<div class="bm-btn-row"><button class="bm-btn saved-btn{saved_active}" onclick="toggleBookmark(this,{args_saved})">{saved_label}</button></div>'
-        html += '</div>'
-    html += '</div>'
-    return html
-
-# ── GitHub language colours ──
-# ── Cloudflare Tunnel Monitor UI ──
-
-
-
-
-
-
-
-
 
 def briefing_list_home(articles: list[dict], date_str: str) -> str:
     """Render today's stories as a readable vertical list with full summaries."""
@@ -876,7 +438,6 @@ def status_strip() -> str:
         }).catch(function(){dot.classList.add('amber');meta.textContent='Status unavailable';body.innerHTML='<span class="status-summary-meta">Live monitoring could not be loaded.</span> <a href="/status">Open status →</a>';});
     })();
     </script>"""
-
 
 def home_page() -> str:
     now = datetime.now()
@@ -1030,8 +591,6 @@ def briefings_page(category=None, saved_only: bool = False, sort: str = "newest"
     body += '</div>'
     return html_page("Briefings", body, active_nav="briefings")
 
-
-
 def briefing_detail_page(date: str, category: str = "", saved_only: bool = False, sort: str = "newest") -> str:
     query = {}
     if category:
@@ -1078,24 +637,10 @@ def briefing_detail_page(date: str, category: str = "", saved_only: bool = False
     body += briefing_card_from_db(articles, date_str, show_date=True)
     return html_page(f"Briefing — {date}", body, active_nav="briefings")
 
-
-# ═══════════════════════════════════════════════════════════════
-#  Logs Pages
-# ═══════════════════════════════════════════════════════════════
-
-
-
-
-
-
-
-# ═══════════════════════════════════════════════════════════════
 #  Status Board Page
-# ═══════════════════════════════════════════════════════════════
 
 _MONITOR_CACHE: dict = {"data": None, "ts": 0.0}
 _MONITOR_CACHE_TTL = 30
-
 
 def _load_monitor_config() -> tuple[list[dict], list[dict], str | None]:
     path = DATA_DIR / "monitors.json"
@@ -1129,7 +674,6 @@ def _load_monitor_config() -> tuple[list[dict], list[dict], str | None]:
     except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
         return [], [], f"Invalid monitors.json: {error}"
 
-
 def _check_monitor(item: dict) -> dict:
     started = time.perf_counter()
     error_text = None
@@ -1160,7 +704,6 @@ def _check_monitor(item: dict) -> dict:
         "status_code": status_code,
     }
 
-
 def get_monitor_status(force: bool = False) -> dict:
     now = time.time()
     cached = _MONITOR_CACHE.get("data")
@@ -1177,7 +720,6 @@ def get_monitor_status(force: bool = False) -> dict:
     data = {"status": status, "checks": results, "links": links, "error": config_error}
     _MONITOR_CACHE.update({"data": data, "ts": now})
     return data
-
 
 def status_page() -> str:
     data = get_monitor_status()
@@ -1201,7 +743,6 @@ def status_page() -> str:
         body += '</div>'
     return html_page("Status", body, active_nav="status")
 
-
 def portfolio_page() -> str:
     """Serve the standalone portfolio.html page (with shared nav injected)."""
     portfolio_html = SITE_DIR / "portfolio.html"
@@ -1209,15 +750,9 @@ def portfolio_page() -> str:
         return inject_nav(portfolio_html.read_text(), "portfolio")
     return "<html><body><h1>Portfolio Not Found</h1></body></html>"
 
-
-
-
-
-
 # ── Project Launcher Config ──
 
 PROJECTS_FILE = DATA_DIR / "projects.json"
-
 
 def _normalise_projects(items) -> list[dict]:
     if not isinstance(items, list):
@@ -1240,7 +775,6 @@ def _normalise_projects(items) -> list[dict]:
         project["order"] = order
     return projects
 
-
 def load_projects() -> list[dict]:
     if not PROJECTS_FILE.exists():
         return []
@@ -1249,14 +783,12 @@ def load_projects() -> list[dict]:
     except (OSError, ValueError, TypeError, json.JSONDecodeError):
         return []
 
-
 def save_projects(projects: list[dict]) -> None:
     projects = _normalise_projects(projects)
     PROJECTS_FILE.parent.mkdir(parents=True, exist_ok=True)
     temporary = PROJECTS_FILE.with_suffix(".tmp")
     temporary.write_text(json.dumps(projects, indent=2) + "\n", encoding="utf-8")
     temporary.replace(PROJECTS_FILE)
-
 
 def projects_page() -> str:
     projects = [project for project in load_projects() if not project["hidden"]]
@@ -1279,7 +811,6 @@ def projects_page() -> str:
     body += '</div><p class="admin-link"><a href="/projects/admin">Manage projects</a></p>'
     return html_page("Projects", body, active_nav="projects")
 
-
 def _project_fields(get) -> dict:
     return {
         "name": get("name").strip(),
@@ -1289,7 +820,6 @@ def _project_fields(get) -> dict:
         "status": get("status").strip() or "active",
         "hidden": get("hidden") in {"1", "true", "on", "yes"},
     }
-
 
 def update_projects(action: str, get) -> str:
     projects = load_projects()
@@ -1328,7 +858,6 @@ def update_projects(action: str, get) -> str:
     save_projects(projects)
     return "Projects updated."
 
-
 def project_admin_page(message: str = "") -> str:
     projects = load_projects()
     body = '<div class="page-head"><div><h1>Project admin</h1><p>Add, edit, reorder, or hide entries.</p></div><a class="button" href="/projects">View projects</a></div>'
@@ -1360,119 +889,11 @@ def project_admin_page(message: str = "") -> str:
         body += '</div></section>'
     return html_page("Project admin", body, active_nav="projects")
 
-
-
-
-# ═══════════════════════════════════════════════════════════════
 #  HTTP Handler
-# ═══════════════════════════════════════════════════════════════
 
-
-# ═══════════════════════════════════════════════════════════════
 # Model tuning helpers
-# ═══════════════════════════════════════════════════════════════
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # ── LLM Lab: evals, traces, arena, routing, HF GGUF discovery ──
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def _host_is_allowed(self) -> bool:
@@ -1591,14 +1012,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         else:
             self.send_response(404); self.end_headers()
 
-
-
     def do_PATCH(self):
         self.send_response(405); self.end_headers()
 
     def do_DELETE(self):
         self.send_response(405); self.end_headers()
-
 
     def _get_query_param(self, key: str) -> str:
         """Parse query string and return a single param value."""
@@ -1617,7 +1035,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def log_message(self, format, *args):
         pass  # silence logs
-
 
 if __name__ == "__main__":
     import sys
