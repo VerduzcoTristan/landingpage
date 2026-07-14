@@ -7,7 +7,6 @@ import json
 import os
 import re
 import glob
-import sqlite3
 import sys
 import time
 import urllib.request
@@ -66,9 +65,6 @@ CATEGORY_COLORS = {
 
 # ── New feature paths ──
 QUICKLINKS_FILE = Path(os.path.expanduser("~/.devmclovin/quicklinks.json"))
-CRON_JOBS_FILE = Path(os.path.expanduser("~/.hermes/cron/jobs.json"))
-CRON_OUTPUT_DIR = Path(os.path.expanduser("~/.hermes/cron/output"))
-KANBAN_DB = Path(os.path.expanduser("~/.hermes/kanban.db"))
 BRIEFING_DB = Path(os.path.expanduser("~/.hermes/data/briefings.db"))
 IMPACT_CACHE_DIR = Path(os.path.expanduser("~/.devmclovin/impacts"))
 BOOKMARKS_FILE = Path(os.path.expanduser("~/.devmclovin/bookmarks.json"))
@@ -3322,41 +3318,10 @@ def quick_links_row() -> str:
 #  Cron Job Status Viewer
 # ═══════════════════════════════════════════════════════════════
 
-def load_cron_jobs() -> list[dict]:
-    """Load cron jobs from jobs.json. Returns empty list on failure."""
-    if not CRON_JOBS_FILE.exists():
-        return []
-    try:
-        data = json.loads(CRON_JOBS_FILE.read_text())
-        return data.get("jobs", [])
-    except (json.JSONDecodeError, Exception):
-        return []
 
 
-def _cron_output_files(job_id: str) -> list[Path]:
-    """Return most recent output files for a cron job, sorted newest first."""
-    out_dir = CRON_OUTPUT_DIR / job_id
-    if not out_dir.is_dir():
-        return []
-    files = sorted(out_dir.glob("*.md"), reverse=True)
-    return files[:20]
 
 
-def _cron_status_dot(job: dict) -> str:
-    """Return a coloured status dot + label for a cron job."""
-    last_status = job.get("last_status", "")
-    last_run = job.get("last_run_at")
-    paused = job.get("paused_at") is not None
-
-    if paused:
-        return '<span class="status-dot orange"></span> Paused'
-    if last_run is None:
-        return '<span class="status-dot orange"></span> Never run'
-    if last_status == "ok":
-        return '<span class="status-dot green"></span> OK'
-    if last_status == "error":
-        return '<span class="status-dot red"></span> Error'
-    return '<span class="status-dot orange"></span> Unknown'
 
 
 def _format_schedule(job: dict) -> str:
@@ -3383,516 +3348,68 @@ def _format_iso_time(iso_str: str | None) -> str:
     return dt.strftime("%Y-%m-%d %H:%M UTC")
 
 
-def cron_page() -> str:
-    """Render the /cron status dashboard."""
-    jobs = load_cron_jobs()
-    body = '<div class="hero" style="padding:2rem 0 1rem"><h1>Cron Jobs</h1></div>'
-
-    if not jobs:
-        body += '<div class="empty-state"><p>No cron jobs configured.</p></div>'
-        return html_page("Cron Jobs", body, active_nav="cron")
-
-    body += '<table class="cron-table">'
-    body += '<thead><tr><th>Name</th><th>Schedule</th><th>Last Run</th><th>Next Run</th><th>Status</th></tr></thead>'
-    body += '<tbody>'
-
-    for job in jobs:
-        name = job.get("name", job.get("id", ""))
-        job_id = job.get("id", "")
-        schedule = _format_schedule(job)
-        last_run = _format_iso_time(job.get("last_run_at"))
-        next_run = _format_iso_time(job.get("next_run_at"))
-        status_html = _cron_status_dot(job)
-
-        body += '<tr>'
-        body += f'<td><a href="/cron/{job_id}">{name}</a></td>'
-        body += f'<td><code>{schedule}</code></td>'
-        body += f'<td>{last_run}</td>'
-        body += f'<td>{next_run}</td>'
-        body += f'<td>{status_html}</td>'
-        body += '</tr>'
-
-    body += '</tbody></table>'
-
-    return html_page("Cron Jobs", body, active_nav="cron")
 
 
-def cron_job_detail_page(job_id: str) -> tuple[int, str]:
-    """Render a detail page for a single cron job showing recent outputs.
-    Returns (status_code, html) so the handler can 404 an unknown job id."""
-    jobs = load_cron_jobs()
-    job = next((j for j in jobs if j.get("id") == job_id), None)
-
-    body = '<div class="page-back"><a href="/cron">← Back to all cron jobs</a></div>'
-
-    if not job:
-        body += f'<div class="empty-state" style="margin-top:2rem"><p>Cron job {html.escape(job_id)} not found.</p></div>'
-        return 404, html_page(f"Cron — {job_id}", body, active_nav="cron")
-
-    name = job.get("name", job_id)
-    schedule = _format_schedule(job)
-    last_status = job.get("last_status", "unknown")
-    last_run = _format_iso_time(job.get("last_run_at"))
-    next_run = _format_iso_time(job.get("next_run_at"))
-
-    body += f'<h2 style="margin-top:1rem">{name}</h2>'
-    body += '<div style="margin:1rem 0;display:flex;gap:2rem;flex-wrap:wrap">'
-    body += f'<div><span style="color:var(--text-muted)">Schedule:</span> <code>{schedule}</code></div>'
-    body += f'<div><span style="color:var(--text-muted)">Last run:</span> {last_run}</div>'
-    body += f'<div><span style="color:var(--text-muted)">Next run:</span> {next_run}</div>'
-    body += f'<div><span style="color:var(--text-muted)">Status:</span> {_cron_status_dot(job)}</div>'
-    body += '</div>'
-
-    # List recent output files
-    files = _cron_output_files(job_id)
-    if not files:
-        body += '<div class="empty-state"><p>No output files yet.</p></div>'
-    else:
-        body += '<div class="section-title">Recent Outputs</div>'
-        body += '<div class="output-list">'
-        for f in files:
-            fname = f.name
-            try:
-                fsize = f.stat().st_size
-                if fsize > 1024 * 1024:
-                    size_str = f"{fsize / (1024 * 1024):.1f} MB"
-                elif fsize > 1024:
-                    size_str = f"{fsize / 1024:.1f} KB"
-                else:
-                    size_str = f"{fsize} B"
-            except Exception:
-                size_str = "?"
-
-            # Parse date from filename: YYYY-MM-DD_HH-MM-SS.md
-            dt_display = fname.replace(".md", "").replace("_", " ")
-            body += f'<a href="/cron/{job_id}/{fname}" class="output-item">'
-            body += f'<span class="output-date">{dt_display}</span>'
-            body += f'<span class="output-size">{size_str}</span>'
-            body += '</a>'
-        body += '</div>'
-
-    return 200, html_page(f"Cron — {name}", body, active_nav="cron")
 
 
-def cron_output_preview_page(job_id: str, filename: str) -> str:
-    """Render a preview of a specific cron output file."""
-    file_path = CRON_OUTPUT_DIR / job_id / filename
-    body = f'<div class="page-back"><a href="/cron/{job_id}">← Back to {job_id}</a></div>'
-
-    if not file_path.exists():
-        body += '<div class="empty-state" style="margin-top:2rem"><p>Output file not found.</p></div>'
-        return html_page("Cron Output", body, active_nav="hermes")
-
-    try:
-        raw = file_path.read_text()
-    except Exception:
-        raw = "Error reading output file."
-
-    body += f'<h2 style="margin-top:1rem">{filename}</h2>'
-    body += f'<div class="output-preview">{raw}</div>'
-
-    return html_page(f"Cron — {filename}", body, active_nav="hermes")
 
 
 # ═══════════════════════════════════════════════════════════════
 #  Kanban Board Dashboard
 # ═══════════════════════════════════════════════════════════════
 
-def _kanban_db() -> sqlite3.Connection | None:
-    """Open a read-only connection to the kanban database. Returns None on failure."""
-    if not KANBAN_DB.exists():
-        return None
-    try:
-        conn = sqlite3.connect(str(KANBAN_DB))
-        conn.row_factory = sqlite3.Row
-        return conn
-    except sqlite3.Error:
-        return None
-
-
-def kanban_create(title: str, body: str = "", assignee: str = "") -> str | None:
-    import uuid, time
-    conn = _kanban_db()
-    if not conn: return None
-    try:
-        task_id = str(uuid.uuid4())[:8]
-        now = int(time.time())
-        conn.execute(
-            "INSERT INTO tasks (id, title, body, assignee, status, priority, created_by, created_at, started_at, workspace_kind) "
-            "VALUES (?,?,?,?,'running',0,'web',?,?,'scratch')",
-            (task_id, title, body, assignee, now, now)
-        )
-        conn.commit(); return task_id
-    except: return None
-    finally: conn.close()
-
-def kanban_move(task_id: str, new_status: str) -> bool:
-    import time
-    conn = _kanban_db()
-    if not conn: return False
-    try:
-        now = int(time.time())
-        if new_status == "running": conn.execute("UPDATE tasks SET status=?, started_at=? WHERE id=?", (new_status, now, task_id))
-        elif new_status == "done": conn.execute("UPDATE tasks SET status=?, completed_at=? WHERE id=?", (new_status, now, task_id))
-        else: conn.execute("UPDATE tasks SET status=? WHERE id=?", (new_status, task_id))
-        conn.commit(); return True
-    except: return False
-    finally: conn.close()
-
-def kanban_comment(task_id: str, author: str, body: str) -> bool:
-    import time
-    conn = _kanban_db()
-    if not conn: return False
-    try:
-        now = int(time.time())
-        conn.execute("INSERT INTO task_comments (task_id, author, body, created_at) VALUES (?,?,?,?)", (task_id, author, body, now))
-        conn.commit(); return True
-    except: return False
-    finally: conn.close()
-
-def load_kanban_tasks() -> dict[str, list[dict]]:
-    """Load tasks grouped by status. Returns {status: [task_dict, ...]}.
-
-    Returns empty dict if the database can't be read or schema differs.
-    """
-    conn = _kanban_db()
-    if not conn:
-        return {}
-
-    try:
-        rows = conn.execute("""
-            SELECT id, title, body, assignee, status, priority, created_by,
-                   created_at, started_at, completed_at
-            FROM tasks
-            WHERE status IN ('ready', 'running', 'blocked', 'done')
-               OR (status = 'todo' AND assignee IS NOT NULL)
-            ORDER BY priority DESC, created_at DESC
-        """).fetchall()
-    except sqlite3.Error:
-        conn.close()
-        return {}
-
-    # Also fetch comments
-    try:
-        comments_raw = conn.execute("""
-            SELECT task_id, author, body, created_at
-            FROM task_comments
-            ORDER BY created_at ASC
-        """).fetchall()
-    except sqlite3.Error:
-        comments_raw = []
-
-    conn.close()
-
-    # Index comments by task_id
-    comments_by_task: dict[str, list[dict]] = {}
-    for c in comments_raw:
-        task_id = c["task_id"]
-        if task_id not in comments_by_task:
-            comments_by_task[task_id] = []
-        comments_by_task[task_id].append({
-            "author": c["author"],
-            "body": c["body"],
-            "created_at": c["created_at"],
-        })
-
-    grouped: dict[str, list[dict]] = {"ready": [], "running": [], "blocked": [], "done": []}
-
-    for row in rows:
-        status = row["status"]
-        # Map 'todo' (with assignee) to 'ready'
-        if status == "todo":
-            status = "ready"
-        if status not in grouped:
-            continue
-
-        task = dict(row)
-        task["comments"] = comments_by_task.get(task["id"], [])
-        grouped[status].append(task)
-
-    return grouped
-
-
-
-
-def load_kanban_tasks_full() -> list[dict]:
-    """Load all kanban tasks with full detail: runs, events, comments, links.
-    Returns a flat list of task dicts ready for JSON serialization."""
-    conn = _kanban_db()
-    if not conn:
-        return []
-
-    try:
-        rows = conn.execute("""
-            SELECT id, title, body, assignee, status, priority, created_by,
-                   created_at, started_at, completed_at, workspace_kind,
-                   workspace_path, branch_name, tenant, consecutive_failures,
-                   worker_pid, last_heartbeat_at, last_failure_error,
-                   max_retries, block_kind
-            FROM tasks
-            WHERE status NOT IN ('archived')
-            ORDER BY priority DESC, created_at DESC
-        """).fetchall()
-    except sqlite3.Error:
-        conn.close()
-        return []
-
-    # Comments
-    try:
-        comments_raw = conn.execute(
-            "SELECT task_id, author, body, created_at FROM task_comments ORDER BY created_at ASC"
-        ).fetchall()
-    except sqlite3.Error:
-        comments_raw = []
-    comments_by_task: dict[str, list[dict]] = {}
-    for c in comments_raw:
-        comments_by_task.setdefault(c["task_id"], []).append({
-            "author": c["author"], "body": c["body"], "at": c["created_at"]
-        })
-
-    # Runs
-    try:
-        runs_raw = conn.execute(
-            "SELECT task_id, id, profile, status, outcome, started_at, ended_at, summary, metadata, error "
-            "FROM task_runs ORDER BY started_at DESC"
-        ).fetchall()
-    except sqlite3.Error:
-        runs_raw = []
-    runs_by_task: dict[str, list[dict]] = {}
-    for r in runs_raw:
-        runs_by_task.setdefault(r["task_id"], []).append({
-            "n": r["id"],
-            "profile": r["profile"],
-            "outcome": r["outcome"] or "unknown",
-            "startedAt": r["started_at"],
-            "endedAt": r["ended_at"],
-            "summary": r["summary"],
-            "metadata": json.loads(r["metadata"]) if r["metadata"] else None,
-            "error": r["error"],
-        })
-
-    # Events
-    try:
-        events_raw = conn.execute(
-            "SELECT task_id, kind, payload, created_at FROM task_events ORDER BY created_at ASC"
-        ).fetchall()
-    except sqlite3.Error:
-        events_raw = []
-    events_by_task: dict[str, list[dict]] = {}
-    for e in events_raw:
-        try:
-            payload = json.loads(e["payload"]) if e["payload"] else {}
-        except (ValueError, TypeError):
-            payload = {}
-        events_by_task.setdefault(e["task_id"], []).append({
-            "kind": e["kind"], "at": e["created_at"], "payload": payload
-        })
-
-    # Links
-    try:
-        links_raw = conn.execute("SELECT parent_id, child_id FROM task_links").fetchall()
-    except sqlite3.Error:
-        links_raw = []
-    parents_by_task: dict[str, list[str]] = {}
-    children_by_task: dict[str, list[str]] = {}
-    for lk in links_raw:
-        parents_by_task.setdefault(lk["child_id"], []).append(lk["parent_id"])
-        children_by_task.setdefault(lk["parent_id"], []).append(lk["child_id"])
 
-    conn.close()
 
-    # Build task list
-    tasks: list[dict] = []
-    for row in rows:
-        tid = row["id"]
-        status = row["status"]
-        # Map 'todo' to 'todo' (the mock has a todo column)
-        task = {
-            "id": tid,
-            "status": status,
-            "title": row["title"],
-            "priority": row["priority"] or 0,
-            "tenant": row["tenant"] or "",
-            "assignee": row["assignee"] or None,
-            "workspace": (row["workspace_kind"] + (":" + row["workspace_path"] if row["workspace_path"] else "")) if row["workspace_kind"] else "scratch",
-            "createdBy": row["created_by"] or "",
-            "createdAt": row["created_at"],
-            "body": row["body"] or "",
-            "parents": parents_by_task.get(tid, []),
-            "children": children_by_task.get(tid, []),
-            "comments": comments_by_task.get(tid, []),
-            "runs": runs_by_task.get(tid, []),
-            "events": events_by_task.get(tid, []),
-            "log": "",
-        }
-        if row["started_at"]:
-            task["runStartedAt"] = row["started_at"]
-        if row["last_heartbeat_at"]:
-            task["lastHeartbeatAt"] = row["last_heartbeat_at"]
-        if row["worker_pid"]:
-            task["pid"] = row["worker_pid"]
-        if row["consecutive_failures"]:
-            task["failures"] = row["consecutive_failures"]
-        if row["last_failure_error"]:
-            task["blockReason"] = row["last_failure_error"]
-        if row["block_kind"]:
-            task["blockKind"] = row["block_kind"]
-        if row["max_retries"]:
-            task["maxRetries"] = row["max_retries"]
-        if row["completed_at"]:
-            task["completedAt"] = row["completed_at"]
-        tasks.append(task)
-
-    return tasks
-
-def _kanban_age(epoch: int | None) -> str:
-    """Return a human-friendly age string from a Unix epoch timestamp."""
-    if not epoch:
-        return ""
-    delta = int(time.time() - epoch)
-    if delta < 60:
-        return "just now"
-    if delta < 3600:
-        return f"{delta // 60}m"
-    if delta < 86400:
-        return f"{delta // 3600}h"
-    return f"{delta // 86400}d"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def hermes_page() -> str:
-    """Consolidated Hermes dashboard."""
-    body = '<div class="hero" style="padding:2rem 0 1rem"><h1>Hermes</h1>'
-    body += '<p>AI agent dashboard — cron, briefings.</p></div>'
-    body += '<div style="text-align:center;margin:0 0 2rem 0">'
-    body += '<a href="https://hermes.devmclovin.com" target="_blank" rel="noopener" class="cta-button">🚀 Open Hermes Web UI →</a></div>'
-
-    # ── Command Shortcuts Panel ──
-    body += '<details class="toolbox-panel"><summary>⚡ Admin Actions</summary><div class="toolbox-panel-body">'
-    body += '<div class="shortcuts-grid">'
-    sc_cards = [
-        ("Restart Dashboard", "safe", "restart-dashboard", "Restart Hermes Dashboard"),
-        ("Restart LLM Router", "destructive", "restart-router", "Restart Cloudflare tunnel"),
-        ("Pull Latest Repo", "safe", "pull-github", "Git pull hermes-agent repo"),
-        ("Run Backup", "destructive", "run-backup", "Trigger backup scripts"),
-        ("Server Logs", "link", "/logs", "View systemd journal"),
-        ("Router Logs", "link", "/logs/router", "View LLM router logs"),
-        ("Docker Status", "link", "/status", "Containers + disk"),
-    ]
-    for label, kind, endpoint, hint in sc_cards:
-        if kind == "safe":
-            body += '<div class="shortcut-card" onclick="safeAction(this,\'' + label + '\',\'' + endpoint + '\')"><span class="sc-label">' + label + '</span><span class="sc-hint">' + hint + '</span></div>'
-        elif kind == "destructive":
-            body += '<div class="shortcut-card destructive" onclick="destructiveAction(this,\'' + label + '\',\'' + endpoint + '\')"><span class="sc-label">' + label + '</span><span class="sc-hint">' + hint + '</span></div>'
-        elif kind == "external":
-            body += '<a href="' + endpoint + '" target="_blank" rel="noopener" class="shortcut-card"><span class="sc-label">' + label + '</span><span class="sc-hint">' + hint + '</span></a>'
-        else:
-            body += '<a href="' + endpoint + '" class="shortcut-card"><span class="sc-label">' + label + '</span><span class="sc-hint">' + hint + '</span></a>'
-    body += '</div></div></details>'
-
-    # ── Cron Jobs (grid) ──
-    body += '<a href=/cron style=text-decoration:none;color:inherit><div class="section-title">⏰ Cron Jobs</div></a>'
-    jobs = load_cron_jobs()
-    if jobs:
-        body += '<div class="section-timestamp">Last updated: ' + datetime.now().strftime('%Y-%m-%d %H:%M UTC') + '</div>'
-        body += '<div class="dashboard-grid">'
-        for job in jobs[:4]:
-            name = job.get("name", job.get("id", ""))
-            job_id = job.get("id", "")
-            schedule = _format_schedule(job)
-            last_run = _format_iso_time(job.get("last_run_at"))
-            next_run = _format_iso_time(job.get("next_run_at"))
-            status = job.get("last_status", "unknown")
-            enabled = job.get("enabled", True)
-            sd = "⏸️" if not enabled else ("🟢" if status == "ok" else ("🔴" if status == "error" else "⚪"))
-            body += '<a href=/cron/' + job_id + ' class="briefing-card" style="text-decoration:none;color:inherit">'
-            body += '<div class="card-num" style="font-size:1.5rem;margin-bottom:0.5rem">' + sd + '</div>'
-            body += '<h3 style="margin-bottom:0.4rem">' + name + '</h3>'
-            body += '<div class="card-summary" style="font-size:0.8rem;color:var(--text-muted)">Schedule: <code style="font-size:0.75rem">' + schedule + '</code></div>'
-            body += '<div class="card-source" style="margin-top:0.3rem">Last: ' + last_run + '</div>'
-            if next_run and next_run != chr(0x2014):
-                body += '<div class="card-source">Next: ' + next_run + '</div>'
-            body += '<span class="card-action">View details →</span>'
-            body += '</a>'
-        body += '</div>'
-        if len(jobs) > 4:
-            body += '<p class="section-timestamp"><a href=/cron style="color:var(--accent-hover)">View all ' + str(len(jobs)) + ' cron jobs →</a></p>'
-    else:
-        body += '<div class="empty-state"><p>No cron jobs configured.</p></div>'
-
-    # ── Installed Models moved to a dedicated page to keep Hermes scannable ──
-    body += '<a href=/models style=text-decoration:none;color:inherit><div class="section-title">📦 Models</div></a>'
-    body += '<div class="dashboard-grid">'
-    body += '<a href=/models class="briefing-card" style="text-decoration:none;color:inherit">'
-    body += '<div class="card-num">🤖</div><h3>Model Console</h3>'
-    body += '<div class="card-summary">Compare pricing, view installed Ollama models, pull new models, and run benchmarks.</div>'
-    body += '<span class="card-action">Open models →</span></a></div>'
-
-    # ── Recent Briefings (grid) ──
-    body += '<a href=/briefings style=text-decoration:none;color:inherit><div class="section-title" style="margin-top:2rem">📰 Recent Briefings</div></a>'
-    files = sorted(glob.glob(str(BRIEFING_DIR / "*.md")), reverse=True)[:4]
-    if files:
-        body += '<div class="section-timestamp">Last updated: ' + datetime.now().strftime('%Y-%m-%d %H:%M UTC') + '</div>'
-        body += '<div class="dashboard-grid">'
-        for f in files:
-            fname = Path(f).stem
-            date_part = fname[:10]
-            body += '<a href=/briefing/' + date_part + ' class="briefing-card" style="text-decoration:none;color:inherit">'
-            body += '<div class="card-num">📅</div><h3>' + date_part + '</h3>'
-            try:
-                raw = Path(f).read_text()
-                stories, _ = parse_briefing_stories(raw)
-                if stories:
-                    body += '<div class="card-summary">' + stories[0]["title"][:80] + '...</div>'
-                    body += '<div class="card-source">' + str(len(stories)) + ' stories</div>'
-            except:
-                body += '<div class="card-summary">-</div>'
-            body += '<span class="card-action">Read full briefing →</span>'
-            body += '</a>'
-        body += '</div>'
-    else:
-        body += '<div class="empty-state"><p>No briefings found.</p></div>'
-
-    return html_page("Hermes", body, active_nav="hermes")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # ═══════════════════════════════════════════════════════════════
 #  HTML helpers
@@ -6240,30 +5757,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             date = path.split("/briefing/")[1]
             content = briefing_detail_page(date, category=category).encode()
             self._respond(200, "text/html", content)
-        elif path == "/hermes":
-            content = hermes_page().encode()
-            self._respond(200, "text/html", content)
         elif path == "/runbooks":
             content = runbooks_page().encode()
             self._respond(200, "text/html", content)
-        elif path == "/cron":
-            content = cron_page().encode()
-            self._respond(200, "text/html", content)
-        elif path.startswith("/cron/"):
-            # /cron/<job_id> or /cron/<job_id>/<filename>
-            parts = path.split("/")
-            # parts: ["", "cron", "job_id"] or ["", "cron", "job_id", "filename"]
-            if len(parts) == 3:
-                job_id = parts[2]
-                status_code, page = cron_job_detail_page(job_id)
-                self._respond(status_code, "text/html", page.encode())
-            elif len(parts) >= 4:
-                job_id = parts[2]
-                filename = "/".join(parts[3:])
-                content = cron_output_preview_page(job_id, filename).encode()
-                self._respond(200, "text/html", content)
-            else:
-                self._respond(404, "text/plain", b"Not Found")
         elif path == "/tunnel":
             content = cloudflare_tunnel_page().encode()
             self._respond(200, "text/html", content)
@@ -6344,57 +5840,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # Check if client wants JSON response (new kanban page) or redirect (old-style form)
         want_json = "application/json" in self.headers.get("Accept", "")
 
-        if path == "/kanban/create":
-            title = get("title").strip()
-            assignee = get("assignee").strip()
-            status = get("status").strip() or "running"
-            if title:
-                tid = kanban_create(title, assignee=assignee)
-                if tid and status != "running":
-                    kanban_move(tid, status)
-            if want_json:
-                tasks_json = json.dumps(load_kanban_tasks_full()).encode()
-                self._respond(200, "application/json", tasks_json)
-            else:
-                self._send_redirect("/kanban")
-        elif path == "/kanban/move":
-            tid = get("task_id"); st = get("status")
-            if tid and st: kanban_move(tid, st)
-            if want_json:
-                tasks_json = json.dumps(load_kanban_tasks_full()).encode()
-                self._respond(200, "application/json", tasks_json)
-            else:
-                self._send_redirect("/kanban")
-        elif path == "/kanban/comment":
-            tid = get("task_id"); author = get("author").strip() or "anon"; body_text = get("body").strip()
-            if tid and body_text: kanban_comment(tid, author, body_text)
-            if want_json:
-                tasks_json = json.dumps(load_kanban_tasks_full()).encode()
-                self._respond(200, "application/json", tasks_json)
-            else:
-                self._send_redirect("/kanban")
-        elif path.startswith("/api/proxy/commands/"):
-            # Proxy to commands API on port 8092 with API key auth
-            action = path[len("/api/proxy/commands/"):]
-            valid_actions = ("restart-dashboard", "restart-router", "pull-github", "run-backup")
-            if action not in valid_actions:
-                self._respond(400, "application/json", json.dumps({"error": "invalid action", "valid": list(valid_actions)}).encode())
-                return
-            import urllib.request as _ur
-            try:
-                commands_url = f"http://localhost:8092/api/commands/{action}"
-                req_data = raw.encode() if raw else b"{}"
-                req = _ur.Request(commands_url, data=req_data, method="POST")
-                req.add_header("Content-Type", "application/json")
-                _commands_key = _load_env_var("COMMANDS_API_KEY") or "hermes-commands-api-key-change-me"
-                req.add_header("X-API-Key", _commands_key)
-                resp = _ur.urlopen(req, timeout=65)
-                proxied_body = resp.read()
-                self._respond(resp.status, "application/json", proxied_body)
-            except Exception as e:
-                self._respond(502, "application/json", json.dumps({"error": f"Commands API unreachable: {str(e)}"}).encode())
-            return
-        elif path == "/bookmarks/toggle":
+        if path == "/bookmarks/toggle":
             sid = get("id")
             btype = get("type") or "saved"
             story = {

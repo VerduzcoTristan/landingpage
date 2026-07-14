@@ -173,7 +173,7 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
   their `_llm_lab_*`, `_tuning_*`, `_ollama_*`, `_gguf_*`, `_hf_*`, `fetch_models`
   helpers, constants (MODELS_DB, TUNING_DIR, LLM_LAB_DIR, HF_DOWNLOAD_DIR) and
   OPTIONS/CORS entries. Biggest single shrink of server.py.
-- [ ] **Step 7 — Delete kanban, hermes, cron.** Kanban POST routes + `kanban_*`
+- [x] **Step 7 — Delete kanban, hermes, cron.** Kanban POST routes + `kanban_*`
   helpers + KANBAN_DB; `/hermes` + `hermes_page()` + `/api/proxy/commands/*` proxy +
   `COMMANDS_API_KEY`; `/cron*` routes + pages + CRON_* constants.
 - [ ] **Step 8 — Delete tunnel, logs, disk-cleanup, runbooks, dead helpers.**
