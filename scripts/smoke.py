@@ -18,6 +18,7 @@ ROUTES = {
     "/status": 200,
     "/api/status": 200,
     "/projects": 200,
+    "/projects/admin": 200,
     "/portfolio": 200,
     "/health": 200,
     "/notes": 404,

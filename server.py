@@ -3461,45 +3461,6 @@ def briefing_card(stories: list[dict], date_str: str) -> str:
     return html
 
 # ── GitHub language colours ──
-_LANG_COLORS = {
-    "Python": "#3572A5", "JavaScript": "#f1e05a", "TypeScript": "#3178c6",
-    "Go": "#00ADD8", "Rust": "#dea584", "Java": "#b07219",
-    "Ruby": "#701516", "C": "#555555", "C++": "#f34b7d", "C#": "#178600",
-    "HTML": "#e34c26", "CSS": "#563d7c", "Shell": "#89e051",
-    "Swift": "#F05138", "Kotlin": "#A97BFF", "PHP": "#4F5D95",
-    "Vue": "#41b883", "Svelte": "#ff3e00", "Jupyter Notebook": "#DA5B0B",
-    "Dockerfile": "#384d54", "Makefile": "#427819", "Lua": "#000080",
-    "HCL": "#844FBA", "Elixir": "#6e4a7e", "Scala": "#c22d40",
-}
-
-
-def _lang_color(lang: str) -> str:
-    return _LANG_COLORS.get(lang, "#8b949e")
-
-
-def _relative_time(iso_str: str) -> str:
-    """Convert ISO 8601 timestamp to a friendly relative string."""
-    try:
-        dt = datetime.strptime(iso_str, "%Y-%m-%dT%H:%M:%SZ")
-    except ValueError:
-        return iso_str[:10]
-    delta = datetime.utcnow() - dt
-    mins = int(delta.total_seconds() / 60)
-    if mins < 1:
-        return "just now"
-    if mins < 60:
-        return f"{mins}m ago"
-    hrs = mins // 60
-    if hrs < 24:
-        return f"{hrs}h ago"
-    days = hrs // 24
-    if days < 30:
-        return f"{days}d ago"
-    if days < 365:
-        return f"{days // 30}mo ago"
-    return f"{days // 365}y ago"
-
-
 # ── Cloudflare Tunnel Monitor UI ──
 
 
@@ -3922,496 +3883,151 @@ def portfolio_page() -> str:
 
 # ── Project Launcher Config ──
 
-_CONFIG_FILE = Path(os.path.expanduser("~/.devmclovin/project-launcher.json"))
+PROJECTS_FILE = DATA_DIR / "projects.json"
 
-def load_project_configs() -> dict:
-    """Load per-project config from JSON file. Returns dict of name -> config."""
-    if _CONFIG_FILE.exists():
-        try:
-            return json.loads(_CONFIG_FILE.read_text())
-        except Exception:
-            pass
-    return {}
 
-def save_project_configs(configs: dict):
-    """Save per-project config to JSON file."""
-    _CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _CONFIG_FILE.write_text(json.dumps(configs, indent=2))
-
-def get_project_launcher_data() -> list[dict]:
-    """Combine GitHub repos with local project configs for launcher cards."""
-    repos, username = [], ""
-    configs = load_project_configs()
+def _normalise_projects(items) -> list[dict]:
+    if not isinstance(items, list):
+        return []
     projects = []
-    for r in repos:
-        name = r["name"]
-        cfg = configs.get(name, {})
+    for index, item in enumerate(items):
+        if not isinstance(item, dict) or not str(item.get("name", "")).strip():
+            continue
         projects.append({
-            "name": name,
-            "github_url": r["html_url"],
-            "language": r.get("language"),
-            "last_commit": _relative_time(r.get("updated_at", "")) if r.get("updated_at") else None,
-            "description": r.get("description") or cfg.get("description", ""),
-            "private": r.get("private", False),
-            "fork": r.get("fork", False),
-            "stars": r.get("stars", 0),
-            "service_name": cfg.get("service_name", ""),
-            "local_path": cfg.get("local_path", ""),
-            "local_url": cfg.get("local_url", ""),
-            "docs_url": cfg.get("docs_url", ""),
-            "docs_label": cfg.get("docs_label", "Docs"),
+            "name": str(item.get("name", "")).strip(),
+            "description": str(item.get("description", "")).strip(),
+            "url": str(item.get("url", "")).strip(),
+            "repo_url": str(item.get("repo_url", "")).strip(),
+            "status": str(item.get("status", "active")).strip() or "active",
+            "order": int(item.get("order", index)),
+            "hidden": bool(item.get("hidden", False)),
         })
+    projects.sort(key=lambda project: (project["order"], project["name"].lower()))
+    for order, project in enumerate(projects):
+        project["order"] = order
     return projects
 
 
-# ── Project Launcher Backend ──
+def load_projects() -> list[dict]:
+    if not PROJECTS_FILE.exists():
+        return []
+    try:
+        return _normalise_projects(json.loads(PROJECTS_FILE.read_text(encoding="utf-8-sig")))
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return []
+
+
+def save_projects(projects: list[dict]) -> None:
+    projects = _normalise_projects(projects)
+    PROJECTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    temporary = PROJECTS_FILE.with_suffix(".tmp")
+    temporary.write_text(json.dumps(projects, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(PROJECTS_FILE)
+
 
 def projects_page() -> str:
-    """Render the project launcher page with wired action buttons."""
-    projects = get_project_launcher_data()
-
-    body = '<div style="padding:1rem 0">'
-    body += '<div class="project-hero-card">'
-    body += '<h1>Project Command Center</h1>'
-    body += '<p style="color:var(--text-muted);font-size:0.95rem;margin:0.35rem 0 0">Search, filter, and sort every repo by what you need right now.</p>'
-    langs = sorted({p.get("language") for p in projects if p.get("language")})
-    private_count = sum(1 for p in projects if p.get("private"))
-    service_count = sum(1 for p in projects if p.get("service_name"))
-    docs_count = sum(1 for p in projects if p.get("docs_url"))
-    body += '<div class="project-stat-grid">'
-    for val, label in [(len(projects), "projects"), (private_count, "private"), (len(projects)-private_count, "public"), (service_count, "services"), (len(langs), "languages"), (docs_count, "docs links")]:
-        body += '<div class="project-stat"><div class="project-stat-value">' + str(val) + '</div><div class="project-stat-label">' + label + '</div></div>'
-    body += '</div></div>'
-    body += '<div class="page-toolbar" role="search" aria-label="Project filters">'
-    body += '<input class="page-search" id="project-search" type="search" placeholder="Search projects, descriptions, languages…" autocomplete="off">'
-    body += '<select class="page-select" id="project-language"><option value="all">All languages</option>'
-    for lang_opt in langs:
-        body += '<option value="' + _esc(lang_opt) + '">' + _esc(lang_opt) + '</option>'
-    body += '</select>'
-    body += '<select class="page-select" id="project-visibility"><option value="all">All visibility</option><option value="private">Private</option><option value="public">Public</option></select>'
-    body += '<select class="page-select" id="project-kind"><option value="all">All projects</option><option value="service">Has service</option><option value="docs">Has docs</option></select>'
-    body += '<select class="page-select" id="project-sort"><option value="name">Sort: name</option><option value="updated">Sort: recently updated</option><option value="stars">Sort: stars</option><option value="language">Sort: language</option></select>'
-    body += '<select class="page-select" id="project-hidden"><option value="visible">Hidden: hide</option><option value="show">Show hidden</option><option value="hidden">Hidden only</option></select>'
-    body += '<span class="project-count" id="project-count">' + str(len(projects)) + ' shown</span>'
-    body += '<a href="#project-grid">Skip to cards</a></div>'
-
+    projects = [project for project in load_projects() if not project["hidden"]]
+    body = '<div class="hero" style="padding:2rem 0 1rem"><h1>Projects</h1><p>Active work and useful services.</p></div>'
     if not projects:
-        body += '<div class="empty-state"><p>No projects found. Set GITHUB_READ_TOKEN in ~/.hermes/.env.</p></div>'
-        body += '</div>'
+        body += '<div class="empty-state"><p>No projects yet — add one in admin.</p><a class="button" href="/projects/admin">Open project admin</a></div>'
         return html_page("Projects", body, active_nav="projects")
+    body += '<div class="projects-grid">'
+    for project in projects:
+        body += '<article class="project-card"><div class="project-card-head"><h2>' + html.escape(project["name"]) + '</h2>'
+        body += '<span class="status-pill">' + html.escape(project["status"]) + '</span></div>'
+        if project["description"]:
+            body += '<p>' + html.escape(project["description"]) + '</p>'
+        body += '<div class="project-actions">'
+        if project["url"]:
+            body += '<a class="button primary" href="' + html.escape(project["url"], quote=True) + '" target="_blank" rel="noopener">Open ↗</a>'
+        if project["repo_url"]:
+            body += '<a class="button" href="' + html.escape(project["repo_url"], quote=True) + '" target="_blank" rel="noopener">Repository ↗</a>'
+        body += '</div></article>'
+    body += '</div><p class="admin-link"><a href="/projects/admin">Manage projects</a></p>'
+    return html_page("Projects", body, active_nav="projects")
 
-    body += '<div class="launcher-grid" id="project-grid" role="list" aria-label="Project launcher cards">'
 
-    for p in projects:
-        name = p["name"]
-        gh = p.get("github_url", "#")
-        lang = p.get("language")
-        last_commit = p.get("last_commit")
-        desc = p.get("description", "")
-        if len(desc) > 140:
-            desc = desc[:137].rsplit(" ", 1)[0] + "…"
-        svc = p.get("service_name", "")
-        local_url = p.get("local_url", "")
-        docs_url = p.get("docs_url", "")
-        docs_label = p.get("docs_label", "Docs")
-        private = p.get("private", False)
-        fork = p.get("fork", False)
-        stars = p.get("stars", 0)
-
-        def esc(s):
-            return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
-
-        # Badges
-        badges = ""
-        if private:
-            badges += '<span class="repo-badge private">private</span> '
-        if fork:
-            badges += '<span class="repo-badge fork">fork</span> '
-
-        search_text = (name + ' ' + desc + ' ' + (lang or '')).lower()
-        is_private = "true" if private else "false"
-        has_service = "true" if svc else "false"
-        has_docs = "true" if docs_url else "false"
-        body += '<article class="launcher-card" data-project-id="' + esc(name) + '" data-name="' + esc(search_text) + '" data-title="' + esc(name.lower()) + '" data-lang="' + esc((lang or '').lower()) + '" data-private="' + is_private + '" data-service="' + has_service + '" data-docs="' + has_docs + '" data-stars="' + str(stars or 0) + '" data-updated="' + esc(last_commit or '') + '" role="article" aria-label="Launcher card for ' + esc(name) + '">'
-
-        # Header: name + GitHub link
-        body += '<div class="lc-header">'
-        body += '<span class="lc-repo-name"><a href="' + esc(gh) + '" target="_blank" rel="noopener">' + badges + esc(name) + '</a></span>'
-        body += '</div>'
-
-        # Description
-        if desc:
-            body += '<div class="repo-desc" style="font-size:0.82rem;margin:0.25rem 0">' + esc(desc) + '</div>'
-
-        # Meta row: language, last commit, stars
-        meta_parts = []
-        if lang:
-            color = _lang_color(lang) if lang in _LANG_COLORS else "#8b949e"
-            meta_parts.append('<span class="lang"><span class="repo-lang-dot" style="background:' + color + '"></span>' + esc(lang) + '</span>')
-        if last_commit:
-            meta_parts.append('<span>' + esc(last_commit) + '</span>')
-        if stars:
-            meta_parts.append('<span>⭐ ' + str(stars) + '</span>')
-        if meta_parts:
-            body += '<div class="lc-meta-row">' + ' <span aria-hidden="true">·</span> '.join(meta_parts) + '</div>'
-
-        # Secondary technical details stay available without dominating the card
-        body += '<details class="lc-details"><summary>Technical details</summary>'
-        body += '<div class="lc-info-grid">'
-        body += '<div class="lc-info-item"><span class="lc-info-label">Local URL</span>'
-        if local_url:
-            body += '<span class="lc-info-value"><a href="' + esc(local_url) + '" target="_blank" rel="noopener">' + esc(local_url) + '</a></span>'
-        else:
-            body += '<span class="lc-info-value" style="color:var(--text-muted)">—</span>'
-        body += '</div>'
-        body += '<div class="lc-info-item"><span class="lc-info-label">Docs</span>'
-        if docs_url:
-            body += '<span class="lc-info-value"><a href="' + esc(docs_url) + '" target="_blank" rel="noopener">' + esc(docs_label) + '</a></span>'
-        else:
-            body += '<span class="lc-info-value" style="color:var(--text-muted)">—</span>'
-        body += '</div>'
-        body += '<div class="lc-info-item"><span class="lc-info-label">Service</span>'
-        if svc:
-            body += '<span class="lc-info-value"><code>' + esc(svc) + '</code></span>'
-        else:
-            body += '<span class="lc-info-value" style="color:var(--text-muted)">—</span>'
-        body += '</div>'
-        body += '<div class="lc-info-item"><span class="lc-info-label">Config Path</span>'
-        lp = p.get("local_path", "")
-        if lp:
-            body += '<span class="lc-info-value" style="font-size:0.72rem"><code>' + esc(lp) + '</code></span>'
-        else:
-            body += '<span class="lc-info-value" style="color:var(--text-muted)">—</span>'
-        body += '</div>'
-        body += '</div></details>'
-
-        # Action buttons
-        body += '<div class="lc-actions" role="group" aria-label="Project actions for ' + esc(name) + '">'
-
-        # Logs button
-        body += '<a class="lc-btn" href="/projects/' + name + '/logs" aria-label="View logs for ' + esc(name) + '">'
-        body += '<span class="lc-btn-icon" aria-hidden="true">📋</span> Logs</a>'
-
-        # Restart button
-        svc_js = svc.replace("'", "\'")
-        name_js = name.replace("'", "\'")
-        body += '<button class="lc-btn" type="button" onclick="confirmRestart(&#39;' + name_js + '&#39;,&#39;' + svc_js + '&#39;)" aria-label="Restart ' + esc(name) + '">'
-        body += '<span class="lc-btn-icon" aria-hidden="true">🔄</span> Restart</button>'
-
-        # GitHub button
-        body += '<a class="lc-btn" href="' + esc(gh) + '" target="_blank" rel="noopener" aria-label="' + esc(name) + ' on GitHub">'
-        body += '<span class="lc-btn-icon" aria-hidden="true">🐙</span> GitHub</a>'
-
-        # Config button
-        body += '<a class="lc-btn" href="/projects/' + name + '/config" aria-label="Edit configuration for ' + esc(name) + '">'
-        body += '<span class="lc-btn-icon" aria-hidden="true">⚙</span> Config</a>'
-
-        # Hide/unhide button (client-side preference stored in localStorage)
-        body += '<button class="lc-btn hide-project-btn" type="button" data-hide-project="' + esc(name) + '" aria-label="Hide ' + esc(name) + ' from the Project Command Center">'
-        body += '<span class="lc-btn-icon" aria-hidden="true">🙈</span> Hide</button>'
-
-        body += '</div>'
-        body += '</article>'
-
-    body += '</div>'
-
-    body += """<script>
-(function(){
-  var STORAGE_KEY = 'devmclovin.hiddenProjects.v1';
-  var search = document.getElementById('project-search');
-  var lang = document.getElementById('project-language');
-  var visibility = document.getElementById('project-visibility');
-  var kind = document.getElementById('project-kind');
-  var sort = document.getElementById('project-sort');
-  var hiddenMode = document.getElementById('project-hidden');
-  var count = document.getElementById('project-count');
-  var grid = document.getElementById('project-grid');
-
-  function loadHidden(){
-    try {
-      var raw = localStorage.getItem(STORAGE_KEY);
-      var arr = raw ? JSON.parse(raw) : [];
-      return Array.isArray(arr) ? arr : [];
-    } catch(e) { return []; }
-  }
-  function saveHidden(list){
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch(e) {}
-  }
-  function isHidden(id){ return loadHidden().indexOf(id) !== -1; }
-  function setHidden(id, shouldHide){
-    var list = loadHidden().filter(function(x){ return x !== id; });
-    if (shouldHide) list.push(id);
-    saveHidden(list);
-  }
-  function val(el, fallback){ return (el && el.value || fallback).toLowerCase(); }
-  function updateCardHiddenState(card){
-    var hidden = isHidden(card.dataset.projectId || '');
-    card.dataset.hidden = hidden ? 'true' : 'false';
-    card.classList.toggle('project-hidden', hidden);
-    var btn = card.querySelector('[data-hide-project]');
-    if (btn) {
-      btn.innerHTML = hidden ? '<span class="lc-btn-icon" aria-hidden="true">👁️</span> Unhide' : '<span class="lc-btn-icon" aria-hidden="true">🙈</span> Hide';
-      btn.setAttribute('aria-label', (hidden ? 'Unhide ' : 'Hide ') + (card.dataset.projectId || 'project'));
+def _project_fields(get) -> dict:
+    return {
+        "name": get("name").strip(),
+        "description": get("description").strip(),
+        "url": get("url").strip(),
+        "repo_url": get("repo_url").strip(),
+        "status": get("status").strip() or "active",
+        "hidden": get("hidden") in {"1", "true", "on", "yes"},
     }
-  }
-  function compareCards(a, b){
-    var s = val(sort, 'name');
-    if (s === 'stars') return (parseInt(b.dataset.stars || '0', 10) - parseInt(a.dataset.stars || '0', 10));
-    if (s === 'updated') return (b.dataset.updated || '').localeCompare(a.dataset.updated || '');
-    if (s === 'language') return (a.dataset.lang || '').localeCompare(b.dataset.lang || '') || (a.dataset.title || '').localeCompare(b.dataset.title || '');
-    return (a.dataset.title || '').localeCompare(b.dataset.title || '');
-  }
-  function applyProjectFilters(){
-    var q = (search && search.value || '').toLowerCase().trim();
-    var selectedLang = val(lang, 'all');
-    var selectedVisibility = val(visibility, 'all');
-    var selectedKind = val(kind, 'all');
-    var selectedHidden = val(hiddenMode, 'visible');
-    var cards = Array.prototype.slice.call(document.querySelectorAll('.launcher-card'));
-    cards.forEach(updateCardHiddenState);
-    cards.sort(compareCards).forEach(function(card){ if(grid) grid.appendChild(card); });
-    var visible = 0;
-    var hiddenTotal = 0;
-    cards.forEach(function(card){
-      var hidden = card.dataset.hidden === 'true';
-      if (hidden) hiddenTotal++;
-      var matchesText = !q || (card.getAttribute('data-name') || '').indexOf(q) !== -1;
-      var matchesLang = selectedLang === 'all' || (card.dataset.lang || '') === selectedLang;
-      var matchesVisibility = selectedVisibility === 'all' || (selectedVisibility === 'private' && card.dataset.private === 'true') || (selectedVisibility === 'public' && card.dataset.private !== 'true');
-      var matchesKind = selectedKind === 'all' || (selectedKind === 'service' && card.dataset.service === 'true') || (selectedKind === 'docs' && card.dataset.docs === 'true');
-      var matchesHidden = (selectedHidden === 'show') || (selectedHidden === 'hidden' && hidden) || (selectedHidden === 'visible' && !hidden);
-      var show = matchesText && matchesLang && matchesVisibility && matchesKind && matchesHidden;
-      card.style.display = show ? '' : 'none';
-      if(show) visible++;
-    });
-    if(count) count.textContent = visible + ' shown' + (hiddenTotal ? ' · ' + hiddenTotal + ' hidden' : '');
-  }
-  document.querySelectorAll('[data-hide-project]').forEach(function(btn){
-    btn.addEventListener('click', function(e){
-      e.preventDefault();
-      e.stopPropagation();
-      var id = btn.getAttribute('data-hide-project');
-      var currentlyHidden = isHidden(id);
-      setHidden(id, !currentlyHidden);
-      applyProjectFilters();
-    });
-  });
-  [search, lang, visibility, kind, sort, hiddenMode].forEach(function(el){ if(el) el.addEventListener(el === search ? 'input' : 'change', applyProjectFilters); });
-  applyProjectFilters();
-})();
-</script>"""
-
-    # Toast container
-    body += '<div id="launcher-toast" class="launcher-toast"></div>'
-
-    # JS for restart + toast
-    body += """<script>
-function showToast(msg, type) {
-    var t = document.getElementById("launcher-toast");
-    if (!t) { t = document.createElement("div"); t.id = "launcher-toast"; t.className = "launcher-toast"; document.body.appendChild(t); }
-    t.textContent = msg;
-    t.className = "launcher-toast " + (type || "") + " show";
-    clearTimeout(t._to);
-    t._to = setTimeout(function() { t.className = "launcher-toast"; }, 4000);
-}
-function confirmRestart(name, svc) {
-    if (name === "devmclovin-landing") {
-        showToast("Cannot self-restart the landing page server.", "error");
-        return;
-    }
-    if (!svc) {
-        showToast("No service_name configured for this project.", "error");
-        return;
-    }
-    var o = document.createElement("div");
-    o.className = "restart-overlay";
-    o.innerHTML =
-        '<div class="restart-dialog">' +
-        '<h3 class="restart-title"></h3>' +
-        '<p>This will restart the systemd service. The service may be briefly unavailable.</p>' +
-        '<button class="dialog-btn-primary" type="button" data-action="restart">Restart</button>' +
-        '<button class="dialog-btn-secondary" type="button" data-action="cancel">Cancel</button>' +
-        '</div>';
-    document.body.appendChild(o);
-    o.querySelector('.restart-title').textContent = 'Restart "' + svc + '"?';
-    o.querySelector('[data-action="restart"]').onclick = function() {
-        o.remove();
-        doRestart(name);
-    };
-    o.querySelector('[data-action="cancel"]').onclick = function() { o.remove(); };
-    o.addEventListener("click", function(e) { if (e.target === o) o.remove(); });
-}
-function doRestart(name) {
-    showToast("Restarting...", "");
-    fetch("/api/projects/" + encodeURIComponent(name) + "/restart", { method: "POST" })
-        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
-        .then(function(r) {
-            if (r.ok) {
-                showToast("Restarted " + r.data.service + " successfully.", "ok");
-            } else {
-                showToast("Restart failed: " + (r.data.error || "unknown"), "error");
-            }
-        })
-        .catch(function(e) { showToast("Restart request failed: " + e, "error"); });
-}
-</script>"""
-
-    body += '</div>'
-    return html_page("Projects", body, active_nav="projects",
-                      extra_head='<link rel="prefetch" href="/api/projects/launcher">')
 
 
-def project_logs_page(name: str) -> str:
-    """Render a log viewer page for a project's systemd service using journalctl."""
-    configs = load_project_configs()
-    cfg = configs.get(name, {})
-    service_name = cfg.get("service_name", "")
-    if not service_name:
-        body = ('<div style="padding:2rem 0 1rem">'
-                '<h1>&#128196; Project Logs: ' + name + '</h1>'
-                '<div class="empty-state"><p>&#9888;&#65039; No service_name configured for this project. '
-                'Add "service_name" to ~/.devmclovin/project-launcher.json to enable log viewing.</p></div>'
-                '<p><a href="/projects" style="color:var(--accent)">&larr; Back to Projects</a></p></div>')
-        return html_page("Logs — " + name, body, active_nav="projects")
-
-    import subprocess
-    log_output = ""
-    log_error = ""
+def update_projects(action: str, get) -> str:
+    projects = load_projects()
+    if action == "add":
+        project = _project_fields(get)
+        if not project["name"]:
+            return "Name is required."
+        project["order"] = len(projects)
+        projects.append(project)
+        save_projects(projects)
+        return "Project added."
     try:
-        r = subprocess.run(
-            ["journalctl", "--user", "-u", service_name, "-n", "200", "--no-pager", "--no-hostname"],
-            capture_output=True, text=True, timeout=5
-        )
-        if r.returncode == 0:
-            log_output = r.stdout
-        else:
-            log_error = r.stderr or "journalctl exited with code " + str(r.returncode)
-    except FileNotFoundError:
-        log_error = "journalctl not found on this system"
-    except subprocess.TimeoutExpired:
-        log_error = "journalctl timed out after 5 seconds"
-    except Exception as e:
-        log_error = str(e)
-
-    if log_error and not log_output:
-        try:
-            r = subprocess.run(
-                ["journalctl", "-u", service_name, "-n", "200", "--no-pager", "--no-hostname"],
-                capture_output=True, text=True, timeout=5
-            )
-            if r.returncode == 0:
-                log_output = r.stdout
-                log_error = ""
-        except Exception:
-            pass
-
-    esc = log_output.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-    body = ('<div style="padding:1rem 0">'
-            '<h1>&#128196; Project Logs: ' + name + '</h1>'
-            '<p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem">'
-            'Service: <code>' + service_name + '</code> &middot; '
-            'Last 200 lines &middot; '
-            '<a href="/projects" style="color:var(--accent)">&larr; Back to Projects</a></p>')
-    if log_error and not log_output:
-        body += '<div class="empty-state"><p>&#9888;&#65039; ' + log_error + '</p></div>'
-    elif log_output:
-        body += ('<pre style="background:var(--bg-card);border:1px solid var(--border);'
-                 'border-radius:8px;padding:1rem;font-size:0.78rem;line-height:1.5;'
-                 'overflow-x:auto;max-height:70vh;overflow-y:auto;'
-                 'white-space:pre-wrap;word-break:break-all">' + esc + '</pre>')
+        index = int(get("index"))
+        if index < 0:
+            raise IndexError
+        project = projects[index]
+    except (ValueError, IndexError):
+        return "Project not found."
+    if action == "update":
+        fields = _project_fields(get)
+        if not fields["name"]:
+            return "Name is required."
+        project.update(fields)
+    elif action == "delete":
+        projects.pop(index)
+    elif action == "toggle-hide":
+        project["hidden"] = not project["hidden"]
+    elif action == "move":
+        target = index - 1 if get("direction") == "up" else index + 1
+        if 0 <= target < len(projects):
+            projects[index], projects[target] = projects[target], projects[index]
+            for order, item in enumerate(projects):
+                item["order"] = order
     else:
-        body += '<div class="empty-state"><p>No log output for ' + service_name + '</p></div>'
-    body += '</div>'
-    return html_page("Logs — " + name, body, active_nav="projects")
+        return "Unknown action."
+    save_projects(projects)
+    return "Projects updated."
 
 
-def project_config_page(name: str, saved: bool = False, error: str = "") -> str:
-    """Render a config view/edit page for a project."""
-    configs = load_project_configs()
-    cfg = configs.get(name, {})
-
-    current_json = json.dumps(cfg, indent=2)
-
-    body = ('<div style="padding:1rem 0">'
-            '<h1>&#9881;&#65039; Project Config: ' + name + '</h1>'
-            '<p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem">'
-            '<a href="/projects" style="color:var(--accent)">&larr; Back to Projects</a></p>')
-
-    if saved:
-        body += ('<div style="background:var(--green);color:#000;padding:0.5rem 1rem;'
-                 'border-radius:6px;margin-bottom:1rem;font-weight:500">'
-                 '&#10003; Config saved. <a href="/projects" style="color:#000;text-decoration:underline">Back to Projects</a></div>')
-    if error:
-        body += ('<div style="background:var(--red);color:#fff;padding:0.5rem 1rem;'
-                 'border-radius:6px;margin-bottom:1rem;font-weight:500">'
-                 '&#9888; ' + error + '</div>')
-
-    body += ('<form method="POST" action="/projects/' + name + '/config" style="max-width:700px">'
-             '<label style="display:block;color:var(--text-muted);font-size:0.8rem;margin-bottom:0.5rem">'
-             'Edit the JSON config for this project. Available fields: local_path, description, service_name, local_url, docs_url, docs_label.</label>'
-             '<textarea name="config_json" rows="16" style="width:100%;background:var(--bg-card);'
-             'color:var(--text);border:1px solid var(--border);border-radius:8px;padding:0.75rem;'
-             'font-family:monospace;font-size:0.82rem;resize:vertical">'
-             + current_json.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") +
-             '</textarea>'
-             '<div style="margin-top:1rem;display:flex;gap:0.75rem">'
-             '<button type="submit" style="background:var(--accent);color:#fff;border:none;'
-             'padding:0.6rem 1.5rem;border-radius:8px;font-size:0.9rem;cursor:pointer;font-weight:500">'
-             'Save Changes</button>'
-             '<a href="/projects" style="display:inline-block;padding:0.6rem 1.5rem;'
-             'border:1px solid var(--border);border-radius:8px;color:var(--text-muted);'
-             'text-decoration:none;font-size:0.9rem">Cancel</a>'
-             '</div>'
-             '</form>')
-    body += '</div>'
-    return html_page("Config — " + name, body, active_nav="projects")
+def project_admin_page(message: str = "") -> str:
+    projects = load_projects()
+    body = '<div class="page-head"><div><h1>Project admin</h1><p>Add, edit, reorder, or hide entries.</p></div><a class="button" href="/projects">View projects</a></div>'
+    if message:
+        body += '<div class="notice">' + html.escape(message) + '</div>'
+    body += '''<section class="admin-panel"><h2>Add project</h2><form method="POST" action="/projects/admin/add" class="project-form">
+    <label>Name<input name="name" required></label><label>Status<input name="status" value="active"></label>
+    <label class="wide">Description<textarea name="description" rows="2"></textarea></label>
+    <label>URL<input name="url" type="url"></label><label>Repository URL<input name="repo_url" type="url"></label>
+    <label class="check"><input name="hidden" value="1" type="checkbox"> Hidden</label>
+    <button class="button primary" type="submit">Add project</button></form></section>'''
+    if not projects:
+        body += '<div class="empty-state"><p>No projects yet.</p></div>'
+    for index, project in enumerate(projects):
+        body += '<section class="admin-panel"><form method="POST" action="/projects/admin/update" class="project-form">'
+        body += '<input type="hidden" name="index" value="' + str(index) + '">'
+        body += '<label>Name<input name="name" required value="' + html.escape(project["name"], quote=True) + '"></label>'
+        body += '<label>Status<input name="status" value="' + html.escape(project["status"], quote=True) + '"></label>'
+        body += '<label class="wide">Description<textarea name="description" rows="2">' + html.escape(project["description"]) + '</textarea></label>'
+        body += '<label>URL<input name="url" type="url" value="' + html.escape(project["url"], quote=True) + '"></label>'
+        body += '<label>Repository URL<input name="repo_url" type="url" value="' + html.escape(project["repo_url"], quote=True) + '"></label>'
+        checked = ' checked' if project["hidden"] else ''
+        body += '<label class="check"><input name="hidden" value="1" type="checkbox"' + checked + '> Hidden</label>'
+        body += '<button class="button primary" type="submit">Save</button></form><div class="admin-actions">'
+        for direction, label in (("up", "Move up"), ("down", "Move down")):
+            body += '<form method="POST" action="/projects/admin/move"><input type="hidden" name="index" value="' + str(index) + '"><input type="hidden" name="direction" value="' + direction + '"><button class="button" type="submit">' + label + '</button></form>'
+        body += '<form method="POST" action="/projects/admin/toggle-hide"><input type="hidden" name="index" value="' + str(index) + '"><button class="button" type="submit">' + ("Show" if project["hidden"] else "Hide") + '</button></form>'
+        body += '<form method="POST" action="/projects/admin/delete" onsubmit="return confirm(\'Delete this project?\')"><input type="hidden" name="index" value="' + str(index) + '"><button class="button danger" type="submit">Delete</button></form>'
+        body += '</div></section>'
+    return html_page("Project admin", body, active_nav="projects")
 
 
-def project_config_save(name: str, config_json: str) -> tuple:
-    """Save updated project config. Returns (success: bool, error: str)."""
-    try:
-        new_cfg = json.loads(config_json)
-        if not isinstance(new_cfg, dict):
-            return False, "Config must be a JSON object (dictionary)."
-        configs = load_project_configs()
-        configs[name] = new_cfg
-        save_project_configs(configs)
-        return True, ""
-    except json.JSONDecodeError as e:
-        return False, "Invalid JSON: " + str(e)
-    except Exception as e:
-        return False, str(e)
-
-
-def project_restart(name: str) -> dict:
-    """Restart a project's systemd service. Returns result dict."""
-    if name == "devmclovin-landing":
-        return {"ok": False, "error": "Cannot self-restart the landing page server — it would kill the response mid-flight."}
-
-    configs = load_project_configs()
-    cfg = configs.get(name, {})
-    service_name = cfg.get("service_name", "")
-    if not service_name:
-        return {"ok": False, "error": "No service_name configured for this project."}
-
-    import subprocess
-    try:
-        r = subprocess.run(
-            ["systemctl", "--user", "restart", service_name],
-            capture_output=True, text=True, timeout=10
-        )
-        if r.returncode == 0:
-            return {"ok": True, "service": service_name}
-        else:
-            err = r.stderr.strip() or r.stdout.strip() or "systemctl exited with code " + str(r.returncode)
-            return {"ok": False, "error": err}
-    except FileNotFoundError:
-        return {"ok": False, "error": "systemctl not available"}
-    except subprocess.TimeoutExpired:
-        return {"ok": False, "error": "systemctl restart timed out"}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -4578,17 +4194,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif path == "/projects":
             content = projects_page().encode()
             self._respond(200, "text/html", content)
-        elif path.startswith("/projects/") and path.endswith("/logs"):
-            name = path.split("/projects/")[1].split("/logs")[0]
-            content = project_logs_page(name).encode()
+        elif path == "/projects/admin":
+            if not is_authenticated(self):
+                self._respond(403, "text/html", _UNAUTH_PAGE.encode())
+                return
+            content = project_admin_page(qs.get("message", [""])[0]).encode()
             self._respond(200, "text/html", content)
-        elif path.startswith("/projects/") and path.endswith("/config"):
-            name = path.split("/projects/")[1].split("/config")[0]
-            content = project_config_page(name).encode()
-            self._respond(200, "text/html", content)
-        elif path == "/api/projects/launcher":
-            data = get_project_launcher_data()
-            self._respond(200, "application/json", json.dumps(data).encode())
         elif path == "/health":
             self._respond(200, "text/plain", b"ok")
         else:
@@ -4601,9 +4212,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         params = urllib.parse.parse_qs(raw)
         get = lambda k: params.get(k, [""])[0]
         path = self.path.rstrip("/") or "/"
-
-        # Check if client wants JSON response (new kanban page) or redirect (old-style form)
-        want_json = "application/json" in self.headers.get("Accept", "")
 
         if path == "/bookmarks/toggle":
             sid = get("id")
@@ -4618,20 +4226,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
             _toggle_bookmark(sid, story, btype)
             active = _is_bookmarked(sid, btype)
             self._respond(200, "application/json", json.dumps({"ok": True, "active": active}).encode())
-        elif path.startswith("/projects/") and path.endswith("/config"):
-            name = path.split("/projects/")[1].split("/config")[0]
-            config_json = get("config_json")
-            ok, err = project_config_save(name, config_json)
-            if ok:
-                content = project_config_page(name, saved=True).encode()
-                self._respond(200, "text/html", content)
-            else:
-                content = project_config_page(name, error=err).encode()
-                self._respond(200, "text/html", content)
-        elif path.startswith("/api/projects/") and path.endswith("/restart"):
-            name = path.split("/api/projects/")[1].split("/restart")[0]
-            result = project_restart(name)
-            self._respond(200 if result["ok"] else 500, "application/json", json.dumps(result).encode())
+        elif path.startswith("/projects/admin/"):
+            if not is_authenticated(self):
+                self._respond(403, "text/html", _UNAUTH_PAGE.encode())
+                return
+            action = path.removeprefix("/projects/admin/")
+            if action not in {"add", "update", "delete", "move", "toggle-hide"}:
+                self._respond(404, "text/plain", b"Not Found")
+                return
+            message = update_projects(action, get)
+            self._send_redirect("/projects/admin?" + urllib.parse.urlencode({"message": message}))
         else:
             self.send_response(404); self.end_headers()
 

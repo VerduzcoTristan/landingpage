@@ -198,7 +198,7 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
   missing/invalid monitors.json → page says "No monitors configured" (not a crash).
   Verify: local run with a test monitors.json (one good URL, one bad) shows
   correct up/down; `/api/status` JSON matches.
-- [ ] **Step 11 — Projects rebuild (D3).** `DATA_DIR/projects.json` CRUD helpers with
+- [x] **Step 11 — Projects rebuild (D3).** `DATA_DIR/projects.json` CRUD helpers with
   atomic write (temp+rename); `/projects` public list (order-sorted, hidden filtered,
   empty state "No projects yet — add one in admin"); `/projects/admin` +
   POST `/projects/admin/{add,update,delete,move,toggle-hide}` all gated by
