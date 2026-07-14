@@ -13,8 +13,6 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
-from runbook_data import runbooks_page
-
 PORT = 3002
 BRIEFING_DIR = Path(os.path.expanduser("~/.hermes/cron/output/7dc1d641173d"))
 SITE_DIR = Path(__file__).parent
@@ -64,35 +62,15 @@ CATEGORY_COLORS = {
 }
 
 # ── New feature paths ──
-QUICKLINKS_FILE = Path(os.path.expanduser("~/.devmclovin/quicklinks.json"))
 BRIEFING_DB = Path(os.path.expanduser("~/.hermes/data/briefings.db"))
 IMPACT_CACHE_DIR = Path(os.path.expanduser("~/.devmclovin/impacts"))
 BOOKMARKS_FILE = Path(os.path.expanduser("~/.devmclovin/bookmarks.json"))
 
 # ── GitHub projects cache ──
-_GITHUB_CACHE: dict = {"data": None, "ts": 0, "username": None}
-_OPENROUTER_CACHE: dict = {"data": None, "ts": 0}
-_CACHE_TTL = 300  # 5 minutes
 # ── System status cache ──
-_SYS_CACHE: dict = {"data": None, "ts": 0}
 # ── Link Health Check ──
-_LINK_HEALTH_CACHE: dict = {}
-_LINK_HEALTH_TTL = 600  # 10 minutes
-_INTERNAL_DOMAINS = os.environ.get(
-    "INTERNAL_DOMAINS",
-    "devmclovin.com,localhost,127.0.0.1,puzzlelabs.app,ssh.devmclovin.com"
-).split(",")
 # ── Cloudflare tunnel cache ──
-_CF_TUNNEL_CACHE: dict = {"data": None, "ts": 0}
 
-def _run_check(cmd, timeout=3):
-    # Run a shell command and return stripped stdout or empty string.
-    import subprocess
-    try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-        return r.stdout.strip()
-    except Exception:
-        return ""
 
 # ── Bookmark helpers ──
 
@@ -159,148 +137,8 @@ def _is_bookmarked(sid: str, bookmark_type: str) -> bool:
     _, _, current_type = _find_bookmark(bookmarks, sid)
     return current_type == bookmark_type
 
-def get_system_status():
-    # Return system status checks. Cached for 2 min.
-    global _SYS_CACHE
-    now = time.time()
-    if _SYS_CACHE["data"] is not None and (now - _SYS_CACHE["ts"]) < 120:
-        return _SYS_CACHE["data"]
-
-    result = {"ts": now}
-
-    # Server
-    result["server"] = {
-        "status": "online", "label": "Server", "metric": "serving",
-        "icon": "\U0001f5a5\ufe0f", "action_url": "#", "action_label": "Active",
-    }
-    try:
-        pid = os.getpid()
-        with open(f"/proc/{pid}/stat") as f:
-            stat = f.read().split()
-        if len(stat) > 21:
-            with open("/proc/uptime") as uf:
-                sys_uptime = float(uf.read().split()[0])
-            clk_tck = os.sysconf(os.sysconf_names["SC_CLK_TCK"])
-            proc_uptime = sys_uptime - (int(stat[21]) / clk_tck)
-            if proc_uptime > 86400:
-                result["server"]["metric"] = f"up {proc_uptime/86400:.0f}d"
-            elif proc_uptime > 3600:
-                result["server"]["metric"] = f"up {proc_uptime/3600:.0f}h"
-            else:
-                result["server"]["metric"] = f"up {proc_uptime/60:.0f}m"
-    except Exception:
-        pass
-
-    # Hermes agent
-    hermes_pid = _run_check(["pgrep", "-f", "hermes-agent"], timeout=2)
-    if hermes_pid:
-        result["hermes"] = {
-            "status": "online", "label": "Hermes", "metric": "running",
-            "icon": "\U0001f916", "action_url": "https://hermes.devmclovin.com",
-            "action_label": "Open TUI \u2192",
-        }
-    else:
-        result["hermes"] = {
-            "status": "offline", "label": "Hermes", "metric": "not running",
-            "icon": "\U0001f916", "action_url": "#", "action_label": "Down",
-        }
-
-    # Router
-    ping_out = _run_check(["ping", "-c", "1", "-W", "2", "192.168.50.1"], timeout=3)
-    if ping_out and "1 received" in ping_out:
-        m = re.search(r"time=([\d.]+)\s*ms", ping_out)
-        if m:
-            result["router"] = {
-                "status": "online", "label": "Router", "metric": f"{m.group(1)}ms",
-                "icon": "\U0001f4e1", "action_url": "http://192.168.50.1",
-                "action_label": "Admin \u2192",
-            }
-        else:
-            result["router"] = {
-                "status": "online", "label": "Router", "metric": "reachable",
-                "icon": "\U0001f4e1", "action_url": "http://192.168.50.1",
-                "action_label": "Admin \u2192",
-            }
-    else:
-        result["router"] = {
-            "status": "offline", "label": "Router", "metric": "unreachable",
-            "icon": "\U0001f4e1", "action_url": "#", "action_label": "Check \u2192",
-        }
-
-    # Cloudflare tunnel
-    tunnel_pid = _run_check(["pgrep", "-f", "cloudflared"], timeout=2)
-    if tunnel_pid:
-        result["tunnel"] = {
-            "status": "online", "label": "Tunnel", "metric": "active",
-            "icon": "\U0001f512", "action_url": "https://dash.cloudflare.com",
-            "action_label": "Dash \u2192",
-        }
-    else:
-        result["tunnel"] = {
-            "status": "offline", "label": "Tunnel", "metric": "not running",
-            "icon": "\U0001f512", "action_url": "#", "action_label": "Down",
-        }
-
-    # OpenRouter spend
-    or_data = get_openrouter_data()
-    if or_data.get("ok"):
-        balance = or_data.get("balance", 0) or 0
-        usage = or_data.get("total_usage", 0) or 0
-        remaining = balance - usage
-        result["spend"] = {
-            "status": "online" if remaining > 0 else "warning",
-            "label": "Credits", "metric": f"${remaining:.2f}",
-            "icon": "\U0001f4b0", "action_url": "https://openrouter.ai/activity",
-            "action_label": "OpenRouter \u2192",
-        }
-    else:
-        result["spend"] = {
-            "status": "warning", "label": "Credits", "metric": "N/A",
-            "icon": "\U0001f4b0", "action_url": "#", "action_label": "Configure \u2192",
-        }
-
-    _SYS_CACHE = {"data": result, "ts": now}
-    return result
 
 
-def services_status_row() -> str:
-    """Render a live service status table that fetches from /api/status."""
-    return '<div class="section-title">📡 Services <a href="/status" style="font-size:0.75rem;font-weight:400;color:var(--text-muted);margin-left:0.5rem;text-decoration:none">view all →</a></div>' + \
-           '<div class="services-status-panel" id="services-panel">' + \
-           '<div class="services-loading" id="services-loading">Loading service status...</div>' + \
-           '<div class="services-error" id="services-error" style="display:none"></div>' + \
-           '</div>' + \
-           '<script>' + \
-           '(function(){' + \
-           'fetch("/api/status").then(function(r){' + \
-           'if(!r.ok)throw new Error("Server returned "+r.status);return r.json()' + \
-           '}).then(function(data){' + \
-           'var svcs=data.services||{};' + \
-           'var names=["hermes_dashboard","ollama","cloudflare_tunnel","searxng","llm_router","github_backup"];' + \
-           'var icons={hermes_dashboard:"\U0001f5a5\ufe0f",ollama:"\U0001f999",cloudflare_tunnel:"\U0001f310",searxng:"\U0001f50d",llm_router:"\U0001f500",github_backup:"\U0001f4e6"};' + \
-           'var h="<div class=dashboard-grid>";' + \
-           'names.forEach(function(k){var s=svcs[k];if(!s)return;' + \
-           'var dot=s.healthy?"green":"red";var icon=icons[k]||"\u26ab";' + \
-           'h+="<div class=briefing-card style=padding:1.25rem;min-width:240px>"+' + \
-           '"<div style=display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem>"+' + \
-           '"<span style=font-size:1.6rem;line-height:1>"+icon+"</span>"+' + \
-           '"<div><div style=font-weight:600;font-size:0.95rem;color:var(--text)>"+s.name+"</div>"+' + \
-           '"<div style=display:flex;align-items:center;gap:0.35rem;margin-top:0.25rem>"+' + \
-           '"<span class=status-dot "+dot+"></span>"+' + \
-           '"<span style=font-size:0.8rem;color:var(--text-muted)>"+s.status+"</span></div></div></div>"+' + \
-           '"<div style=font-size:0.78rem;color:var(--text-muted);margin-bottom:0.75rem;padding-left:0.25rem>"+s.detail+"</div>";' + \
-           'if(s.actions){h+="<div style=display:flex;gap:0.5rem;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:0.75rem;margin-top:0.25rem>";' + \
-           'if(s.actions.logs)h+="<a href="+s.actions.logs.replace("http://localhost:9091","")+" class=card-action>\U0001f4c4 Logs</a>";' + \
-           'if(s.actions.restart)h+="<button class=card-action data-url="+s.actions.restart+" onclick=fetch(this.dataset.url,{method:\'POST\'}) style=background:none;border:none;cursor:pointer;font-size:0.8rem>\U0001f504 Restart</button>";' + \
-           'h+="</div>"}' + \
-           'h+="</div>"});h+="</div>";' + \
-           'var p=document.getElementById("services-panel");if(p)p.innerHTML=h' + \
-           '}).catch(function(e){' + \
-           'var ld=document.getElementById("services-loading");if(ld)ld.style.display="none";' + \
-           'var err=document.getElementById("services-error");if(err){err.style.display="block";' + \
-           'err.textContent="Service status unavailable — API server is not responding.";}' + \
-           '});' + \
-           '})()</script>'
 
 def _load_env_var(name: str) -> str | None:
     """Read a variable from the Hermes .env file."""
@@ -314,243 +152,23 @@ def _load_env_var(name: str) -> str | None:
     return None
 
 
-def _load_openrouter_key() -> str | None:
-    """Read OPENROUTER_API_KEY from Hermes .env (uncommented)."""
-    env_path = Path(os.path.expanduser("~/.hermes/.env"))
-    if not env_path.exists():
-        return None
-    for line in env_path.read_text().splitlines():
-        stripped = line.strip()
-        if stripped.startswith("#"):
-            continue
-        if stripped.startswith("OPENROUTER_API_KEY="):
-            return stripped.split("=", 1)[1].strip().strip('"').strip("'")
-    return None
 
 
-def _openrouter_api(path: str) -> dict | None:
-    """Call the OpenRouter REST API. Returns parsed JSON or None on failure."""
-    key = _load_openrouter_key()
-    if not key:
-        return None
-    req = urllib.request.Request(
-        f"https://openrouter.ai/api/v1{path}",
-        headers={
-            "Authorization": f"Bearer {key}",
-            "User-Agent": "devmclovin-spending",
-        },
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            return json.loads(resp.read())
-    except Exception:
-        return None
 
 
-def get_openrouter_data() -> dict:
-    """Return OpenRouter spending data. Cached for 5 min."""
-    global _OPENROUTER_CACHE
-    now = time.time()
-    if _OPENROUTER_CACHE["data"] is not None and (now - _OPENROUTER_CACHE["ts"]) < _CACHE_TTL:
-        return _OPENROUTER_CACHE["data"]
-
-    result = {
-        "ok": False, "balance": None, "total_usage": None,
-        "models": [], "recent": [], "daily": [], "error": None,
-    }
-
-    key = _load_openrouter_key()
-    if not key:
-        result["error"] = "OpenRouter API key not configured"
-        _OPENROUTER_CACHE = {"data": result, "ts": now}
-        return result
-
-    credits = _openrouter_api("/credits")
-    if credits and isinstance(credits, dict):
-        data = credits.get("data", credits)
-        result["balance"] = data.get("total_credits")
-        result["total_usage"] = data.get("total_usage")
-
-    key_info = _openrouter_api("/key")
-    if key_info and isinstance(key_info, dict):
-        kd = key_info.get("data", key_info)
-        result["key_label"] = kd.get("label", "")
-        result["key_usage"] = kd.get("usage", 0)
-        result["key_usage_monthly"] = kd.get("usage_monthly", 0)
-
-    gen = _openrouter_api("/generation")
-    models_map: dict[str, dict] = {}
-    daily_map: dict[str, dict] = {}
-    recent_list = []
-
-    if gen and isinstance(gen, dict):
-        gen_data = gen.get("data", gen)
-        entries = gen_data if isinstance(gen_data, list) else gen_data.get("data", [])
-        if isinstance(entries, list):
-            for entry in entries:
-                model = entry.get("model", "unknown")
-                cost = entry.get("total_cost", 0) or 0
-                prompt_tok = entry.get("tokens_prompt", 0) or 0
-                comp_tok = entry.get("tokens_completion", 0) or 0
-                created = entry.get("created_at", "") or ""
-
-                if model not in models_map:
-                    models_map[model] = {"name": model, "requests": 0, "cost": 0.0,
-                                          "prompt_tokens": 0, "completion_tokens": 0}
-                m = models_map[model]
-                m["requests"] += 1
-                m["cost"] += cost
-                m["prompt_tokens"] += prompt_tok
-                m["completion_tokens"] += comp_tok
-
-                if created:
-                    day = created[:10]
-                    if day not in daily_map:
-                        daily_map[day] = {"date": day, "cost": 0.0, "requests": 0}
-                    daily_map[day]["cost"] += cost
-                    daily_map[day]["requests"] += 1
-
-                recent_list.append({
-                    "model": model, "cost": cost,
-                    "tokens": prompt_tok + comp_tok, "when": created,
-                })
-
-    result["models"] = sorted(models_map.values(), key=lambda x: x["cost"], reverse=True)
-    result["daily"] = sorted(daily_map.values(), key=lambda x: x["date"], reverse=True)[:14]
-    result["recent"] = sorted(recent_list, key=lambda x: x["when"], reverse=True)[:20]
-    result["ok"] = True
-
-    _OPENROUTER_CACHE = {"data": result, "ts": now}
-    return result
 
 
-def _load_github_token() -> str | None:
-    """Read GITHUB_READ_TOKEN from the Hermes .env file."""
-    env_path = Path(os.path.expanduser("~/.hermes/.env"))
-    if not env_path.exists():
-        return None
-    for line in env_path.read_text().splitlines():
-        line = line.strip()
-        if line.startswith("GITHUB_READ_TOKEN="):
-            return line.split("=", 1)[1].strip().strip('"').strip("'")
-    return None
 
 
-def _github_api(path: str) -> dict | list | None:
-    """Call the GitHub REST API. Returns parsed JSON or None on failure."""
-    token = _load_github_token()
-    if not token:
-        return None
-    req = urllib.request.Request(
-        f"https://api.github.com{path}",
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "devmclovin-landing",
-        },
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            return json.loads(resp.read())
-    except Exception:
-        return None
 
 
 
 # ── Cloudflare Tunnel API ──
 
-def _load_cf_credentials() -> tuple:
-    """Load CF_API_TOKEN, CF_ACCOUNT_ID, CF_TUNNEL_ID."""
-    api_token = os.environ.get("CF_API_TOKEN") or _load_env_var("CF_API_TOKEN")
-    account_id = os.environ.get("CF_ACCOUNT_ID") or _load_env_var("CF_ACCOUNT_ID")
-    tunnel_id = os.environ.get("CF_TUNNEL_ID") or _load_env_var("CF_TUNNEL_ID")
-    return api_token, account_id, tunnel_id
 
 
-def get_cloudflare_tunnel_data() -> dict:
-    """Fetch Cloudflare tunnel report with 5-min caching."""
-    global _CF_TUNNEL_CACHE
-    now = time.time()
-    if _CF_TUNNEL_CACHE["data"] is not None and (now - _CF_TUNNEL_CACHE["ts"]) < _CACHE_TTL:
-        return _CF_TUNNEL_CACHE["data"]
-    api_token, account_id, tunnel_id = _load_cf_credentials()
-    if not api_token or not account_id:
-        result = {"ok": False, "data": None,
-            "error": "CF_API_TOKEN and CF_ACCOUNT_ID must be set.",
-            "checked_at": now, "account_id": account_id, "tunnel_id": tunnel_id}
-        _CF_TUNNEL_CACHE = {"data": result, "ts": now}
-        return result
-    try:
-        import asyncio
-        _dir = os.path.dirname(os.path.abspath(__file__))
-        if _dir not in sys.path: sys.path.insert(0, _dir)
-        from cloudflare_api import get_full_report
-        report = asyncio.run(get_full_report(
-            api_token=api_token, account_id=account_id,
-            tunnel_id=tunnel_id or None))
-        data = {"ok": True, "data": {
-            "tunnel_id": report.tunnel_id,
-            "tunnel_name": report.status.tunnel_name,
-            "is_up": report.status.is_up,
-            "connections": [{"connection_id": c.connection_id,
-                "client_id": c.client_id, "arch": c.arch,
-                "version": c.version, "origin_ip": c.origin_ip,
-                "opened_at": c.opened_at} for c in report.status.connections],
-            "hostnames": [{"hostname": h.hostname, "service": h.service}
-                for h in report.config.hostnames],
-            "port_mappings": [{"protocol": pm.protocol, "host": pm.host,
-                "port": pm.port} for pm in report.port_mappings],
-            "access_policies": {
-                "total_policies": report.access_policies.total_policies,
-                "policies": [{"policy_id": p.policy_id, "name": p.name,
-                    "decision": p.decision, "include_count": p.include_count,
-                    "exclude_count": p.exclude_count,
-                    "require_count": p.require_count}
-                    for p in report.access_policies.policies],
-                "types_breakdown": report.access_policies.types_breakdown},
-            "last_reconnect_at": report.reconnect.last_reconnect_at,
-            "connection_count": report.reconnect.connection_count},
-            "error": None, "checked_at": now,
-            "account_id": account_id, "tunnel_id": report.tunnel_id}
-    except Exception as e:
-        data = {"ok": False, "data": None, "error": str(e),
-            "checked_at": now, "account_id": account_id, "tunnel_id": tunnel_id}
-    _CF_TUNNEL_CACHE = {"data": data, "ts": now}
-    return data
 
 
-def get_github_repos() -> tuple[list[dict], str]:
-    """Return (repos sorted by most-recently-updated, github_username). Cached for 5 min."""
-    global _GITHUB_CACHE
-    now = time.time()
-    if _GITHUB_CACHE["data"] is not None and (now - _GITHUB_CACHE["ts"]) < _CACHE_TTL:
-        return _GITHUB_CACHE["data"], _GITHUB_CACHE["username"]
-
-    repos = []
-    username = _GITHUB_CACHE.get("username") or ""
-
-    if not username:
-        user = _github_api("/user")
-        if user and isinstance(user, dict):
-            username = user.get("login", "")
-
-    all_repos = _github_api("/user/repos?sort=updated&direction=desc&per_page=50&type=owner")
-    if all_repos and isinstance(all_repos, list):
-        for r in all_repos:
-            repos.append({
-                "name": r.get("name", ""),
-                "full_name": r.get("full_name", ""),
-                "description": (r.get("description") or "").strip(),
-                "language": r.get("language") or "",
-                "stars": r.get("stargazers_count", 0),
-                "updated_at": r.get("updated_at", ""),
-                "html_url": r.get("html_url", ""),
-                "private": r.get("private", False),
-                "fork": r.get("fork", False),
-            })
-
-    _GITHUB_CACHE = {"data": repos, "ts": now, "username": username}
-    return repos, username
 
 
 def simple_md_to_html(text: str) -> str:
@@ -3138,180 +2756,16 @@ BOOKMARK_CATEGORIES = [
 ]
 
 
-def load_quick_links() -> list[dict]:
-    """Load quick links from config file, returning sensible defaults if missing.
-
-    Each link dict has these fields:
-        label       (str, required) — display name
-        url         (str, required) — target URL
-        emoji       (str, optional) — icon, defaults to '🔗'
-        description (str, optional) — hover/subtitle text, defaults to ''
-        category    (str, optional) — one of BOOKMARK_CATEGORIES, defaults to ''
-        healthStatus(str, optional) — 'ok' | 'error' | 'unknown', defaults to 'unknown'
-    """
-    defaults = [
-        {"label": "OpenRouter", "url": "https://openrouter.ai/activity", "emoji": "🤖",
-         "description": "AI model usage and spending dashboard",
-         "category": "AI / models", "healthStatus": "unknown"},
-        {"label": "GitHub", "url": "https://github.com/VerduzcoTristan", "emoji": "💻",
-         "description": "All projects and repositories",
-         "category": "GitHub", "healthStatus": "unknown"},
-        {"label": "Cloudflare", "url": "https://dash.cloudflare.com", "emoji": "☁️",
-         "description": "DNS, tunnels, and domain management",
-         "category": "Cloudflare", "healthStatus": "unknown"},
-        {"label": "Linear", "url": "https://linear.app", "emoji": "📋",
-         "description": "Project and task management",
-         "category": "Dashboards", "healthStatus": "unknown"},
-        {"label": "Hermes Docs", "url": "https://hermes-agent.nousresearch.com/docs", "emoji": "📘",
-         "description": "Hermes Agent configuration and reference",
-         "category": "Docs", "healthStatus": "unknown"},
-    ]
-    if not QUICKLINKS_FILE.exists():
-        return defaults
-    try:
-        links = json.loads(QUICKLINKS_FILE.read_text())
-        if isinstance(links, list) and links:
-            return links
-    except (json.JSONDecodeError, Exception):
-        pass
-    return defaults
 
 
 # ── Link Health Check helpers ──
 
-def _is_internal_link(url: str) -> bool:
-    """Check if a URL's hostname matches any internal domain (exact or subdomain)."""
-    from urllib.parse import urlparse
-    try:
-        hostname = urlparse(url).hostname
-        if not hostname:
-            return False
-        hostname = hostname.lower()
-        for domain in _INTERNAL_DOMAINS:
-            domain = domain.strip().lower()
-            if not domain:
-                continue
-            if hostname == domain or hostname.endswith("." + domain):
-                return True
-        return False
-    except Exception:
-        return False
 
 
-def _check_single_link(url: str, method: str = "HEAD") -> tuple[str, str | None]:
-    """Check a single URL. Returns (status, error_message).
-    Tries HEAD first, falls back to GET on 405/501."""
-    import urllib.request
-    import urllib.error
-    import ssl
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-
-    for attempt_method in (method, "GET"):
-        try:
-            req = urllib.request.Request(url, method=attempt_method)
-            req.add_header("User-Agent", "devmclovin-link-checker/1.0")
-            resp = urllib.request.urlopen(req, timeout=8, context=ctx)
-            if attempt_method == "GET":
-                resp.read(4096)
-            resp.close()
-            return ("ok", None)
-        except urllib.error.HTTPError as e:
-            if attempt_method == method and e.code in (405, 501):
-                continue
-            resp_body = ""
-            try:
-                resp_body = e.read(4096).decode("utf-8", errors="replace")
-            except Exception:
-                pass
-            err = f"HTTP {e.code}"
-            if resp_body:
-                err += f": {resp_body[:120]}"
-            return ("error", err)
-        except urllib.error.URLError as e:
-            return ("error", str(e.reason))
-        except Exception as e:
-            return ("error", str(e))
-    return ("error", "No valid method")
 
 
-def get_link_health(url: str) -> dict:
-    """Get cached link health. Returns {status: 'ok'|'error'|'external', error: str|None}."""
-    if not _is_internal_link(url):
-        return {"status": "external", "error": None}
-
-    cached = _LINK_HEALTH_CACHE.get(url)
-    if cached and (time.time() - cached["ts"]) < _LINK_HEALTH_TTL:
-        return cached
-
-    status, err = _check_single_link(url)
-    result = {"status": status, "error": err, "ts": time.time()}
-    _LINK_HEALTH_CACHE[url] = result
-    return result
 
 
-def quick_links_row() -> str:
-    """Render a grid of quick-link cards with category filter bar and health indicators."""
-    links = load_quick_links()
-    if not links:
-        return ""
-
-    # ── Category counts ──
-    cat_counts: dict[str, int] = {}
-    for link in links:
-        cat = link.get("category", "") or ""
-        if cat:
-            cat_counts[cat] = cat_counts.get(cat, 0) + 1
-    total = len(links)
-
-    # ── Category filter bar ──
-    html = '<div class="section-title">🔗 Quick Links</div>'
-    html += '<div class="category-filter">'
-    # "All" pill — always active by default
-    html += f'<button class="category-pill active" onclick="filterByCategory(&#39;all&#39;, this)" data-cat="all">All<span class="pill-count">{total}</span></button>'
-
-    for cat in BOOKMARK_CATEGORIES:
-        count = cat_counts.get(cat, 0)
-        if count == 0:
-            continue
-        html += f'<button class="category-pill" onclick="filterByCategory(&#39;{_esc(cat)}&#39;, this)" data-cat="{_esc(cat)}">{_esc(cat)}<span class="pill-count">{count}</span></button>'
-
-    html += '</div>'
-
-    # ── Link cards grid ──
-    html += '<div class="quicklinks-grid">'
-    for link in links:
-        url = link["url"]
-        health = get_link_health(url)
-        status = health["status"]
-        error_msg = health.get("error", "")
-        cat = link.get("category", "") or ""
-
-        card_class = "link-card"
-        if status == "error":
-            card_class += " link-health-error"
-
-        html += f'<a href="{_esc(url)}" target="_blank" rel="noopener" class="{card_class}" data-category="{_esc(cat)}">'
-        html += f'<span class="link-emoji">{_esc(link.get("emoji", "🔗"))}</span>'
-        html += '<span class="link-info">'
-        html += f'<div class="link-label">{_esc(link["label"])}</div>'
-        html += f'<div class="link-desc">{_esc(link.get("description", ""))}</div>'
-        html += '</span>'
-
-        if status == "external":
-            pass
-        elif status == "ok":
-            html += '<span class="link-health-dot ok" title="Reachable"></span>'
-        elif status == "error":
-            err_text = _esc(error_msg) if error_msg else "Unreachable"
-            html += f'<span class="link-health-dot error" title="{err_text}"></span>'
-        else:
-            html += '<span class="link-health-dot unknown" title="Checking..."></span>'
-
-        html += '</a>'
-    html += '</div>'
-    return html
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -3648,7 +3102,7 @@ def _extract_impact(body_lines: list[str]) -> str:
 
 def _openrouter_chat(messages: list[dict], model: str = "google/gemini-2.5-flash-lite") -> str | None:
     """Call OpenRouter chat completions API. Returns response text or None."""
-    key = _load_openrouter_key()
+    key = os.environ.get("OPENROUTER_API_KEY") or _load_env_var("OPENROUTER_API_KEY")
     if not key:
         return None
     body = json.dumps({
@@ -4031,192 +3485,12 @@ def _relative_time(iso_str: str) -> str:
 
 # ── Cloudflare Tunnel Monitor UI ──
 
-def _cf_dashboard_url(account_id, path=""):
-    if not account_id: return "https://one.dash.cloudflare.com/"
-    return f"https://one.dash.cloudflare.com/{account_id}/{path}" if path else f"https://one.dash.cloudflare.com/{account_id}"
-
-def _cf_timestamp(iso_str):
-    if not iso_str: return "Never"
-    try:
-        from datetime import datetime, timezone
-        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
-        delta = datetime.now(timezone.utc) - dt
-        if delta.days > 0: return f"{delta.days}d ago"
-        if delta.seconds >= 3600: return f"{delta.seconds//3600}h ago"
-        if delta.seconds >= 60: return f"{delta.seconds//60}m ago"
-        return "just now"
-    except: return iso_str[:19] if iso_str else "Never"
-
-def cloudflare_tunnel_page():
-    cf = get_cloudflare_tunnel_data()
-    account_id = cf.get("account_id", "")
-    tid = cf.get("tunnel_id") or (cf.get("data", {}) or {}).get("tunnel_id", "")
-    dash = _cf_dashboard_url(account_id, "networks/tunnels") if account_id else "https://one.dash.cloudflare.com/"
-    import time as _t
-    checked = cf.get("checked_at", 0)
-    ct = "never"
-    if checked:
-        from datetime import datetime, timezone
-        ct = datetime.fromtimestamp(checked, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-
-    body = '<div class="hero" style="padding:2rem 0 1rem"><h1>🌐 Cloudflare Tunnel Monitor</h1>'
-    body += f'<p style="color:var(--text-muted)">Last checked: {ct} <a href="{dash}" target="_blank" rel="noopener" style="color:var(--accent-hover);font-size:0.85rem">Zero Trust →</a></p></div>'
-
-    if not cf.get("ok"):
-        err = cf.get("error", "Unknown error")
-        if not account_id:
-            # Credentials not configured — show a clean info page, not a warning
-            body += '<div class="empty-state" style="margin-top:2rem;padding:3rem 2rem;text-align:center;border:1px dashed var(--border);border-radius:12px">'
-            body += '<div style="font-size:3rem;margin-bottom:1rem">🔒</div>'
-            body += '<h2 style="color:var(--text);margin-bottom:0.5rem">Cloudflare Tunnel Monitoring</h2>'
-            body += '<p style="color:var(--text-muted);max-width:500px;margin:0 auto 1.5rem">Monitor your Cloudflare Tunnel — status, hostnames, connections, port mappings, and access policies — all from the API.</p>'
-            body += '<p style="color:var(--text-muted);font-size:0.85rem">Set <code>CF_API_TOKEN</code> and <code>CF_ACCOUNT_ID</code> in <code>~/.hermes/.env</code> to enable.</p>'
-            body += '</div>'
-        else:
-            body += f'<div class="empty-state" style="margin-top:2rem"><p>⚠️ Unable to load tunnel data: {err}</p></div>'
-        return html_page("Tunnel Monitor", body, active_nav="tunnel")
-
-    d = cf["data"]
-    is_up = d["is_up"]; sc = "var(--green)" if is_up else "#f85149"
-    st = "✅ UP" if is_up else "❌ DOWN"
-
-    body += '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:2rem">'
-    body += f'<div class="briefing-card" style="flex:1;min-width:200px"><div class="card-title">Tunnel Status</div>'
-    body += f'<div style="font-size:1.5rem;font-weight:700;color:{sc};margin:0.5rem 0">{st}</div>'
-    body += f'<div class="card-meta">Name: {d["tunnel_name"]}</div>'
-    body += f'<div class="card-meta">ID: <code>{tid[:16]}...</code></div>'
-    body += f'<div class="card-meta">Connections: {len(d["connections"])}</div>'
-    body += f'<div class="card-meta">Last reconnect: {_cf_timestamp(d["last_reconnect_at"])}</div></div>'
-    ap = d["access_policies"]
-    body += f'<div class="briefing-card" style="flex:1;min-width:200px"><div class="card-title">Access Policies</div>'
-    body += f'<div style="font-size:1.5rem;font-weight:700;color:var(--accent);margin:0.5rem 0">{ap["total_policies"]}</div>'
-    body += '<div class="card-meta">Total policies on account</div>'
-    for dec, cnt in sorted(ap.get("types_breakdown", {}).items()): body += f'<div class="card-meta">{dec}: {cnt}</div>'
-    access = _cf_dashboard_url(account_id, "access/policies") if account_id else "#"
-    body += f'<a href="{access}" target="_blank" rel="noopener" class="card-action">Manage Policies →</a></div></div>'
-
-    body += '<div class="section-title">🔗 Public Hostnames</div>'
-    hostnames = d["hostnames"]
-    if hostnames:
-        body += '<table class="tunnel-table" style="width:100%"><thead><tr><th>Hostname</th><th>Origin Service</th><th>Zero Trust</th></tr></thead><tbody>'
-        apps = _cf_dashboard_url(account_id, "access/apps") if account_id else "#"
-        for hn in hostnames: body += f'<tr><td><strong>{hn["hostname"]}</strong></td><td><code>{hn["service"]}</code></td><td><a href="{apps}" target="_blank" rel="noopener" style="color:var(--accent-hover)">Manage →</a></td></tr>'
-        body += '</tbody></table>'
-    else: body += '<div class="empty-state"><p>No public hostnames configured.</p></div>'
-
-    body += '<div class="section-title" style="margin-top:2rem">📡 Port Mappings</div>'
-    ports = d["port_mappings"]
-    if ports:
-        body += '<table class="tunnel-table" style="width:100%"><thead><tr><th>Protocol</th><th>Host</th><th>Port</th></tr></thead><tbody>'
-        for pm in ports: body += f'<tr><td><span class="badge">{pm["protocol"].upper()}</span></td><td>{pm["host"]}</td><td><code>{pm["port"]}</code></td></tr>'
-        body += '</tbody></table>'
-    else: body += '<div class="empty-state"><p>No port mappings detected.</p></div>'
-
-    body += '<div class="section-title" style="margin-top:2rem">🛡️ Access Policies</div>'
-    policies = ap.get("policies", [])
-    if policies:
-        body += '<table class="tunnel-table" style="width:100%"><thead><tr><th>Name</th><th>Decision</th><th>Include</th><th>Exclude</th><th>Require</th></tr></thead><tbody>'
-        colors = {"allow": "var(--green)", "deny": "#f85149", "bypass": "var(--orange)", "non_identity": "var(--text-muted)"}
-        for p in policies:
-            dc = colors.get(p["decision"], "var(--text-muted)")
-            body += f'<tr><td>{p["name"] or "<em>Unnamed</em>"}</td><td><span style="color:{dc};font-weight:600">{p["decision"]}</span></td><td>{p["include_count"]}</td><td>{p["exclude_count"]}</td><td>{p["require_count"]}</td></tr>'
-        body += '</tbody></table>'
-    else: body += '<div class="empty-state"><p>No access policies found.</p></div>'
-
-    body += '<div class="section-title" style="margin-top:2rem">🔌 Active Connections</div>'
-    conns = d["connections"]
-    if conns:
-        body += '<table class="tunnel-table" style="width:100%"><thead><tr><th>Connection ID</th><th>Origin IP</th><th>Version</th><th>Arch</th><th>Opened</th></tr></thead><tbody>'
-        for c in conns: body += f'<tr><td><code>{c["connection_id"][:16]}...</code></td><td>{c["origin_ip"]}</td><td>{c["version"]}</td><td>{c["arch"]}</td><td>{_cf_timestamp(c["opened_at"])}</td></tr>'
-        body += '</tbody></table>'
-    else: body += '<div class="empty-state"><p>No active connections.</p></div>'
-
-    return html_page("Tunnel Monitor", body, active_nav="tunnel")
 
 
 
-def system_summary_row() -> str:
-    """Render a compact summary row for system sections (Spend, GitHub, Tunnel)."""
-    html = '<div class="section-title-mini">📊 System Overview</div>'
-    html += '<div class="sys-summary-grid">'
 
-    # ── OpenRouter Spend summary ──
-    or_data = get_openrouter_data()
-    if not or_data["error"]:
-        bal = or_data.get("balance") or 0
-        usage = or_data.get("total_usage") or 0
-        rem = bal - usage
-        spend_text = f"${rem:.2f} remaining"
-    else:
-        spend_text = "Not configured"
-    html += '<a href="https://openrouter.ai/activity" target="_blank" rel="noopener" class="sys-summary-card">'
-    html += '<span class="sys-summary-icon">💰</span>'
-    html += '<div class="sys-summary-info">'
-    html += '<div class="sys-summary-label">OpenRouter Credits</div>'
-    html += f'<div class="sys-summary-metric">{spend_text}</div>'
-    html += '</div></a>'
 
-    # ── GitHub summary ──
-    repos, username = get_github_repos()
-    if repos and username:
-        private_n = sum(1 for r in repos if r.get("private"))
-        public_n = len(repos) - private_n
-        gh_text = f"{len(repos)} repos (@{username})"
-    else:
-        gh_text = "Token not configured"
-    html += f'<a href="/projects" class="sys-summary-card">'
-    html += '<span class="sys-summary-icon">📂</span>'
-    html += '<div class="sys-summary-info">'
-    html += '<div class="sys-summary-label">GitHub Projects</div>'
-    html += f'<div class="sys-summary-metric">{gh_text}</div>'
-    html += '</div></a>'
 
-    # ── Cloudflare Tunnel summary ──
-    cf = get_cloudflare_tunnel_data()
-    if cf.get("ok"):
-        d = cf["data"]
-        status_text = "UP" if d.get("is_up") else "DOWN"
-        cf_text = f"Tunnel: {status_text} — {len(d.get('hostnames', []))} hostnames"
-    elif cf.get("account_id"):
-        cf_text = cf.get("error", "Unavailable")
-    else:
-        cf_text = "Not configured"
-    html += f'<a href="/tunnel" class="sys-summary-card">'
-    html += '<span class="sys-summary-icon">🌐</span>'
-    html += '<div class="sys-summary-info">'
-    html += '<div class="sys-summary-label">Cloudflare Tunnel</div>'
-    html += f'<div class="sys-summary-metric">{cf_text}</div>'
-    html += '</div></a>'
-
-    html += '</div>'
-    return html
-
-def home_hub_html() -> str:
-    """Task-oriented homepage hub: one compact row per intent (icon + label + chips)."""
-    groups = [
-        ("📰", "Read", [
-            ("/briefings", "Briefings"), ("/bookmarks", "Saved"), ("/notes", "Notes")
-        ]),
-        ("🛠️", "Build", [
-            ("/projects", "Projects"), ("/hermes", "Hermes"), ("/inbox", "Inbox")
-        ]),
-        ("📡", "Monitor", [
-            ("/status", "Status"), ("/tunnel", "Tunnel"), ("/logs", "Logs")
-        ]),
-        ("⚙️", "Maintain", [
-            ("/cron", "Cron"), ("/disk-cleanup", "Disk"), ("/models", "Models"), ("/model-tuning", "Tuning"), ("/llm-lab", "LLM Lab"), ("/runbooks", "Runbooks")
-        ]),
-    ]
-    html = '<div class="hub-rows" aria-label="Organized site sections">'
-    for icon, title, links in groups:
-        html += '<div class="hub-row">'
-        html += '<span class="hub-row-label"><span>' + icon + '</span><span>' + title + '</span></span>'
-        html += '<span class="hub-chips">'
-        for href, label in links:
-            html += '<a class="hub-chip" href="' + href + '">' + label + '</a>'
-        html += '</span></div>'
-    html += '</div>'
-    return html
 
 
 def briefing_list_home(articles: list[dict], date_str: str) -> str:
@@ -4344,18 +3618,6 @@ def home_page() -> str:
         body += briefing_list_home(stories, iso_for_links)
     else:
         body += '<div class="empty-state"><p>☕ No briefings found. The morning briefing runs at 7am UTC.</p></div>'
-
-    # 4) Compact hub chips
-    body += home_hub_html()
-
-    # 5) System Overview (collapsed secondary section)
-    body += '<details class="system-overview">'
-    body += '<summary>📊 System Overview</summary>'
-    body += '<div class="system-overview-body">'
-    body += system_summary_row()
-    body += services_status_row()
-    body += quick_links_row()
-    body += '</div></details>'
 
     return html_page("devmclovin", body, active_nav="home")
 def briefing_subnav_html(active: str = "archive") -> str:
@@ -4594,59 +3856,10 @@ def briefing_detail_page(date: str, category: str = "") -> str:
 #  Logs Pages
 # ═══════════════════════════════════════════════════════════════
 
-def _read_server_logs() -> str:
-    """Last 100 journalctl lines (server)."""
-    import subprocess
-    try:
-        out = subprocess.run(
-            ["journalctl", "--no-pager", "-n", "100", "-o", "short-iso"],
-            capture_output=True, text=True, timeout=5
-        )
-        return out.stdout or "No recent entries."
-    except Exception as e:
-        return f"Error reading logs: {e}"
 
 
-def _read_router_logs() -> str:
-    """Last 100 lines of the router + gateway log files."""
-    import subprocess
-    paths = [
-        os.path.expanduser("~/.hermes/logs/router.log"),
-        os.path.expanduser("~/.hermes/logs/gateway.log"),
-    ]
-    log_text = ""
-    for lp in paths:
-        try:
-            out = subprocess.run(
-                ["tail", "-n", "100", lp],
-                capture_output=True, text=True, timeout=5
-            )
-            if out.stdout.strip():
-                log_text += "\n=== " + lp + " ===\n" + out.stdout
-        except Exception:
-            pass
-    return log_text or "No recent entries."
 
 
-def logs_page(tab: str = "server") -> str:
-    """Merged journal viewer with Server / Router tabs (replaces the two pages)."""
-    tab = tab if tab in ("server", "router") else "server"
-    if tab == "router":
-        log_text = _read_router_logs()
-        note = "Last 100 lines from router and gateway logs"
-    else:
-        log_text = _read_server_logs()
-        note = "Last 100 lines from journalctl"
-
-    body = '<h1 class="section-title">📋 Logs</h1>'
-    body += '<div class="logs-tabs">'
-    body += '<a href="/logs" class="logs-tab' + (' active' if tab == "server" else '') + '">Server</a>'
-    body += '<a href="/logs?tab=router" class="logs-tab' + (' active' if tab == "router" else '') + '">Router</a>'
-    body += '</div>'
-    body += '<p class="section-timestamp">' + note + '</p>'
-    body += '<pre style="background:var(--bg-card);padding:1rem;border-radius:8px;overflow-x:auto;font-size:0.8rem">' + html.escape(log_text) + "</pre>"
-    body += '<p style="margin-top:1rem"><a href=/hermes style="color:var(--accent)">Back to Hermes</a></p>'
-    return html_page("Logs", body, active_nav="logs")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -4711,409 +3924,6 @@ def bookmarks_page() -> str:
     return html_page("Saved Briefings", body, active_nav="briefings")
 
 
-def disk_cleanup_page() -> str:
-    """Render the disk cleanup / usage display page."""
-    disk_css = """<style>
-.disk-hero { text-align: center; padding: 2rem 0 1.5rem; }
-.disk-hero h1 { font-size: 2.2rem; font-weight: 800; background: linear-gradient(135deg, var(--accent-hover), #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom:0.5rem; }
-.disk-hero p { color: var(--text-muted); font-size: 1rem; }
-.disk-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 0; }
-.disk-spinner { width: 44px; height: 44px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: disk-spin 0.8s linear infinite; }
-.disk-loading-text { margin-top: 1rem; color: var(--text-muted); font-size: 0.9rem; }
-@keyframes disk-spin { to { transform: rotate(360deg); } }
-.disk-error { display: none; background: var(--bg-card); border: 1px solid var(--red); border-radius: 10px; padding: 1.5rem; text-align: center; margin: 1rem 0; }
-.disk-error p { color: var(--red); margin-bottom: 0.75rem; }
-.disk-retry { background: var(--accent); color: #fff; border: none; padding: 0.5rem 1.5rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
-.disk-retry:hover { background: var(--accent-hover); }
-.disk-content { display: none; }
-.disk-category { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 0.75rem; overflow: hidden; transition: border-color 0.2s; }
-.disk-category:hover { border-color: var(--accent); }
-.disk-cat-header { display: flex; align-items: center; justify-content: space-between; padding: 0.85rem 1rem; cursor: pointer; user-select: none; gap: 0.75rem; }
-.disk-cat-header h3 { margin: 0; font-size: 1rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; flex: 1; }
-.disk-cat-icon { font-size: 1.2rem; }
-.disk-cat-count { font-size: 0.75rem; font-weight: 600; background: var(--accent); color: #fff; padding: 0.1rem 0.5rem; border-radius: 10px; }
-.disk-cat-count.zero { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
-.disk-cat-chevron { font-size: 0.8rem; color: var(--text-muted); transition: transform 0.25s; flex-shrink: 0; }
-.disk-category.open .disk-cat-chevron { transform: rotate(180deg); }
-.disk-cat-body { display: none; padding: 0 1rem 0.85rem; }
-.disk-category.open .disk-cat-body { display: block; }
-.disk-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-.disk-table th { text-align: left; color: var(--text-muted); font-weight: 500; padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; }
-.disk-table td { padding: 0.35rem 0.5rem; border-bottom: 1px solid rgba(48,54,61,0.4); }
-.disk-table tr:last-child td { border-bottom: none; }
-.disk-table .size-col { white-space: nowrap; color: var(--orange); font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; width: 1%; }
-.disk-table .path-col { word-break: break-all; }
-.disk-warning { background: rgba(210,153,29,0.08); border: 1px solid rgba(210,153,29,0.2); border-radius: 8px; padding: 0.75rem 1rem; color: var(--orange); font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem; }
-.disk-empty { color: var(--text-muted); font-size: 0.85rem; font-style: italic; padding: 0.5rem 0; }
-.disk-desc { color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; }
-.disk-meta { color: var(--text-muted); font-size: 0.75rem; margin-top: 0.5rem; }
-@media (max-width: 640px) {
-    .disk-hero h1 { font-size: 1.6rem; }
-    .disk-cat-header { padding: 0.7rem 0.85rem; }
-    .disk-cat-body { padding: 0 0.85rem 0.7rem; }
-}
-
-/* ── Project Launcher Cards ── */
-.launcher-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: 1.25rem;
-    margin-bottom: 2rem;
-    padding: 0.5rem 0 1rem;
-}
-@media (max-width: 640px) {
-    .launcher-grid { grid-template-columns: 1fr; }
-}
-.launcher-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.25rem;
-    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-}
-.launcher-card:hover {
-    border-color: var(--accent);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.15);
-}
-.lc-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-}
-.lc-repo-name {
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: var(--text);
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.lc-repo-name a {
-    color: var(--text);
-    text-decoration: none;
-}
-.lc-repo-name a:hover {
-    color: var(--accent-hover);
-}
-.lc-meta-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-    font-size: 0.72rem;
-    color: var(--text-muted);
-}
-.lc-info-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem 1rem;
-    padding: 0.6rem 0;
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-}
-.lc-info-item {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-    min-width: 0;
-}
-.lc-info-label {
-    font-size: 0.62rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-.lc-info-value {
-    font-size: 0.8rem;
-    color: var(--text);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.lc-info-value a {
-    color: var(--accent-hover);
-    text-decoration: none;
-}
-.lc-info-value a:hover {
-    text-decoration: underline;
-}
-.lc-actions {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: auto;
-    padding-top: 0.5rem;
-}
-.lc-btn {
-    flex: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.3rem;
-    padding: 0.4rem 0.5rem;
-    border-radius: 6px;
-    font-size: 0.72rem;
-    font-weight: 500;
-    text-decoration: none;
-    cursor: pointer;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--text-muted);
-    transition: border-color 0.15s, color 0.15s, background 0.15s;
-    white-space: nowrap;
-}
-.lc-btn:hover {
-    border-color: var(--accent);
-    color: var(--text);
-    background: #1c2333;
-}
-.lc-btn:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-}
-.lc-btn-icon {
-    font-size: 0.85rem;
-}
-/* ── Toast notifications ── */
-.launcher-toast {
-    position: fixed;
-    bottom: 1.5rem;
-    right: 1.5rem;
-    z-index: 9999;
-    max-width: 400px;
-    padding: 0.75rem 1rem;
-    border-radius: 8px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-    transition: opacity 0.3s, transform 0.3s;
-    opacity: 0;
-    transform: translateY(10px);
-}
-.launcher-toast.show {
-    opacity: 1;
-    transform: translateY(0);
-}
-.launcher-toast.error {
-    background: #da3633;
-    color: #fff;
-    border: 1px solid #f85149;
-}
-.launcher-toast.ok {
-    background: #3fb950;
-    color: #000;
-    border: 1px solid #3fb950;
-}
-/* ── Restart confirmation dialog ── */
-.restart-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    z-index: 9998;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.restart-dialog {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 2rem;
-    max-width: 400px;
-    text-align: center;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-}
-.restart-dialog h3 {
-    margin: 0 0 0.75rem;
-}
-.restart-dialog p {
-    color: var(--text-muted);
-    margin: 0 0 1.5rem;
-    font-size: 0.85rem;
-}
-.dialog-btn-primary {
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    padding: 0.6rem 1.5rem;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    cursor: pointer;
-    margin-right: 0.75rem;
-    font-weight: 500;
-}
-.dialog-btn-secondary {
-    background: transparent;
-    color: var(--text-muted);
-    border: 1px solid var(--border);
-    padding: 0.6rem 1.5rem;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    cursor: pointer;
-}
-
-</style>"""
-
-    body = f"""{disk_css}
-<div class="disk-hero">
-    <h1>🗑️ Disk Cleanup</h1>
-    <p>See what's taking up space on your home server</p>
-</div>
-
-<div class="disk-loading" id="disk-loading">
-    <div class="disk-spinner"></div>
-    <div class="disk-loading-text">Scanning disk usage…</div>
-</div>
-
-<div class="disk-error" id="disk-error">
-    <p id="disk-error-msg">Failed to load disk usage data.</p>
-    <button class="disk-retry" onclick="loadDiskData()">🔄 Retry</button>
-</div>
-
-<div class="disk-content" id="disk-content"></div>
-
-<script>
-const CATEGORIES = [
-    {{key: 'largest_folders', icon: '📁', label: 'Largest Folders', render: renderFolderTable}},
-    {{key: 'docker',         icon: '🐳', label: 'Docker',          render: renderDockerCard}},
-    {{key: 'ollama_models',  icon: '🦙', label: 'Ollama Models',   render: renderOllamaTable}},
-    {{key: 'journal_logs',   icon: '📜', label: 'Journal Logs',    render: renderJournalCard}},
-    {{key: 'git_repos',      icon: '📦', label: 'Git Repos',       render: renderGitTable}},
-    {{key: 'caches',         icon: '🗑️', label: 'Cache Directories', render: renderCacheTable}},
-];
-
-function renderFolderTable(data) {{
-    var items = data.folders || [];
-    if (!items.length) return '<div class="disk-empty">No folders found.</div>';
-    var rows = '';
-    for (var i = 0; i < items.length; i++) {{
-        rows += '<tr><td class="size-col">' + esc(items[i].size) + '</td><td class="path-col">' + esc(items[i].path) + '</td></tr>';
-    }}
-    return '<table class="disk-table"><thead><tr><th>Size</th><th>Path</th></tr></thead><tbody>' + rows + '</tbody></table>';
-}}
-
-function renderOllamaTable(data) {{
-    var items = data.models || [];
-    if (!items.length) return '<div class="disk-empty">No Ollama models found.</div>';
-    var rows = '';
-    for (var i = 0; i < items.length; i++) {{
-        rows += '<tr><td>' + esc(items[i].name) + '</td><td class="size-col">' + esc(items[i].size) + '</td></tr>';
-    }}
-    return '<table class="disk-table"><thead><tr><th>Model</th><th>Size</th></tr></thead><tbody>' + rows + '</tbody></table>';
-}}
-
-function renderDockerCard(data) {{
-    if (!data.available) {{
-        var msg = data.error || 'Docker is not available on this system.';
-        return '<div class="disk-warning">⚠️ ' + esc(msg) + '</div>';
-    }}
-    return '<div class="disk-empty">Docker is available but no disk usage data was returned.</div>';
-}}
-
-function renderJournalCard(data) {{
-    if (data.raw) {{
-        return '<div class="disk-desc">' + esc(data.raw) + '</div>' +
-            (data.size ? '<div class="disk-meta">Total: <strong>' + esc(data.size) + '</strong></div>' : '');
-    }}
-    return '<div class="disk-empty">No journal data available.</div>';
-}}
-
-function renderGitTable(data) {{
-    var items = data.repos || [];
-    if (!items.length) return '<div class="disk-empty">No git repos with significant disk usage found.</div>';
-    var rows = '';
-    for (var i = 0; i < items.length; i++) {{
-        rows += '<tr><td class="size-col">' + esc(items[i].size) + '</td><td class="path-col">' + esc(items[i].path) + '</td></tr>';
-    }}
-    return '<table class="disk-table"><thead><tr><th>Size</th><th>Path</th></tr></thead><tbody>' + rows + '</tbody></table>';
-}}
-
-function renderCacheTable(data) {{
-    var items = data.caches || [];
-    if (!items.length) return '<div class="disk-empty">No cache directories found.</div>';
-    var rows = '';
-    for (var i = 0; i < items.length; i++) {{
-        rows += '<tr><td class="path-col">' + esc(items[i].path) + '</td><td class="size-col">' + esc(items[i].size) + '</td></tr>';
-    }}
-    return '<table class="disk-table"><thead><tr><th>Path</th><th>Size</th></tr></thead><tbody>' + rows + '</tbody></table>';
-}}
-
-function esc(s) {{
-    if (!s) return '';
-    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}}
-
-function getCount(data, key) {{
-    if (data.count !== undefined) return data.count;
-    if (key === 'largest_folders') return (data.folders || []).length;
-    if (key === 'ollama_models') return (data.models || []).length;
-    if (key === 'git_repos') return (data.repos || []).length;
-    if (key === 'caches') return (data.caches || []).length;
-    return 0;
-}}
-
-function toggleCategory(header) {{
-    var cat = header.parentElement;
-    cat.classList.toggle('open');
-}}
-
-function loadDiskData() {{
-    var loading = document.getElementById('disk-loading');
-    var error = document.getElementById('disk-error');
-    var content = document.getElementById('disk-content');
-
-    loading.style.display = 'flex';
-    error.style.display = 'none';
-    content.style.display = 'none';
-
-    fetch('http://127.0.0.1:9099/api/disk-usage')
-        .then(function(r) {{
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            return r.json();
-        }})
-        .then(function(data) {{
-            loading.style.display = 'none';
-            var html = '';
-            for (var i = 0; i < CATEGORIES.length; i++) {{
-                var cat = CATEGORIES[i];
-                var catData = data[cat.key] || {{}};
-                var count = getCount(catData, cat.key);
-                var countClass = count === 0 ? ' zero' : '';
-                var bodyHtml = cat.render(catData);
-                html += '<div class="disk-category open">' +
-                    '<div class="disk-cat-header" onclick="toggleCategory(this)">' +
-                    '<h3><span class="disk-cat-icon">' + cat.icon + '</span>' + cat.label +
-                    '<span class="disk-cat-count' + countClass + '">' + count + '</span></h3>' +
-                    '<span class="disk-cat-chevron">▼</span>' +
-                    '</div>' +
-                    '<div class="disk-cat-body">' + bodyHtml + '</div>' +
-                    '</div>';
-            }}
-            if (data._metadata) {{
-                html += '<div class="disk-meta" style="text-align:center;padding:1rem 0;">Scanned in ' +
-                    (data._metadata.elapsed_s || '?') + 's</div>';
-            }}
-            content.innerHTML = html;
-            content.style.display = 'block';
-        }})
-        .catch(function(err) {{
-            loading.style.display = 'none';
-            document.getElementById('disk-error-msg').textContent =
-                'Failed to load disk usage data: ' + (err.message || 'Connection refused');
-            error.style.display = 'block';
-        }});
-}}
-
-loadDiskData();
-</script>"""
-
-    return html_page("Disk Cleanup", body, active_nav="disk-cleanup")
 
 # ── Project Launcher Config ──
 
@@ -5135,7 +3945,7 @@ def save_project_configs(configs: dict):
 
 def get_project_launcher_data() -> list[dict]:
     """Combine GitHub repos with local project configs for launcher cards."""
-    repos, username = get_github_repos()
+    repos, username = [], ""
     configs = load_project_configs()
     projects = []
     for r in repos:
@@ -5757,12 +4567,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             date = path.split("/briefing/")[1]
             content = briefing_detail_page(date, category=category).encode()
             self._respond(200, "text/html", content)
-        elif path == "/runbooks":
-            content = runbooks_page().encode()
-            self._respond(200, "text/html", content)
-        elif path == "/tunnel":
-            content = cloudflare_tunnel_page().encode()
-            self._respond(200, "text/html", content)
         elif path.startswith("/api/briefings/search"):
             q = self._get_query_param("q")
             if not q:
@@ -5784,13 +4588,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     "full_date": r.get("full_date", ""),
                 })
             self._respond(200, "application/json", json.dumps(out).encode())
-        elif path == "/logs":
-            content = logs_page(qs.get("tab", [""])[0]).encode()
-            self._respond(200, "text/html", content)
-        elif path == "/logs/router":
-            self.send_response(301)
-            self.send_header("Location", "/logs?tab=router")
-            self.end_headers()
         elif path == "/status":
             content = status_page().encode()
             self._respond(200, "text/html", content)
@@ -5822,9 +4619,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._respond(200, "text/plain", b"ok")
         elif path == "/bookmarks":
             content = bookmarks_page().encode()
-            self._respond(200, "text/html", content)
-        elif path == "/disk-cleanup":
-            content = disk_cleanup_page().encode()
             self._respond(200, "text/html", content)
         else:
             self._respond(404, "text/plain", b"Not Found")

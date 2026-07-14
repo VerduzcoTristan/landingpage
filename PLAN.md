@@ -176,7 +176,7 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
 - [x] **Step 7 — Delete kanban, hermes, cron.** Kanban POST routes + `kanban_*`
   helpers + KANBAN_DB; `/hermes` + `hermes_page()` + `/api/proxy/commands/*` proxy +
   `COMMANDS_API_KEY`; `/cron*` routes + pages + CRON_* constants.
-- [ ] **Step 8 — Delete tunnel, logs, disk-cleanup, runbooks, dead helpers.**
+- [x] **Step 8 — Delete tunnel, logs, disk-cleanup, runbooks, dead helpers.**
   `/tunnel` + `cloudflare_tunnel_page` + `cloudflare_api.py`; `/logs` + `/logs/router`;
   `/disk-cleanup`; `/runbooks` + `runbook_data.py` + `test_runbooks.py`;
   quicklinks/System-Overview helpers (`system_summary_row`, OpenRouter/GitHub caches,
