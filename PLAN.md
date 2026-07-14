@@ -158,7 +158,7 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
   asserts expected status codes, and fails if any 200 body contains `devmclovin`
   (case-insensitive). Baseline it against current routes (expected values updated
   per step as routes are removed). Local runs always `PYTHONUTF8=1 python server.py 3102`.
-- [ ] **Step 2 — Delete deploy relics + attic.** `git rm` `attic/` (all),
+- [x] **Step 2 — Delete deploy relics + attic.** `git rm` `attic/` (all),
   `devmclovin-landing.service`, `setup.sh`, `router-dashboard.service`.
 - [ ] **Step 3 — Delete router dashboard.** `router_server.py`, `router_metrics.py`,
   `router-dashboard.html`, `e2e_integration_test.py`.
