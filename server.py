@@ -9,6 +9,7 @@ import re
 import glob
 import sys
 import time
+import urllib.parse
 import urllib.request
 from datetime import datetime
 from pathlib import Path
@@ -16,6 +17,7 @@ from pathlib import Path
 PORT = 3002
 BRIEFING_DIR = Path(os.path.expanduser("~/.hermes/cron/output/7dc1d641173d"))
 SITE_DIR = Path(__file__).parent
+DATA_DIR = Path(os.environ.get("DATA_DIR", SITE_DIR / "data"))
 
 # ── Auth helpers (Cloudflare Access) ──
 def is_authenticated(handler) -> bool:
@@ -64,7 +66,7 @@ CATEGORY_COLORS = {
 # ── New feature paths ──
 BRIEFING_DB = Path(os.path.expanduser("~/.hermes/data/briefings.db"))
 IMPACT_CACHE_DIR = Path(os.path.expanduser("~/.devmclovin/impacts"))
-BOOKMARKS_FILE = Path(os.path.expanduser("~/.devmclovin/bookmarks.json"))
+BOOKMARKS_FILE = DATA_DIR / "bookmarks.json"
 
 # ── GitHub projects cache ──
 # ── System status cache ──
@@ -90,7 +92,7 @@ def _save_bookmarks(data: dict):
     BOOKMARKS_FILE.parent.mkdir(parents=True, exist_ok=True)
     tmp = BOOKMARKS_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, indent=2, default=str))
-    tmp.rename(BOOKMARKS_FILE)
+    tmp.replace(BOOKMARKS_FILE)
 
 def _story_id(date_str: str, title: str, source_url: str) -> str:
     """Generate a stable ID for a story."""
@@ -3261,23 +3263,43 @@ def category_badge_html(categories_str: str) -> str:
     return html
 
 
-def _category_filter_html(active_category: str = "All", counts: dict | None = None) -> str:
+def _category_filter_html(
+    active_category: str = "All",
+    counts: dict | None = None,
+    saved_only: bool = False,
+    saved_count: int = 0,
+    sort: str = "newest",
+) -> str:
     """Render horizontal category filter tabs. 'active_category' of 'All' means no filter."""
+    def filter_url(category: str | None = None, saved: bool = False) -> str:
+        params = {}
+        if category:
+            params["category"] = category
+        if saved:
+            params["saved"] = "1"
+        if sort != "newest":
+            params["sort"] = sort
+        return "/briefings" + (("?" + urllib.parse.urlencode(params)) if params else "")
+
     html = '<div class="category-tabs">'
-    all_cls = 'active' if active_category == "All" else ''
+    all_cls = 'active' if active_category == "All" and not saved_only else ''
     all_count = sum(counts.values()) if counts else ""
-    html += f'<a href="/briefings" class="category-tab {all_cls}">All'
+    html += f'<a href="{filter_url()}" class="category-tab {all_cls}">All'
     if all_count:
         html += f'<span class="tab-count">{all_count}</span>'
     html += '</a>'
     for cat in CATEGORY_ORDER:
-        cls = 'active' if active_category == cat else ''
+        cls = 'active' if active_category == cat and not saved_only else ''
         cnt = counts.get(cat, 0) if counts else ""
-        html += f'<a href="/briefings?category={cat}" class="category-tab {cls}">{cat}'
+        html += f'<a href="{filter_url(category=cat)}" class="category-tab {cls}">{cat}'
         if cnt:
             html += f'<span class="tab-count">{cnt}</span>'
         html += '</a>'
-    html += '</div>'
+    saved_cls = 'active' if saved_only else ''
+    html += f'<a href="{filter_url(saved=True)}" class="category-tab {saved_cls}">★ Saved'
+    if saved_count:
+        html += f'<span class="tab-count">{saved_count}</span>'
+    html += '</a></div>'
     return html
 
 
@@ -3318,13 +3340,10 @@ def briefing_card_from_db(articles: list[dict], date_str: str, show_date: bool =
         # Bookmark buttons
         sid = _story_id(date_str, title, url)
         saved_active = ' active' if _is_bookmarked(sid, 'saved') else ''
-        rl_active = ' active' if _is_bookmarked(sid, 'read_later') else ''
         saved_label = '⭐ Saved' if _is_bookmarked(sid, 'saved') else '⭐ Save'
-        rl_label = '📌 Saved for Later' if _is_bookmarked(sid, 'read_later') else '📌 Read Later'
         import html as _html
         args_saved = ','.join(["'"+_html.escape(str(x), quote=False)+"'" for x in [sid, date_str, title, url, source, (summary or '')[:500], 'saved']])
-        args_rl = ','.join(["'"+_html.escape(str(x), quote=False)+"'" for x in [sid, date_str, title, url, source, (summary or '')[:500], 'read_later']])
-        html += f'<div class="bm-btn-row"><button class="bm-btn saved-btn{saved_active}" onclick="toggleBookmark(this,{args_saved})">{saved_label}</button> <button class="bm-btn read-later-btn{rl_active}" onclick="toggleBookmark(this,{args_rl})">{rl_label}</button></div>'
+        html += f'<div class="bm-btn-row"><button class="bm-btn saved-btn{saved_active}" onclick="toggleBookmark(this,{args_saved})">{saved_label}</button></div>'
         html += '</div>'
     html += '</div>'
     html += '<button class="scroll-arrow right" onclick="this.previousElementSibling.scrollBy({left:340,behavior:\'smooth\'})">▸</button>'
@@ -3432,13 +3451,10 @@ def briefing_card(stories: list[dict], date_str: str) -> str:
         # Bookmark buttons
         sid = _story_id(date_str, s["title"], s.get("source_url", ""))
         saved_active = ' active' if _is_bookmarked(sid, 'saved') else ''
-        rl_active = ' active' if _is_bookmarked(sid, 'read_later') else ''
         saved_label = '⭐ Saved' if _is_bookmarked(sid, 'saved') else '⭐ Save'
-        rl_label = '📌 Saved for Later' if _is_bookmarked(sid, 'read_later') else '📌 Read Later'
         import html as _html
         args_saved = ','.join(["'"+_html.escape(str(x), quote=False)+"'" for x in [sid, date_str, s["title"], s.get("source_url", ""), s.get("source_name", ""), s.get("body", "")[:500], 'saved']])
-        args_rl = ','.join(["'"+_html.escape(str(x), quote=False)+"'" for x in [sid, date_str, s["title"], s.get("source_url", ""), s.get("source_name", ""), s.get("body", "")[:500], 'read_later']])
-        html += f'<div class="bm-btn-row"><button class="bm-btn saved-btn{saved_active}" onclick="toggleBookmark(this,{args_saved})">{saved_label}</button> <button class="bm-btn read-later-btn{rl_active}" onclick="toggleBookmark(this,{args_rl})">{rl_label}</button></div>'
+        html += f'<div class="bm-btn-row"><button class="bm-btn saved-btn{saved_active}" onclick="toggleBookmark(this,{args_saved})">{saved_label}</button></div>'
         html += '</div>'
     html += '</div>'
     return html
@@ -3620,46 +3636,69 @@ def home_page() -> str:
         body += '<div class="empty-state"><p>☕ No briefings found. The morning briefing runs at 7am UTC.</p></div>'
 
     return html_page("devmclovin", body, active_nav="home")
-def briefing_subnav_html(active: str = "archive") -> str:
-    archive_cls = 'active' if active == 'archive' else ''
-    saved_cls = 'active' if active == 'bookmarks' else ''
-    return '<div class="briefing-subnav"><a href="/briefings" class="' + archive_cls + '">Archive</a><a href="/bookmarks" class="' + saved_cls + '">Saved / Read Later</a></div>'
 
-def briefings_page(category=None) -> str:
-    body = '<div class="hero" style="padding:2rem 0 1rem"><h1>Past Briefings</h1><p>Search, filter, and scan the briefing archive.</p></div>'
-    body += briefing_subnav_html("archive")
-    # ── Category filter counts ──
+def briefings_page(category=None, saved_only: bool = False, sort: str = "newest") -> str:
+    sort = sort if sort in {"newest", "oldest", "saved"} else "newest"
+    body = '<div class="hero" style="padding:2rem 0 1rem"><h1>Past Briefings</h1><p>Filter and scan the briefing archive.</p></div>'
     archive = _get_archive()
+    bookmarks = _load_bookmarks()
+    saved_ids = {item.get("id") for item in bookmarks.get("saved", []) if item.get("id")}
     cat_counts_raw = archive.get_category_counts()
-    cat_counts = {c["category"]: c["count"] for c in cat_counts_raw}
-    body += _category_filter_html(active_category=category or "All", counts=cat_counts)
+    cat_counts = {item["category"]: item["count"] for item in cat_counts_raw}
+    body += _category_filter_html(
+        active_category=category or "All",
+        counts=cat_counts,
+        saved_only=saved_only,
+        saved_count=len(saved_ids),
+        sort=sort,
+    )
+    body += '<form class="briefing-sort" method="GET" action="/briefings"><label for="briefing-sort">Sort</label>'
+    if category:
+        body += '<input type="hidden" name="category" value="' + html.escape(category, quote=True) + '">'
+    if saved_only:
+        body += '<input type="hidden" name="saved" value="1">'
+    body += '<select id="briefing-sort" name="sort" onchange="this.form.submit()">'
+    for value, label in (("newest", "Newest"), ("oldest", "Oldest"), ("saved", "Saved first")):
+        selected = ' selected' if sort == value else ''
+        body += f'<option value="{value}"{selected}>{label}</option>'
+    body += '</select></form>'
 
-    # ── Search bar ──
-    body += '''<div class="search-bar">
-        <div class="search-input-wrap">
-            <input type="text" id="briefing-search" placeholder="Search all articles by title, content, or category…" autocomplete="off">
-            <button class="search-clear" id="search-clear" title="Clear search">&times;</button>
-        </div>
-    </div>
-    <div class="search-status" id="search-status"></div>
-    <div class="search-results-placeholder" id="search-placeholder">
-        <p>🔍 Type above to search across all archived briefings.</p>
-    </div>
-    <div class="search-results-empty" id="search-empty">
-        <p>No articles found matching your search.</p>
-    </div>
-    <div class="search-results" id="search-results"></div>'''
+    entries = []
+    for briefing in archive.get_briefings(limit=30):
+        date_part = briefing["date"]
+        if category:
+            articles = archive.get_articles_by_category(category, start_date=date_part, end_date=date_part, limit=100)
+        else:
+            articles = archive.get_articles(date_str=date_part)
+        for article in articles:
+            article["_saved"] = _story_id(
+                date_part,
+                article.get("title", "Untitled"),
+                article.get("source_url", ""),
+            ) in saved_ids
+        if saved_only:
+            articles = [article for article in articles if article["_saved"]]
+        if articles:
+            entries.append((briefing, articles))
 
-    briefings = archive.get_briefings(limit=30)
-    body += '<div id="briefing-list-wrapper">'
-    if not briefings:
-        body += '<div class="empty-state"><p>No briefings found.</p></div>'
-        body += '</div>'
+    if sort == "oldest":
+        entries.sort(key=lambda item: item[0]["date"])
+    elif sort == "saved":
+        entries.sort(
+            key=lambda item: (sum(1 for article in item[1] if article["_saved"]), item[0]["date"]),
+            reverse=True,
+        )
+    else:
+        entries.sort(key=lambda item: item[0]["date"], reverse=True)
+
+    if not entries:
+        message = "No saved stories yet." if saved_only else "No briefings found."
+        body += f'<div class="empty-state"><p>{message}</p></div>'
         return html_page("Briefings", body, active_nav="briefings")
 
     body += '<div class="briefing-archive-grid">'
-    for b in briefings:
-        date_part = b["date"]
+    for briefing, articles in entries:
+        date_part = briefing["date"]
         try:
             dt = datetime.strptime(date_part, "%Y-%m-%d")
             display_date = dt.strftime("%b %d, %Y")
@@ -3667,167 +3706,48 @@ def briefings_page(category=None) -> str:
         except ValueError:
             display_date = date_part
             weekday = ""
-
-        # Get articles for this briefing (filtered if category is set)
+        titles = [article.get("title", "Untitled") for article in articles]
+        params = {}
         if category:
-            articles = archive.get_articles_by_category(category, start_date=date_part, end_date=date_part, limit=100)
-        else:
-            articles = archive.get_articles(date_str=date_part)
-
-        count = len(articles)
-        if count == 0:
-            continue  # skip briefings with no matching articles after filtering
-
-        titles = [a.get("title", "Untitled") for a in articles]
-        top_title = html.escape(titles[0]) if titles else "Untitled"
-        preview_titles = [html.escape(t) for t in titles[1:4]]
-        href = "/briefing/" + date_part + (("?category=" + category) if category else "")
-
-        body += '<a class="briefing-archive-card" href="' + href + '">'
-        body += '<div class="briefing-card-topline"><span class="briefing-date-chip">' + html.escape(display_date) + '</span><span class="briefing-count-chip">' + str(count) + ' stories</span></div>'
-        body += '<div class="briefing-top-story">' + top_title + '</div>'
+            params["category"] = category
+        if saved_only:
+            params["saved"] = "1"
+        if sort != "newest":
+            params["sort"] = sort
+        href = "/briefing/" + date_part
+        if params:
+            href += "?" + urllib.parse.urlencode(params)
+        saved_count = sum(1 for article in articles if article["_saved"])
+        body += '<a class="briefing-archive-card" href="' + html.escape(href, quote=True) + '">'
+        body += '<div class="briefing-card-topline"><span class="briefing-date-chip">' + html.escape(display_date) + '</span>'
+        body += '<span class="briefing-count-chip">' + str(len(articles)) + ' stories</span></div>'
+        body += '<div class="briefing-top-story">' + html.escape(titles[0]) + '</div>'
         body += '<ul class="briefing-preview-list">'
-        for t in preview_titles:
-            body += '<li>' + t + '</li>'
-        if count > 4:
-            body += '<li>+' + str(count - 4) + ' more stories</li>'
+        for title in titles[1:4]:
+            body += '<li>' + html.escape(title) + '</li>'
+        if len(titles) > 4:
+            body += '<li>+' + str(len(titles) - 4) + ' more stories</li>'
         body += '</ul>'
-        body += '<div class="briefing-card-footer">' + html.escape(weekday) + ' · Read briefing →</div>'
-        body += '</a>'
-
-    body += '</div></div>'
-
-    # ── Search JavaScript ──
-    body += '''<script>
-(function() {
-    var input = document.getElementById("briefing-search");
-    var clearBtn = document.getElementById("search-clear");
-    var statusEl = document.getElementById("search-status");
-    var resultsEl = document.getElementById("search-results");
-    var placeholderEl = document.getElementById("search-placeholder");
-    var emptyEl = document.getElementById("search-empty");
-    var listWrapper = document.getElementById("briefing-list-wrapper");
-    var timer = null;
-    var currentQuery = "";
-
-    function hideAll() {
-        resultsEl.classList.remove("active");
-        placeholderEl.classList.remove("active");
-        emptyEl.classList.remove("active");
-        statusEl.style.display = "none";
-    }
-
-    function showPlaceholder() {
-        hideAll();
-        placeholderEl.classList.add("active");
-        listWrapper.style.display = "";
-    }
-
-    function showEmpty() {
-        hideAll();
-        emptyEl.classList.add("active");
-        listWrapper.style.display = "none";
-    }
-
-    function renderResults(data) {
-        hideAll();
-        resultsEl.classList.add("active");
-        listWrapper.style.display = "none";
-        var html = "";
-        for (var i = 0; i < data.length; i++) {
-            var r = data[i];
-            var catsHtml = "";
-            if (r.categories && r.categories !== "general") {
-                var cats = r.categories.split(",");
-                for (var j = 0; j < cats.length; j++) {
-                    var c = cats[j].trim();
-                    if (c) catsHtml += '<span class="tag-pill">' + c + '</span>';
-                }
-            }
-            html += '<a href="/briefing/' + r.briefing_date + '" class="search-result-item">';
-            html += '<div class="sr-title">' + r.title + '</div>';
-            html += '<div class="sr-meta">' + r.briefing_date + ' — ' + r.source_name;
-            if (catsHtml) html += ' <span style="margin-left:0.5rem">' + catsHtml + '</span>';
-            html += '</div>';
-            html += '<div class="sr-snippet">' + (r.snippet || r.summary || "").substring(0, 300) + '</div>';
-            html += '</a>';
-        }
-        resultsEl.innerHTML = html;
-    }
-
-    function doSearch(q) {
-        if (!q || q.trim().length === 0) {
-            showPlaceholder();
-            clearBtn.classList.remove("visible");
-            return;
-        }
-        clearBtn.classList.add("visible");
-        currentQuery = q.trim();
-        statusEl.style.display = "block";
-        statusEl.textContent = "Searching…";
-        fetch("/api/briefings/search?q=" + encodeURIComponent(currentQuery))
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (currentQuery !== input.value.trim()) return; // stale
-                statusEl.style.display = "none";
-                if (!data || data.length === 0) {
-                    showEmpty();
-                } else {
-                    statusEl.style.display = "block";
-                    statusEl.textContent = data.length + " result" + (data.length !== 1 ? "s" : "") + " for \u201c" + currentQuery + "\u201d";
-                    renderResults(data);
-                }
-            })
-            .catch(function(err) {
-                if (currentQuery !== input.value.trim()) return;
-                statusEl.style.display = "block";
-                statusEl.textContent = "Search error. Try again.";
-                console.error(err);
-            });
-    }
-
-    input.addEventListener("input", function() {
-        var q = input.value;
-        if (timer) clearTimeout(timer);
-        if (!q || q.trim().length === 0) {
-            showPlaceholder();
-            clearBtn.classList.remove("visible");
-            statusEl.style.display = "none";
-            return;
-        }
-        timer = setTimeout(function() { doSearch(q); }, 300);
-    });
-
-    input.addEventListener("keydown", function(e) {
-        if (e.key === "Escape") {
-            input.value = "";
-            showPlaceholder();
-            clearBtn.classList.remove("visible");
-            statusEl.style.display = "none";
-            input.blur();
-        }
-    });
-
-    clearBtn.addEventListener("click", function() {
-        input.value = "";
-        showPlaceholder();
-        clearBtn.classList.remove("visible");
-        statusEl.style.display = "none";
-        input.focus();
-    });
-
-    // Show placeholder on load
-    showPlaceholder();
-})();
-</script>'''
-
+        footer = html.escape(weekday) + ' · Read briefing →'
+        if saved_count:
+            footer = '★ ' + str(saved_count) + ' saved · ' + footer
+        body += '<div class="briefing-card-footer">' + footer + '</div></a>'
+    body += '</div>'
     return html_page("Briefings", body, active_nav="briefings")
 
 
-def briefing_detail_page(date: str, category: str = "") -> str:
-    body = f'<div style="padding-top:1rem"><a href="/briefings'
+
+def briefing_detail_page(date: str, category: str = "", saved_only: bool = False, sort: str = "newest") -> str:
+    query = {}
     if category:
-        body += f'?category={category}'
+        query["category"] = category
+    if saved_only:
+        query["saved"] = "1"
+    if sort != "newest":
+        query["sort"] = sort
+    body = '<div style="padding-top:1rem"><a href="/briefings'
+    if query:
+        body += '?' + urllib.parse.urlencode(query)
     body += '" style="color:var(--text-muted);text-decoration:none;font-size:0.9rem">← Back to all briefings</a></div>'
 
     archive = _get_archive()
@@ -3840,13 +3760,25 @@ def briefing_detail_page(date: str, category: str = "") -> str:
     articles = briefing["articles"]
     if category:
         articles = [a for a in articles if category in (a.get("categories") or "").split(",")]
+    if saved_only:
+        saved_ids = {item.get("id") for item in _load_bookmarks().get("saved", [])}
+        articles = [
+            article for article in articles
+            if _story_id(date, article.get("title", "Untitled"), article.get("source_url", "")) in saved_ids
+        ]
 
     date_str = _render_briefing_date(briefing.get("full_date"), date)
 
     # Show category tabs on detail page too (for quick switching)
     cat_counts_raw = archive.get_category_counts()
     cat_counts = {c["category"]: c["count"] for c in cat_counts_raw}
-    body += _category_filter_html(active_category=category or "All", counts=cat_counts)
+    body += _category_filter_html(
+        active_category=category or "All",
+        counts=cat_counts,
+        saved_only=saved_only,
+        saved_count=len(_load_bookmarks().get("saved", [])),
+        sort=sort,
+    )
 
     body += briefing_card_from_db(articles, date_str, show_date=True)
     return html_page(f"Briefing — {date}", body, active_nav="briefings")
@@ -3883,45 +3815,6 @@ def portfolio_page() -> str:
 
 
 
-def bookmarks_page() -> str:
-    bookmarks = _load_bookmarks()
-    body = '<div class="hero" style="padding:2rem 0 1rem"><h1>📑 Saved Briefings</h1><p>Saved and read-later articles from the briefing archive.</p></div>'
-    body += briefing_subnav_html("bookmarks")
-
-    read_later = bookmarks.get("read_later", [])
-    saved = bookmarks.get("saved", [])
-
-    if not read_later and not saved:
-        body += '<div class="bm-empty"><p>📭 No bookmarks yet. Browse the <a href="/briefings" style="color:var(--accent)">briefings</a> and save articles you want to keep.</p></div>'
-        return html_page("Saved Briefings", body, active_nav="briefings")
-
-    # Read Later section first (priority queue)
-    if read_later:
-        body += '<div class="bm-section"><h3>📌 Read Later</h3>'
-        for bm in read_later:
-            body += '<div class="bm-card">'
-            body += f'<h4><a href="{bm.get("source_url", "#")}" target="_blank" rel="noopener">{bm.get("title", "Untitled")}</a></h4>'
-            body += f'<div class="bm-meta">{bm.get("source_name", "")} · {bm.get("date", "")} · saved {bm.get("saved_at", "")[:10]}</div>'
-            if bm.get("body"):
-                body += f'<div class="bm-body">{first_sentence(bm["body"])}</div>'
-            body += f'<form method="POST" action="/bookmarks/remove" style="display:inline"><input type="hidden" name="id" value="{bm.get("id", "")}"><input type="hidden" name="type" value="read_later"><button type="submit" class="bm-remove">Remove</button></form>'
-            body += '</div>'
-        body += '</div>'
-
-    # Saved section
-    if saved:
-        body += '<div class="bm-section"><h3>⭐ Saved</h3>'
-        for bm in saved:
-            body += '<div class="bm-card">'
-            body += f'<h4><a href="{bm.get("source_url", "#")}" target="_blank" rel="noopener">{bm.get("title", "Untitled")}</a></h4>'
-            body += f'<div class="bm-meta">{bm.get("source_name", "")} · {bm.get("date", "")} · saved {bm.get("saved_at", "")[:10]}</div>'
-            if bm.get("body"):
-                body += f'<div class="bm-body">{first_sentence(bm["body"])}</div>'
-            body += f'<form method="POST" action="/bookmarks/remove" style="display:inline"><input type="hidden" name="id" value="{bm.get("id", "")}"><input type="hidden" name="type" value="saved"><button type="submit" class="bm-remove">Remove</button></form>'
-            body += '</div>'
-        body += '</div>'
-
-    return html_page("Saved Briefings", body, active_nav="briefings")
 
 
 
@@ -4556,38 +4449,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
         path = parsed.path.rstrip("/") or "/"
         qs = urllib.parse.parse_qs(parsed.query)
         category = qs.get("category", [""])[0]
+        sort = qs.get("sort", ["newest"])[0]
+        saved_only = qs.get("saved", [""])[0] == "1"
 
         if path == "/":
             content = home_page().encode()
             self._respond(200, "text/html", content)
         elif path == "/briefings":
-            content = briefings_page(category=category or None).encode()
+            content = briefings_page(category=category or None, saved_only=saved_only, sort=sort).encode()
             self._respond(200, "text/html", content)
         elif path.startswith("/briefing/"):
             date = path.split("/briefing/")[1]
-            content = briefing_detail_page(date, category=category).encode()
+            content = briefing_detail_page(date, category=category, saved_only=saved_only, sort=sort).encode()
             self._respond(200, "text/html", content)
-        elif path.startswith("/api/briefings/search"):
-            q = self._get_query_param("q")
-            if not q:
-                self._respond(200, "application/json", b"[]")
-                return
-            archive = BriefingArchive(str(BRIEFING_DB))
-            results = archive.search_articles(q, limit=50)
-            out = []
-            for r in results:
-                out.append({
-                    "id": r["id"],
-                    "title": r["title"],
-                    "source_name": r["source_name"],
-                    "source_url": r.get("source_url", ""),
-                    "summary": r.get("summary", ""),
-                    "snippet": r.get("snippet", ""),
-                    "categories": r.get("categories", ""),
-                    "briefing_date": r["briefing_date"],
-                    "full_date": r.get("full_date", ""),
-                })
-            self._respond(200, "application/json", json.dumps(out).encode())
         elif path == "/status":
             content = status_page().encode()
             self._respond(200, "text/html", content)
@@ -4617,9 +4491,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._respond(200, "application/json", json.dumps(data).encode())
         elif path == "/health":
             self._respond(200, "text/plain", b"ok")
-        elif path == "/bookmarks":
-            content = bookmarks_page().encode()
-            self._respond(200, "text/html", content)
         else:
             self._respond(404, "text/plain", b"Not Found")
 
@@ -4647,15 +4518,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             _toggle_bookmark(sid, story, btype)
             active = _is_bookmarked(sid, btype)
             self._respond(200, "application/json", json.dumps({"ok": True, "active": active}).encode())
-        elif path == "/bookmarks/remove":
-            sid = get("id")
-            btype = get("type") or "saved"
-            bookmarks = _load_bookmarks()
-            if sid:
-                lst = bookmarks.get(btype, [])
-                bookmarks[btype] = [bm for bm in lst if bm.get("id") != sid]
-                _save_bookmarks(bookmarks)
-            self._send_redirect("/bookmarks")
         elif path.startswith("/api/service/") and path.endswith("/restart"):
             self._proxy_api()
         elif path.startswith("/projects/") and path.endswith("/config"):

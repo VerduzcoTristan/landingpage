@@ -182,7 +182,7 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
   quicklinks/System-Overview helpers (`system_summary_row`, OpenRouter/GitHub caches,
   `_load_openrouter_key`, link-health, `get_system_status`). Verify smoke: removed
   routes 404; `/`, `/briefings`, `/status`, `/projects`, `/portfolio`, `/health` still 200.
-- [ ] **Step 9 — DATA_DIR + bookmarks-in-briefings (D5, D14).** New env `DATA_DIR`
+- [x] **Step 9 — DATA_DIR + bookmarks-in-briefings (D5, D14).** New env `DATA_DIR`
   (default `<repo>/data` locally, `/app/data` in container); `data/` gitignored.
   Bookmarks storage → `DATA_DIR/bookmarks.json`. Delete the `/bookmarks` page and
   `/api/briefings/search` + the search box; add to `/briefings`: a **Saved** chip in

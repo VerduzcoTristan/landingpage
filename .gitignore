@@ -7,6 +7,7 @@ __pycache__/
 htmlcov/
 
 # Local databases and state
+data/
 *.db
 *.sqlite
 *.sqlite3

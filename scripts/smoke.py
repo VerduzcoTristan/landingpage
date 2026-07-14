@@ -31,8 +31,8 @@ ROUTES = {
     "/logs": 404,
     "/disk-cleanup": 404,
     "/runbooks": 404,
-    "/bookmarks": 200,
-    "/api/briefings/search": 200,
+    "/bookmarks": 404,
+    "/api/briefings/search": 404,
 }
 
 
