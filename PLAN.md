@@ -189,7 +189,7 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
   the filter row, star toggle per article (existing POST endpoint, repointed), and a
   sort control (newest / oldest / saved first). Verify: toggle round-trip locally,
   Saved filter shows only starred articles, `/bookmarks` → 404.
-- [ ] **Step 10 — Monitoring rebuild (D2).** In server.py: loader for
+- [x] **Step 10 — Monitoring rebuild (D2).** In server.py: loader for
   `DATA_DIR/monitors.json` (`checks: [{name,url,timeout}]`, `links: [{name,url}]`),
   concurrent-ish sequential HTTP HEAD/GET checks with ~30s cache; `/api/status`
   returns `{status, checks:[{name, healthy, latency_ms, error}]}`; `/status` =
@@ -278,3 +278,4 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
 ## Decision log
 
 (build pass appends one line per mid-run decision)
+- Step 10: switched the stdlib listener to `ThreadingHTTPServer` so configured self-checks can call `/health` without deadlocking the request handling them.

@@ -16,6 +16,7 @@ ROUTES = {
     "/briefings": 200,
     "/briefing/1970-01-01": 200,
     "/status": 200,
+    "/api/status": 200,
     "/projects": 200,
     "/portfolio": 200,
     "/health": 200,

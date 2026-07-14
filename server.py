@@ -9,6 +9,7 @@ import re
 import glob
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime
@@ -3798,12 +3799,113 @@ def briefing_detail_page(date: str, category: str = "", saved_only: bool = False
 #  Status Board Page
 # ═══════════════════════════════════════════════════════════════
 
+_MONITOR_CACHE: dict = {"data": None, "ts": 0.0}
+_MONITOR_CACHE_TTL = 30
+
+
+def _load_monitor_config() -> tuple[list[dict], list[dict], str | None]:
+    path = DATA_DIR / "monitors.json"
+    if not path.exists():
+        return [], [], None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+        if not isinstance(payload, dict):
+            raise ValueError("root must be an object")
+        checks = payload.get("checks", [])
+        links = payload.get("links", [])
+        if not isinstance(checks, list) or not isinstance(links, list):
+            raise ValueError("checks and links must be arrays")
+        clean_checks = []
+        for item in checks:
+            if not isinstance(item, dict) or not item.get("name") or not item.get("url"):
+                raise ValueError("each check requires name and url")
+            url = str(item["url"])
+            if not url.startswith(("http://", "https://")):
+                raise ValueError("check URLs must use http or https")
+            clean_checks.append({
+                "name": str(item["name"]),
+                "url": url,
+                "timeout": max(0.2, min(float(item.get("timeout", 3)), 30.0)),
+            })
+        clean_links = []
+        for item in links:
+            if isinstance(item, dict) and item.get("name") and item.get("url"):
+                clean_links.append({"name": str(item["name"]), "url": str(item["url"])})
+        return clean_checks, clean_links, None
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
+        return [], [], f"Invalid monitors.json: {error}"
+
+
+def _check_monitor(item: dict) -> dict:
+    started = time.perf_counter()
+    error_text = None
+    healthy = False
+    status_code = None
+    try:
+        request = urllib.request.Request(item["url"], method="HEAD", headers={"User-Agent": "control-center-monitor/1"})
+        try:
+            response = urllib.request.urlopen(request, timeout=item["timeout"])
+        except urllib.error.HTTPError as error:
+            if error.code not in (405, 501):
+                raise
+            request = urllib.request.Request(item["url"], method="GET", headers={"User-Agent": "control-center-monitor/1"})
+            response = urllib.request.urlopen(request, timeout=item["timeout"])
+        with response:
+            status_code = response.status
+            healthy = 200 <= status_code < 400
+    except urllib.error.HTTPError as error:
+        status_code = error.code
+        error_text = f"HTTP {error.code}"
+    except Exception as error:
+        error_text = str(error)
+    return {
+        "name": item["name"],
+        "healthy": healthy,
+        "latency_ms": round((time.perf_counter() - started) * 1000),
+        "error": error_text,
+        "status_code": status_code,
+    }
+
+
+def get_monitor_status(force: bool = False) -> dict:
+    now = time.time()
+    cached = _MONITOR_CACHE.get("data")
+    if not force and cached is not None and now - _MONITOR_CACHE["ts"] < _MONITOR_CACHE_TTL:
+        return cached
+    checks, links, config_error = _load_monitor_config()
+    results = [_check_monitor(item) for item in checks]
+    if config_error or not results:
+        status = "unconfigured"
+    elif all(item["healthy"] for item in results):
+        status = "ok"
+    else:
+        status = "issues"
+    data = {"status": status, "checks": results, "links": links, "error": config_error}
+    _MONITOR_CACHE.update({"data": data, "ts": now})
+    return data
+
+
 def status_page() -> str:
-    """Serve the standalone status-board.html page (with shared nav injected)."""
-    status_html = SITE_DIR / "status-board.html"
-    if status_html.exists():
-        return inject_nav(status_html.read_text(), "status")
-    return "<html><body><h1>Status Board Not Found</h1></body></html>"
+    data = get_monitor_status()
+    body = '<div class="hero" style="padding:2rem 0 1rem"><h1>Server Status</h1><p>Live checks from inside the app container.</p></div>'
+    if data.get("error"):
+        body += '<div class="empty-state"><p>' + html.escape(data["error"]) + '</p></div>'
+    elif not data["checks"]:
+        body += '<div class="empty-state"><p>No monitors configured.</p></div>'
+    else:
+        body += '<div class="status-board">'
+        for check in data["checks"]:
+            state = "up" if check["healthy"] else "down"
+            detail = f'{check["latency_ms"]} ms' if check["healthy"] else (check["error"] or "Unavailable")
+            body += '<article class="status-check ' + state + '"><div><span class="status-dot ' + ("green" if check["healthy"] else "red") + '"></span>'
+            body += '<strong>' + html.escape(check["name"]) + '</strong></div><span>' + html.escape(detail) + '</span></article>'
+        body += '</div>'
+    if data["links"]:
+        body += '<div class="section-head"><h2>Monitoring tools</h2></div><div class="monitor-links">'
+        for link in data["links"]:
+            body += '<a class="link-card" href="' + html.escape(link["url"], quote=True) + '" target="_blank" rel="noopener">' + html.escape(link["name"]) + ' ↗</a>'
+        body += '</div>'
+    return html_page("Status", body, active_nav="status")
 
 
 def portfolio_page() -> str:
@@ -4471,10 +4573,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
             content = portfolio_page().encode()
             self._respond(200, "text/html", content)
-        elif path.startswith("/api/service/"):
-            self._proxy_api()
         elif path == "/api/status":
-            self._proxy_api()
+            self._respond(200, "application/json", json.dumps(get_monitor_status()).encode())
         elif path == "/projects":
             content = projects_page().encode()
             self._respond(200, "text/html", content)
@@ -4518,8 +4618,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             _toggle_bookmark(sid, story, btype)
             active = _is_bookmarked(sid, btype)
             self._respond(200, "application/json", json.dumps({"ok": True, "active": active}).encode())
-        elif path.startswith("/api/service/") and path.endswith("/restart"):
-            self._proxy_api()
         elif path.startswith("/projects/") and path.endswith("/config"):
             name = path.split("/projects/")[1].split("/config")[0]
             config_json = get("config_json")
@@ -4537,27 +4635,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         else:
             self.send_response(404); self.end_headers()
 
-    def do_PUT(self):
-        """Handle PUT requests — proxy config edits to API server."""
-        path = self.path.rstrip("/") or "/"
-        if path.startswith("/api/service/") and path.endswith("/config"):
-            self._proxy_api()
-        elif path.startswith("/api/status"):
-            self._proxy_api()
-        else:
-            self.send_response(405); self.end_headers()
 
-    def do_OPTIONS(self):
-        """Handle CORS preflight for API routes."""
-        if self.path.startswith("/api/service/") or self.path.startswith("/api/status"):
-            self.send_response(200)
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
-            self.send_header("Access-Control-Max-Age", "86400")
-            self.end_headers()
-        else:
-            self.send_response(405); self.end_headers()
 
     def do_PATCH(self):
         self.send_response(405); self.end_headers()
@@ -4565,48 +4643,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_DELETE(self):
         self.send_response(405); self.end_headers()
 
-    def _proxy_api(self):
-        """Proxy /api/status and /api/service/* requests to the backend API server on port 9091."""
-        import urllib.request as _ur
-        from urllib.error import HTTPError
-        from urllib.parse import urlparse
-        parsed = urlparse(self.path)
-        upstream_path = parsed.path
-        if parsed.query:
-            upstream_path += "?" + parsed.query
-        url = f"http://127.0.0.1:9091{upstream_path}"
-
-        body = None
-        if self.command in ("POST", "PUT", "PATCH"):
-            length = int(self.headers.get("Content-Length", 0))
-            if length > 0:
-                body = self.rfile.read(length)
-
-        req = _ur.Request(url, data=body, method=self.command)
-        if body:
-            req.add_header("Content-Type", self.headers.get("Content-Type", "application/json"))
-
-        try:
-            with _ur.urlopen(req, timeout=15) as resp:
-                resp_body = resp.read()
-                self.send_response(resp.status)
-                for k, v in resp.getheaders():
-                    if k.lower() not in ("transfer-encoding", "connection"):
-                        self.send_header(k, v)
-                self.send_header("Content-Length", str(len(resp_body)))
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.end_headers()
-                self.wfile.write(resp_body)
-        except HTTPError as e:
-            resp_body = e.read()
-            self.send_response(e.code)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Content-Length", str(len(resp_body)))
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(resp_body)
-        except Exception as e:
-            self._respond(502, "application/json", json.dumps({"error": f"API server unreachable: {e}"}).encode())
 
     def _get_query_param(self, key: str) -> str:
         """Parse query string and return a single param value."""
@@ -4632,14 +4668,16 @@ if __name__ == "__main__":
     import socket
     port = int(sys.argv[1]) if len(sys.argv) > 1 else PORT
 
-    class ReuseHTTPServer(http.server.HTTPServer):
+    class ReuseHTTPServer(http.server.ThreadingHTTPServer):
+        daemon_threads = True
+
         def server_bind(self):
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
                 self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
             except (AttributeError, OSError):
                 pass
-            http.server.HTTPServer.server_bind(self)
+            http.server.ThreadingHTTPServer.server_bind(self)
 
     server = ReuseHTTPServer((os.environ.get("BIND_HOST", "127.0.0.1"), port), Handler)
     print(f"devmclovin landing page → http://127.0.0.1:{port}")
