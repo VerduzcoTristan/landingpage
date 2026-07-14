@@ -238,7 +238,7 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
   `portfolio.html` (`python ..\Skills\dashboard.py --site`); if another project's
   STATE.md leaks the legacy brand into a card, reword that goal line too and regenerate.
   Verify: `git grep -ri 'dev''mclovin'` → 0 tracked hits.
-- [ ] **Step 16 — CSS purge.** Delete a CSS block from BASE_CSS/NAV_CSS only if its
+- [x] **Step 16 — CSS purge.** Delete a CSS block from BASE_CSS/NAV_CSS only if its
   class greps to zero across `server.py` + `portfolio.html`. Target: kanban, hub,
   overview, scroll-arrow, tool-page leftovers.
 - [ ] **Step 17 — compose + OPERATIONS.md + backup.** compose.yml: add
