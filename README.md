@@ -7,8 +7,11 @@ standard-library application with no framework or frontend build step.
 ## Run locally
 
 ```powershell
+# Terminal 1
 $env:ALLOWED_HOSTS = "localhost,127.0.0.1"
 python server.py 3102
+
+# Terminal 2
 python scripts/smoke.py 3102
 ```
 

@@ -1,0 +1,15 @@
+.git
+.claude
+.env
+.env.*
+data
+__pycache__
+*.py[cod]
+*.db
+*.sqlite
+*.sqlite3
+.pytest_cache
+.coverage
+htmlcov
+docs/deploy-facts.md
+docs/server-remediation-*.md

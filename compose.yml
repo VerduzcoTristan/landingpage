@@ -1,3 +1,5 @@
+name: landing-page
+
 services:
   landing-page:
     build:
@@ -5,10 +7,13 @@ services:
     container_name: landing-page
     restart: unless-stopped
     environment:
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
       BIND_HOST: 0.0.0.0
+      DATA_DIR: /app/data
       HOME: /home/landing
       BRIEFING_DB_READ_ONLY: "true"
     networks:
+      - app_net
       - proxy_net
     expose:
       - "3002"
@@ -26,10 +31,16 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
     volumes:
+      - ../data:/app/data
       - /home/hermes/.hermes/data/briefings.db:/home/landing/.hermes/data/briefings.db:ro
       - /home/hermes/.hermes/cron/output/7dc1d641173d:/home/landing/.hermes/cron/output/7dc1d641173d:ro
 
 networks:
+  app_net:
+    internal: true
   proxy_net:
     external: true

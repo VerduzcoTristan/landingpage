@@ -241,7 +241,7 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
 - [x] **Step 16 — CSS purge.** Delete a CSS block from BASE_CSS/NAV_CSS only if its
   class greps to zero across `server.py` + `portfolio.html`. Target: kanban, hub,
   overview, scroll-arrow, tool-page leftovers.
-- [ ] **Step 17 — compose + OPERATIONS.md + backup.** compose.yml: add
+- [x] **Step 17 — compose + OPERATIONS.md + backup.** compose.yml: add
   `../data:/app/data` rw bind + `DATA_DIR=/app/data`, pass `ALLOWED_HOSTS`
   from `.env`, keep both briefing ro mounts, hardening, healthcheck. Add
   `scripts/export-data.sh` (tar `data/` → `/srv/backups/exports/landing-page/`).
@@ -280,3 +280,4 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
 (build pass appends one line per mid-run decision)
 - Step 10: switched the stdlib listener to `ThreadingHTTPServer` so configured self-checks can call `/health` without deadlocking the request handling them.
 - Step 14: moved the briefing impact cache under `DATA_DIR/impacts` so generated data follows the persistent app-data contract without retaining a legacy-named home directory.
+- Step 17: added `.dockerignore` after the first image build showed that Git metadata and ignored local state would otherwise be copied into the image.
