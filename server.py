@@ -240,12 +240,12 @@ h1,h2,h3,h4,p{margin-top:0}h1,h2,h3{line-height:1.15;letter-spacing:-.025em}h1{f
 .category-tabs{display:flex;align-items:center;gap:.5rem;overflow-x:auto;padding:.2rem 0 .8rem;scrollbar-width:none}.category-tabs::-webkit-scrollbar{display:none}.category-tab{display:inline-flex;align-items:center;gap:.4rem;flex:0 0 auto;padding:.42rem .75rem;border:1px solid var(--border);border-radius:999px;background:rgba(16,22,36,.72);color:var(--muted);font-size:.78rem;font-weight:750;text-decoration:none;transition:all var(--ease)}.category-tab:hover,.category-tab.active{border-color:rgba(139,124,255,.7);background:var(--accent-soft);color:var(--text)}.tab-count{display:inline-grid;place-items:center;min-width:1.25rem;height:1.25rem;padding:0 .3rem;border-radius:999px;background:rgba(255,255,255,.07);font-size:.68rem}.briefing-sort{display:flex;align-items:center;justify-content:flex-end;gap:.55rem;margin:.2rem 0 1rem;color:var(--muted);font-size:.78rem}.briefing-sort select,input,textarea,select{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);padding:.65rem .75rem;transition:border-color var(--ease),box-shadow var(--ease)}input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);outline:0}
 .briefing-archive-grid,.projects-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19rem),1fr));gap:1rem}.briefing-archive-card,.project-card,.admin-panel{border:1px solid var(--border);border-radius:var(--radius-lg);background:linear-gradient(150deg,rgba(255,255,255,.04),transparent 38%),var(--surface);box-shadow:var(--shadow-1);transition:transform var(--ease),border-color var(--ease),box-shadow var(--ease)}.briefing-archive-card{display:flex;min-height:12rem;flex-direction:column;gap:.8rem;padding:1.1rem;color:var(--text);text-decoration:none}.briefing-archive-card:hover,.project-card:hover{transform:translateY(-3px);border-color:var(--border-strong);box-shadow:var(--shadow-2)}.briefing-card-topline,.project-card-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem}.briefing-date-chip,.briefing-count-chip,.status-pill,.category-badge{display:inline-flex;align-items:center;width:max-content;border-radius:999px;font-size:.7rem;font-weight:800;letter-spacing:.025em}.briefing-date-chip{color:var(--accent-strong)}.briefing-count-chip,.status-pill{padding:.25rem .55rem;border:1px solid var(--border);background:rgba(255,255,255,.035);color:var(--muted)}.briefing-top-story{font-size:1.08rem;font-weight:800;line-height:1.35}.briefing-preview-list{margin:0;padding-left:1.1rem;color:var(--muted);font-size:.83rem}.briefing-card-footer{margin-top:auto;color:var(--subtle);font-size:.75rem;font-weight:700}
 .briefing-header{margin:1.5rem 0 1rem}.briefing-header .date{color:var(--accent-strong);font-size:.76rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em}.briefing-scroll{position:relative}.briefing-grid,.dashboard-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr));gap:1rem}.briefing-card{padding:1.2rem;border:1px solid var(--border);border-radius:var(--radius-lg);background:linear-gradient(145deg,rgba(139,124,255,.06),transparent 40%),var(--surface);box-shadow:var(--shadow-1)}.briefing-card h3{margin:.35rem 0 .6rem}.card-num{color:var(--accent-strong);font-size:.72rem;font-weight:850}.card-summary,.card-impact{color:var(--muted);font-size:.92rem;line-height:1.6}.card-impact{margin-bottom:.5rem;color:#cad4e8}.card-source{margin-top:.8rem;color:var(--subtle);font-size:.78rem}.card-source a{text-decoration:none}.card-categories{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.7rem}.category-badge{padding:.2rem .5rem}.bm-btn-row{margin-top:.85rem}.bm-btn{padding:.4rem .7rem;border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted);font-size:.74rem;font-weight:750;cursor:pointer;transition:all var(--ease)}.bm-btn:hover,.bm-btn.active{border-color:var(--accent);background:var(--accent-soft);color:var(--text)}.scroll-arrow{display:none}
-.briefing-home{overflow:hidden;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-1)}.briefing-home-row{display:flex;align-items:flex-start;gap:.75rem;padding:1rem 1.1rem;border-top:1px solid var(--border)}.briefing-home-row:first-child{border-top:0}.bh-main{min-width:0}.bh-title{color:var(--text);font-weight:800;text-decoration:none}.bh-impact{margin-top:.25rem;color:var(--muted);font-size:.9rem;line-height:1.55}
+.home-eyebrow{display:block;margin-bottom:.35rem;color:var(--accent-strong);font-size:.7rem;font-weight:850;letter-spacing:.14em;text-transform:uppercase}.home-head h1{margin:0;font-size:clamp(2.2rem,5vw,3.6rem)}.briefing-home{overflow:hidden;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-1)}.briefing-home-row{display:flex;align-items:flex-start;gap:.75rem;padding:1.1rem 1.2rem;border-top:1px solid var(--border)}.briefing-home-row:first-child{border-top:0}.bh-main{min-width:0;width:100%}.bh-title-line{display:flex;align-items:baseline;flex-wrap:wrap;gap:.55rem}.bh-title{color:var(--text);font-size:1rem;font-weight:800;text-decoration:none}.bh-impact{margin-top:.4rem;color:var(--muted);font-size:.96rem;line-height:1.68;white-space:pre-line;overflow:visible}
 .landing-status-strip{margin:1.4rem 0;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-1);overflow:hidden}.landing-status-strip summary{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.85rem 1rem;cursor:pointer;list-style:none}.landing-status-strip summary::-webkit-details-marker{display:none}.status-summary-left,.status-summary-right{display:flex;align-items:center;gap:.55rem}.status-summary-title{font-weight:800}.status-summary-meta{color:var(--muted);font-size:.8rem}.status-mini-pill{padding:.2rem .5rem;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:.68rem}.status-mini-pill.ok{color:var(--success)}.status-mini-pill.warn{color:var(--warning)}.status-strip-dot,.status-dot{display:inline-block;width:.65rem;height:.65rem;border-radius:50%;background:var(--subtle);box-shadow:0 0 0 4px rgba(111,125,149,.1)}.green{background:var(--success)!important}.red{background:var(--danger)!important}.amber{background:var(--warning)!important}.landing-status-body{padding:1rem;border-top:1px solid var(--border)}
-.status-board{display:grid;gap:.75rem}.status-check{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.1rem;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);box-shadow:var(--shadow-1)}.status-check>div{display:flex;align-items:center;gap:.7rem}.status-check>span{color:var(--muted);font-size:.8rem}.monitor-links,.project-actions,.admin-actions{display:flex;flex-wrap:wrap;gap:.6rem}.link-card{padding:.7rem .9rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-weight:750;text-decoration:none;transition:all var(--ease)}.link-card:hover{transform:translateY(-1px);border-color:var(--accent)}
-.project-card{padding:1.2rem}.project-card h2{margin:0;font-size:1.15rem}.project-card p{min-height:3.2rem;margin:.8rem 0;color:var(--muted)}.admin-link{margin:1.3rem 0;text-align:right}.admin-panel{margin-bottom:1rem;padding:1.2rem}.admin-panel h2{font-size:1.05rem}.project-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.85rem}.project-form label{display:grid;gap:.35rem;color:var(--muted);font-size:.75rem;font-weight:750}.project-form .wide{grid-column:1/-1}.project-form .check{display:flex;align-items:center;gap:.5rem}.project-form .check input{width:auto}.project-form textarea{resize:vertical}.admin-actions{margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--border)}.admin-actions form{margin:0}
+.status-mini-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:.55rem}.status-mini-service{display:flex;align-items:center;justify-content:space-between;gap:.7rem;padding:.65rem .75rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--page);color:var(--text);font-size:.78rem;text-decoration:none}.status-mini-service>span{display:flex;align-items:center;gap:.5rem}.status-mini-service small{color:var(--muted)}.status-board{display:grid;gap:.75rem}.status-check{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.1rem;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);box-shadow:var(--shadow-1)}.status-check>div{display:flex;align-items:center;gap:.7rem}.status-check>span{color:var(--muted);font-size:.8rem}.monitor-links,.project-actions,.admin-actions{display:flex;flex-wrap:wrap;gap:.6rem}.link-card{padding:.7rem .9rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-weight:750;text-decoration:none;transition:all var(--ease)}.link-card:hover{transform:translateY(-1px);border-color:var(--accent)}
+.home-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem;margin:1rem 0 0}.home-links a{display:grid;grid-template-columns:1fr auto;gap:.1rem .7rem;padding:1rem 1.1rem;border:1px solid var(--border);border-radius:var(--radius-md);background:linear-gradient(145deg,rgba(255,255,255,.035),transparent),var(--surface);color:var(--text);text-decoration:none;box-shadow:var(--shadow-1);transition:all var(--ease)}.home-links a:hover{transform:translateY(-2px);border-color:var(--accent)}.home-links span{font-weight:850}.home-links small{grid-column:1;color:var(--muted)}.home-links b{grid-column:2;grid-row:1/3;align-self:center;color:var(--accent-strong)}.project-card{padding:1.2rem}.project-card h2{margin:0;font-size:1.15rem}.project-card p{min-height:3.2rem;margin:.8rem 0;color:var(--muted)}.admin-link{margin:1.3rem 0;text-align:right}.admin-panel{margin-bottom:1rem;padding:1.2rem}.admin-panel h2{font-size:1.05rem}.project-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.85rem}.project-form label{display:grid;gap:.35rem;color:var(--muted);font-size:.75rem;font-weight:750}.project-form .wide{grid-column:1/-1}.project-form .check{display:flex;align-items:center;gap:.5rem}.project-form .check input{width:auto}.project-form textarea{resize:vertical}.admin-actions{margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--border)}.admin-actions form{margin:0}
 code{padding:.15rem .35rem;border:1px solid var(--border);border-radius:.35rem;background:var(--page);font:500 .86em ui-monospace,SFMono-Regular,Consolas,monospace}
-@media(max-width:640px){.container{width:min(100% - 1.25rem,var(--shell));padding-top:1.5rem}.page-head,.section-head{align-items:flex-start;flex-direction:column}.project-form{grid-template-columns:1fr}.project-form .wide{grid-column:auto}.landing-status-strip summary{align-items:flex-start;flex-direction:column}.status-summary-right{flex-wrap:wrap}.status-summary-meta{white-space:normal}.briefing-home-row{flex-direction:column}.site-footer{width:min(100% - 1.25rem,var(--shell))}}
+@media(max-width:640px){.container{width:min(100% - 1.25rem,var(--shell));padding-top:1.5rem}.page-head,.section-head{align-items:flex-start;flex-direction:column}.project-form{grid-template-columns:1fr}.project-form .wide{grid-column:auto}.landing-status-strip summary{align-items:flex-start;flex-direction:column}.status-summary-right{flex-wrap:wrap}.status-summary-meta{white-space:normal}.home-links{grid-template-columns:1fr}.site-footer{width:min(100% - 1.25rem,var(--shell))}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
 """
 
@@ -673,8 +673,7 @@ def briefing_card_from_db(articles: list[dict], date_str: str, show_date: bool =
         html += f'<span class="card-num">{position}</span>'
         html += f'<h3>{title}</h3>'
         if summary:
-            first = first_sentence(summary)
-            html += f'<div class="card-summary">{first}</div>'
+            html += f'<div class="card-summary">{summary}</div>'
         html += category_badge_html(categories)
         html += '<div class="card-source">'
         if url:
@@ -816,81 +815,67 @@ def briefing_card(stories: list[dict], date_str: str) -> str:
 
 
 def briefing_list_home(articles: list[dict], date_str: str) -> str:
-    """Today's stories on the homepage as a plain vertical list (max 5 rows), no
-    horizontal scroll and no bookmark toggle. Used ONLY by home_page(); the archive
-    page keeps briefing_card_from_db / briefing_card unchanged."""
-    rows = articles[:5]
+    """Render today's stories as a readable vertical list with full summaries."""
+    rows = articles
     h = '<div class="briefing-home">'
     for a in rows:
         title = a.get("title", "Untitled")
         url = a.get("source_url", "")
         summary = a.get("summary") or a.get("impact") or a.get("body") or ""
+        summary = re.sub(r"<br\s*/?>", "\n", summary, flags=re.IGNORECASE).strip()
         categories = a.get("categories", "")
         first_cat = ""
         if categories:
             parts = [c.strip() for c in categories.split(",") if c.strip() and c.strip() != "general"]
             first_cat = parts[0] if parts else ""
         h += '<div class="briefing-home-row">'
-        if first_cat:
-            bg, fg = CATEGORY_COLORS.get(first_cat, ("#6b7280", "#f3f4f6"))
-            h += f'<span class="bh-badge category-badge" style="background:{bg};color:{fg}">{html.escape(first_cat)}</span>'
         h += '<div class="bh-main">'
         href = url or f"/briefing/{date_str}"
         target = ' target="_blank" rel="noopener"' if url else ''
-        h += f'<a class="bh-title" href="{html.escape(href, quote=True)}"{target}>{html.escape(title)}</a>'
+        h += '<div class="bh-title-line">'
+        if first_cat:
+            bg, fg = CATEGORY_COLORS.get(first_cat, ("#6b7280", "#f3f4f6"))
+            h += f'<span class="bh-badge category-badge" style="background:{bg};color:{fg}">{html.escape(first_cat)}</span>'
+        h += f'<a class="bh-title" href="{html.escape(href, quote=True)}"{target}>{html.escape(title)}</a></div>'
         if summary:
-            h += f'<div class="bh-impact">{html.escape(first_sentence(summary))}</div>'
+            h += f'<div class="bh-impact">{html.escape(summary)}</div>'
         h += '</div></div>'
     h += '</div>'
     return h
 
 def status_strip() -> str:
-    """Topmost homepage element: a 44px health bar. Green dot + 'All systems normal'
-    or red dot + 'K services need attention' (auto-opens the details on issues).
-    Amber dot + 'Status API unavailable' on fetch failure."""
-    return '''<details class="landing-status-strip" id="landing-status-strip">
+    """Render a compact live monitor summary backed by /api/status."""
+    return """<details class="landing-status-strip" id="landing-status-strip">
         <summary>
-            <span class="status-summary-left">
-                <span class="status-strip-dot" id="status-strip-dot"></span>
-                <span class="status-summary-title">Service status</span>
-                <span class="status-summary-meta" id="status-summary-meta">Checking services…</span>
-            </span>
-            <span class="status-summary-right">
-                <span class="status-mini-pill" id="status-ok-pill">— OK</span>
-                <span class="status-mini-pill" id="status-issue-pill">— issues</span>
-                <span class="status-expand-hint">expand</span>
-            </span>
+            <span class="status-summary-left"><span class="status-strip-dot" id="status-strip-dot"></span><span class="status-summary-title">Server status</span><span class="status-summary-meta" id="status-summary-meta">Checking monitors…</span></span>
+            <span class="status-summary-right"><span class="status-mini-pill" id="status-ok-pill">— up</span><span class="status-mini-pill" id="status-issue-pill">— down</span></span>
         </summary>
-        <div class="landing-status-body" id="landing-status-body">
-            <div class="services-loading">Loading compact status…</div>
-        </div>
+        <div class="landing-status-body" id="landing-status-body"><span class="status-summary-meta">Loading live checks…</span></div>
     </details>
     <script>
     (function(){
-        var names=["hermes_dashboard","ollama","cloudflare_tunnel","searxng","llm_router","github_backup"];
+        var panel=document.getElementById('landing-status-strip');
         var dot=document.getElementById('status-strip-dot');
-        fetch("/api/status").then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
-        .then(function(data){
-            var svcs=data.services||{}; var ok=0; var bad=0; var h='<div class="status-mini-grid">';
-            names.forEach(function(k){ var s=svcs[k]; if(!s) return; var healthy=!!s.healthy; if(healthy) ok++; else bad++;
-                h += '<a class="status-mini-service" href="/status" style="text-decoration:none">' +
-                     '<span><span class="status-dot ' + (healthy?'green':'red') + '"></span> ' + s.name + '</span>' +
-                     '<small>' + (s.status || (healthy?'Online':'Issue')) + '</small></a>';
-            });
-            h += '</div><div style="margin-top:.55rem"><a href="/status" class="card-action">Open full status board →</a></div>';
-            var meta=document.getElementById('status-summary-meta'); if(meta) meta.textContent = bad ? (bad + ' service' + (bad>1?'s':'') + ' need attention') : 'All systems normal';
-            if(dot) dot.classList.add(bad?'red':'green');
-            var okP=document.getElementById('status-ok-pill'); if(okP){ okP.textContent=ok+' OK'; okP.classList.add('ok'); }
-            var badP=document.getElementById('status-issue-pill'); if(badP){ badP.textContent=bad+' issues'; badP.classList.add(bad?'warn':'ok'); }
-            var body=document.getElementById('landing-status-body'); if(body) body.innerHTML=h;
-            if(bad>0){ var d=document.getElementById('landing-status-strip'); if(d) d.open=true; }
-        }).catch(function(){
-            if(dot) dot.classList.add('amber');
-            var meta=document.getElementById('status-summary-meta'); if(meta) meta.textContent='Status API unavailable';
-            var body=document.getElementById('landing-status-body'); if(body) body.innerHTML='<div class="services-error">Service status unavailable. Open the full status page for static checks.</div><a href="/status" class="card-action">Open full status board →</a>';
-        });
+        var meta=document.getElementById('status-summary-meta');
+        var body=document.getElementById('landing-status-body');
+        var okP=document.getElementById('status-ok-pill');
+        var badP=document.getElementById('status-issue-pill');
+        function esc(value){var el=document.createElement('span');el.textContent=value==null?'':String(value);return el.innerHTML;}
+        fetch('/api/status').then(function(response){if(!response.ok)throw new Error(response.status);return response.json();}).then(function(data){
+            var checks=Array.isArray(data.checks)?data.checks:[];
+            var up=checks.filter(function(check){return !!check.healthy;}).length;
+            var down=checks.length-up;
+            okP.textContent=up+' up';if(up){okP.classList.add('ok');}
+            badP.textContent=down+' down';badP.classList.add(down?'warn':'ok');
+            if(!checks.length){dot.classList.add('amber');meta.textContent='No monitors configured';body.innerHTML='<span class="status-summary-meta">Add checks in monitors.json.</span> <a href="/status">Open status →</a>';return;}
+            dot.classList.add(down?'red':'green');
+            meta.textContent=down?(down+' monitor'+(down===1?'':'s')+' need attention'):'All monitors healthy';
+            body.innerHTML='<div class="status-mini-grid">'+checks.map(function(check){return '<a class="status-mini-service" href="/status"><span><span class="status-dot '+(check.healthy?'green':'red')+'"></span>'+esc(check.name)+'</span><small>'+esc(check.healthy?(check.latency_ms+' ms'):(check.error||'Unavailable'))+'</small></a>';}).join('')+'</div>';
+            if(down){panel.open=true;}
+        }).catch(function(){dot.classList.add('amber');meta.textContent='Status unavailable';body.innerHTML='<span class="status-summary-meta">Live monitoring could not be loaded.</span> <a href="/status">Open status →</a>';});
     })();
-    </script>'''
+    </script>"""
+
 
 def home_page() -> str:
     now = datetime.now()
@@ -898,11 +883,8 @@ def home_page() -> str:
     page_date = now.strftime("%A, %B ") + str(now.day)  # cross-platform "no leading zero"
 
     # 1) Header row (replaces the hero tagline)
-    body = ('<div class="page-head"><h1>devmclovin</h1>'
+    body = ('<div class="page-head home-head"><div><span class="home-eyebrow">Tristan</span><h1>Control Center</h1></div>'
             f'<span class="page-date">{page_date}</span></div>')
-
-    # 2) Status strip (topmost interactive element; auto-opens on issues)
-    body += status_strip()
 
     # 3) Today's Briefing — same 3-level fallback chain as before, rendered as a
     #    vertical list (briefing_list_home) instead of the horizontal-scroll cards.
@@ -941,7 +923,13 @@ def home_page() -> str:
     else:
         body += '<div class="empty-state"><p>☕ No briefings found. The morning briefing runs at 7am UTC.</p></div>'
 
-    return html_page("devmclovin", body, active_nav="home")
+    body += '<div class="section-head"><h2>Monitoring</h2><a href="/status">Full status →</a></div>'
+    body += status_strip()
+    body += ('<div class="home-links" aria-label="Secondary destinations">'
+             '<a href="/projects"><span>Projects</span><small>Manage active work</small><b>→</b></a>'
+             '<a href="/portfolio"><span>Portfolio</span><small>Review shipped work</small><b>→</b></a></div>')
+
+    return html_page("Control Center", body, active_nav="home")
 
 def briefings_page(category=None, saved_only: bool = False, sort: str = "newest") -> str:
     sort = sort if sort in {"newest", "oldest", "saved"} else "newest"

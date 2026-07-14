@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Portfolio — 2026-07-11</title>
+<title>Portfolio — 2026-07-14</title>
 <style>
 __SITE_NAV_CSS__
   :root {
@@ -66,15 +66,51 @@ __SITE_NAV_CSS__
   .empty { color: var(--muted); }
   .foot { margin-top: 32px; color: var(--muted); font-size: 12px; }
   code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+
+  html { color-scheme: dark; }
+  body { max-width: none; min-height: 100vh; margin: 0; padding: 0;
+         background: radial-gradient(circle at 15% -10%, rgba(139,124,255,.16), transparent 30rem),
+                     radial-gradient(circle at 100% 15%, rgba(69,214,154,.07), transparent 26rem), var(--page);
+         color: var(--text); font: 400 16px/1.65 Inter, ui-sans-serif, -apple-system,
+               BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  body > h1, body > .sub, body > .stats, body > .cards, body > .foot {
+    width: min(calc(100% - 2rem), var(--shell)); margin-left: auto; margin-right: auto;
+  }
+  body > h1 { margin-top: 2.5rem; margin-bottom: .4rem; color: var(--text);
+              font-size: clamp(2rem, 5vw, 3.7rem); line-height: 1.15; letter-spacing: -.025em; }
+  .sub { margin-top: 0; margin-bottom: 2rem; color: var(--muted); font-size: .9rem; }
+  .stats { gap: 1rem; margin-bottom: 1.25rem; }
+  .tile, .card { border: 1px solid var(--border); background:
+                 linear-gradient(150deg, rgba(255,255,255,.04), transparent 38%), var(--surface);
+                 box-shadow: var(--shadow-1); }
+  .tile { border-radius: var(--radius-md); padding: 1rem 1.1rem; }
+  .tile .v { color: var(--text); font-size: 2rem; font-weight: 800; }
+  .tile .k, .goal, .milestone, .card footer { color: var(--muted); }
+  .cards { grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: 1rem; }
+  .card { border-radius: var(--radius-lg); padding: 1.2rem; gap: .8rem; }
+  .card h2 { color: var(--text); font-size: 1.12rem; }
+  .badge { border-color: var(--border); color: var(--muted); }
+  .next { border-color: var(--border); border-left-color: var(--accent);
+          border-radius: var(--radius-sm); background: rgba(8,11,18,.45); }
+  .next-label, .m-label, .meta, .lastlog, .foot { color: var(--subtle); }
+  .card footer { border-color: var(--border); }
+  .foot { margin-top: 2.5rem; margin-bottom: 0; padding-bottom: 2.5rem; }
+  code { border: 1px solid var(--border); border-radius: .35rem; background: var(--page); color: var(--muted); }
+  @media (max-width: 640px) {
+    body > h1, body > .sub, body > .stats, body > .cards, body > .foot {
+      width: min(calc(100% - 1.25rem), var(--shell));
+    }
+    body > h1 { margin-top: 1.5rem; }
+  }
 </style></head><body>
 __SITE_NAV__
   <h1>Portfolio</h1>
-  <p class="sub">Generated 2026-07-11 from STATE.md files under <code>Code/Active/</code></p>
+  <p class="sub">Generated 2026-07-14 from STATE.md files under <code>Code/Active/</code></p>
   <div class="stats">
     <div class="tile"><div class="v">3</div><div class="k">active projects</div>
       <div class="note"><span class="s-icon critical">■</span> over the 2-slot limit</div></div>
     <div class="tile"><div class="v">0</div><div class="k">blocked</div></div>
-    <div class="tile"><div class="v">1d</div><div class="k">stalest project</div>
+    <div class="tile"><div class="v">4d</div><div class="k">stalest project</div>
       <div class="note"><span class="s-icon good">●</span>
       all fresh</div></div>
   </div>
@@ -89,7 +125,7 @@ __SITE_NAV__
       
       <div class="milestone"><span class="m-label">Milestone</span>M1 SHIPPED 2026-07-11 — dashboard live behind Access, one-command publish working; next milestone not yet chosen</div>
       <footer>
-        <span class="stale good"><span class="s-icon good">●</span>updated today</span>
+        <span class="stale good"><span class="s-icon good">●</span>updated 3d ago</span>
         <div class="meta">Parked: 6 items</div>
         <div class="lastlog">2026-07-11 — Prompts C+D done. C: /portfolio deployed (a32b603), container rebuilt, in-container 200/200. D: publish-dashboard.bat created in Skills and tested end to end (real commit d6886e9 + rebuild, then clean no-op run). Codex&#x27;s STATE.md edit corrupted the file&#x27;s encoding (cp1252 mojibake), which leaked into the live dashboard — fixed and republished by Claude review session. Remaining: phone gate.</div>
       </footer>
@@ -105,7 +141,7 @@ __SITE_NAV__
       
       <div class="milestone"><span class="m-label">Milestone</span>PII harness passing — implement the harness from test-suites/pii-redaction/README.md and log a score table</div>
       <footer>
-        <span class="stale good"><span class="s-icon good">●</span>updated 1d ago</span>
+        <span class="stale good"><span class="s-icon good">●</span>updated 4d ago</span>
         <div class="meta">Parked: 2 items</div>
         <div class="lastlog">2026-07-10 — STATE.md created from operating manual; flagship per TRIAGE-2026-07-10.</div>
       </footer>
@@ -121,7 +157,7 @@ __SITE_NAV__
       
       <div class="milestone"><span class="m-label">Milestone</span>Triage executed — archive mechanics done, hermes-router merged, Active/ down to ≤6 folders</div>
       <footer>
-        <span class="stale good"><span class="s-icon good">●</span>updated 1d ago</span>
+        <span class="stale good"><span class="s-icon good">●</span>updated 4d ago</span>
         <div class="meta">Parked: 2 items</div>
         <div class="lastlog">2026-07-10 — Triage doc + project operating manual + dashboard created.</div>
       </footer>

@@ -213,7 +213,7 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
   max-width container, title suffix `— Control Center`; `_UNAUTH_PAGE` rebranded
   and restyled. `inject_nav` now serves only `portfolio.html`. Verify: nav identical
   on all pages; pages read as layered/elevated, not flat.
-- [ ] **Step 13 — Homepage redesign (readability first).** Order: header row
+- [x] **Step 13 — Homepage redesign (readability first).** Order: header row
   (`Control Center` + date) → today's briefing → status strip (new `/api/status`,
   auto-expand on issues, amber "unavailable" state) → one compact link row
   (Projects · Portfolio). Briefing block requirements (fixes "hard to read /
