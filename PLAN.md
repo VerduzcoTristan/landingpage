@@ -205,7 +205,7 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
   `is_authenticated()`. Delete old projects/launcher/GitHub/systemctl code and
   `/projects/<n>/logs|config` routes. Verify: full CRUD + reorder + hide via curl
   locally; unauthenticated non-localhost POST → 403 (simulate by binding non-loopback).
-- [ ] **Step 12 — Design system + nav/shell (D16).** Replace BASE_CSS/NAV_CSS with
+- [x] **Step 12 — Design system + nav/shell (D16).** Replace BASE_CSS/NAV_CSS with
   the token-based design system (palette, type scale, spacing/radius/shadow tokens,
   card/badge/button/form components, transitions, focus states). `render_nav()` →
   Home · Briefings · Projects · Portfolio · Status as a sticky translucent bar with
