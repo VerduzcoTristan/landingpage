@@ -1,4 +1,4 @@
-# AGENTS.md — Control Center (formerly "devmclovin landing page")
+# AGENTS.md — Control Center
 
 Instructions for any coding agent (Claude Code, Codex, or other) working in
 this repo. Claude Code users: keep `CLAUDE.md` as a symlink to this file
@@ -14,8 +14,8 @@ need real management UI).
 
 ## Branding — hard rule
 
-- Remove ALL references to "devmclovin" (page titles, headers, copy, meta tags,
-  config values, service names, repo strings, comments).
+- Remove ALL references to the legacy brand (page titles, headers, copy, meta
+  tags, config values, service names, repo strings, comments).
 - Site identity: "Tristan" for personal identity, "Control Center" for the app
   itself. Page title format: `Control Center` or `<Page> — Control Center`.
 - If a domain/hostname string is needed and the value is uncertain, use a
@@ -23,8 +23,8 @@ need real management UI).
 
 ## Deployment target (this is the new setup — configure for it)
 
-The old deployment (systemd unit `devmclovin-landing.service`, app in
-`/home/ubuntu/devmclovin-landing/`, port 3002) is DEPRECATED. Do not extend it.
+The former bare-metal systemd deployment under `/home/ubuntu/` on port 3002 is
+DEPRECATED. Do not extend it.
 
 Target architecture:
 
@@ -106,8 +106,8 @@ social-proof/marketing blocks.
 
 ## Definition of done (for the current overhaul)
 
-- Zero occurrences of "devmclovin" anywhere in the repo (verify:
-  `grep -ri devmclovin .` returns nothing).
+- Zero occurrences of the legacy brand anywhere in the repo (verify:
+  `grep -ri 'dev''mclovin' .` returns nothing).
 - App builds and runs via `docker compose up -d` from
   `/srv/apps/landing-page/`, reachable through Caddy on `proxy_net`.
 - Briefings page works and is the primary surface.

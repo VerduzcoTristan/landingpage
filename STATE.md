@@ -1,6 +1,6 @@
 # STATE — landingpage
 **Phase:** build
-**Goal:** Portfolio dashboard live at devmclovin.com/portfolio behind Cloudflare Access, updated by one command from the desktop
+**Goal:** Control Center portfolio live behind Cloudflare Access, updated by one command from the desktop
 **Current milestone:** M1 SHIPPED 2026-07-11 — dashboard live behind Access, one-command publish working; next milestone not yet chosen
 **Next action:** Choose what's next: README deploy-section rewrite (parked, now unblocked) or M2 auto-publish on session end
 **Blocked on:** nothing

@@ -7,9 +7,9 @@ One step = one commit (`step N: <description>`); verify, tick, commit, continue.
 ## Context
 
 The site (single-file stdlib `server.py`, Docker container behind Caddy + Cloudflare
-Tunnel) is being converted from the "devmclovin landing page" into **Control Center**:
+Tunnel) is being converted from the former public landing page into **Control Center**:
 briefings first, monitoring fixed, projects/portfolio manageable, everything else
-deleted, zero "devmclovin" strings in the repo.
+deleted, with zero legacy-brand strings in the repo.
 
 Diagnosis that drives this plan:
 
@@ -21,7 +21,7 @@ Diagnosis that drives this plan:
   call returns 502. This is a deployment-architecture mismatch, not a small config
   fix — the replacement is decision D2.
 - **Projects root cause:** list = GitHub API (token in unmounted `~/.hermes/.env`) +
-  overlay JSON in unmounted `~/.devmclovin/`; actions run `systemctl --user`. All
+  overlay JSON in an unmounted legacy home-directory path; actions run `systemctl --user`. All
   three are impossible in the container. Rebuild per D3.
 - **Briefings work today** via two read-only mounts (briefings.db + cron output .md
   dir) and must not regress (D6).
@@ -30,7 +30,7 @@ Diagnosis that drives this plan:
 ## Decisions (ratified when you leave them in this file)
 
 - **D1 — Hostname:** the public domain stays whatever DNS/tunnel serve today
-  (devmclovin.com); the repo stops knowing it. `ALLOWED_HOSTS` / any absolute-URL
+  (the current public hostname); the repo stops knowing it. `ALLOWED_HOSTS` / any absolute-URL
   need becomes env vars set in the server's gitignored `.env`
   (default `localhost,127.0.0.1`). Domain rename/migration is explicitly out of scope.
   ⚑ flagged per AGENTS.md hostname rule.
@@ -66,7 +66,7 @@ Diagnosis that drives this plan:
   DB fallback chain; archive/detail/search keep reading the DB; both ro mounts stay
   in compose. Restyle only.
 - **D7 — Runbooks: REMOVE** (`runbook_data.py`, `test_runbooks.py`, `/runbooks`).
-  Content is stale bare-metal fixes full of devmclovin paths. Delete this line and
+  Content is stale bare-metal fixes full of legacy paths. Delete this line and
   flip the audit row to KEEP if you disagree.
 - **D8 — SSH button: REMOVE** entirely (nav button, `ssh.` hostname references, no
   env fallback).
@@ -78,9 +78,9 @@ Diagnosis that drives this plan:
   `publish-dashboard.bat` hardcode it). `data/` is created at
   `/srv/apps/landing-page/data/` per the template and bind-mounted into the
   container. ⚑ deviation from template (compose.yaml/.env at app root), flagged.
-- **D11 — Docs/process files count for the grep:** AGENTS.md's own "formerly
-  devmclovin" mentions and STATE.md's goal line get reworded so
-  `git grep -ri devmclovin` over tracked files returns nothing. Gitignored local
+- **D11 — Docs/process files count for the grep:** AGENTS.md's own legacy-brand
+  mentions and STATE.md's goal line get reworded so
+  `git grep -ri 'dev''mclovin'` over tracked files returns nothing. Gitignored local
   files (docs/deploy-facts.md etc.) are exempt and untouched.
 - **D12 — Single-file stdlib pattern stays.** No framework, no build step, no new
   dependency anywhere in this plan.
@@ -144,22 +144,22 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
 | `get_system_status()` + GitHub/OpenRouter/link-health caches | dead/orphaned helpers | REMOVE |
 | `router_server.py`, `router_metrics.py`, `router-dashboard.html`, `router-dashboard.service`, `e2e_integration_test.py` | standalone router dashboard (LLM-Router project's concern) | REMOVE |
 | `attic/` (6 parked servers + README) | superseded standalone servers; old systemd unit confirmed gone 2026-07-11 | REMOVE |
-| `devmclovin-landing.service`, `setup.sh` | deprecated bare-metal deploy | REMOVE |
-| `docs/landing-page-redesign-plan.md`, `docs/archive/*`, `docs/portfolio-deploy-prompts.md` | superseded plans/notes (devmclovin-heavy) | REMOVE |
+| former landing-page systemd unit, `setup.sh` | deprecated bare-metal deploy | REMOVE |
+| `docs/landing-page-redesign-plan.md`, `docs/archive/*`, `docs/portfolio-deploy-prompts.md` | superseded legacy plans/notes | REMOVE |
 | `docs/deploy-facts.md`, `docs/server-remediation-*.md` | gitignored local memory | KEEP (untracked, untouched) |
 | `README.md` | stale (systemd-era) | REBUILD — short intro pointing at OPERATIONS.md |
-| `AGENTS.md`, `PROMPTS.md`, `STATE.md` | process files | KEEP — reword devmclovin mentions (D11) |
+| `AGENTS.md`, `PROMPTS.md`, `STATE.md` | process files | KEEP — reword legacy-brand mentions (D11) |
 | SSH nav button | jump to web SSH | REMOVE (D8) |
 
 ## Build steps
 
 - [x] **Step 1 — Branch + smoke harness.** Create `overhaul/control-center`. Add
   `scripts/smoke.py`: stdlib script that hits a route matrix on a given port,
-  asserts expected status codes, and fails if any 200 body contains `devmclovin`
+  asserts expected status codes, and fails if any 200 body contains the legacy brand
   (case-insensitive). Baseline it against current routes (expected values updated
   per step as routes are removed). Local runs always `PYTHONUTF8=1 python server.py 3102`.
 - [x] **Step 2 — Delete deploy relics + attic.** `git rm` `attic/` (all),
-  `devmclovin-landing.service`, `setup.sh`, `router-dashboard.service`.
+  the deprecated landing service, `setup.sh`, and `router-dashboard.service`.
 - [x] **Step 3 — Delete router dashboard.** `router_server.py`, `router_metrics.py`,
   `router-dashboard.html`, `e2e_integration_test.py`.
 - [x] **Step 4 — Delete notes.** `notes.html`, `notes_api_server.py`; `/notes` route,
@@ -230,14 +230,14 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
   every page, feels production-grade rather than flat.
 - [x] **Step 14 — Rebrand sweep in code.** Remaining titles/h1/footers/UA strings/
   startup banner/comments → Control Center; `ALLOWED_HOSTS` → env with
-  `localhost,127.0.0.1` default (D1). `git grep -i devmclovin -- '*.py' '*.html'`
+  `localhost,127.0.0.1` default (D1). `git grep -i 'dev''mclovin' -- '*.py' '*.html'`
   → 0.
-- [ ] **Step 15 — Docs + generated portfolio.** Reword AGENTS.md/STATE.md mentions
+- [x] **Step 15 — Docs + generated portfolio.** Reword AGENTS.md/STATE.md mentions
   (D11); delete superseded docs (audit table); fix `Portfolio — Control Center`
   title in `Skills/dashboard.py` (external, one line) and regenerate
   `portfolio.html` (`python ..\Skills\dashboard.py --site`); if another project's
-  STATE.md leaks "devmclovin" into a card, reword that goal line too and regenerate.
-  Verify: `git grep -ri devmclovin` → 0 tracked hits.
+  STATE.md leaks the legacy brand into a card, reword that goal line too and regenerate.
+  Verify: `git grep -ri 'dev''mclovin'` → 0 tracked hits.
 - [ ] **Step 16 — CSS purge.** Delete a CSS block from BASE_CSS/NAV_CSS only if its
   class greps to zero across `server.py` + `portfolio.html`. Target: kanban, hub,
   overview, scroll-arrow, tool-page leftovers.
