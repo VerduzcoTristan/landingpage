@@ -162,7 +162,7 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
   `devmclovin-landing.service`, `setup.sh`, `router-dashboard.service`.
 - [x] **Step 3 — Delete router dashboard.** `router_server.py`, `router_metrics.py`,
   `router-dashboard.html`, `e2e_integration_test.py`.
-- [ ] **Step 4 — Delete notes.** `notes.html`, `notes_api_server.py`; `/notes` route,
+- [x] **Step 4 — Delete notes.** `notes.html`, `notes_api_server.py`; `/notes` route,
   `notes_page()`, `_proxy_notes` + all `/api/notes*` dispatch (GET/POST/PATCH/DELETE/
   OPTIONS) and `NOTES_API_TOKEN` handling. Verify: boot + smoke; `/notes` → 404.
 - [ ] **Step 5 — Delete inbox.** `inbox.html`, `docs/agent-inbox-guide.md`; `/inbox`,

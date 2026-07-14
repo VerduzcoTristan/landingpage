@@ -19,7 +19,7 @@ ROUTES = {
     "/projects": 200,
     "/portfolio": 200,
     "/health": 200,
-    "/notes": 200,
+    "/notes": 404,
     "/inbox": 200,
     "/models": 200,
     "/model-tuning": 200,

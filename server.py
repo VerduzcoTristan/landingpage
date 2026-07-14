@@ -7733,15 +7733,6 @@ def model_tuning_page() -> str:
         return inject_nav(tuning_html.read_text(), "model-tuning")
     return "<html><body><h1>Model tuning page not found</h1></body></html>"
 
-def notes_page() -> str:
-    """Serve the standalone notes.html page (with shared nav injected)."""
-    notes_html = SITE_DIR / "notes.html"
-    if notes_html.exists():
-        with open(notes_html, "r") as f:
-            return inject_nav(f.read(), "notes")
-    return "<html><body><h1>Notes page not found</h1></body></html>"
-
-
 def inbox_page() -> str:
     """Serve the standalone inbox.html page (with shared nav injected)."""
     inbox_html = SITE_DIR / "inbox.html"
@@ -7864,15 +7855,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._respond(200, "application/json", json.dumps({"models": _scan_gguf_models(), "folders": _gguf_load_dirs(), "health": _gguf_health()}).encode())
         elif path == "/api/gguf/health":
             self._respond(200, "application/json", json.dumps(_gguf_health()).encode())
-        elif path == "/api/notes" or path.startswith("/api/notes/"):
-            self._proxy_notes(self.command)
-            return
         elif path == "/api/inbox" or path.startswith("/api/inbox/"):
             self._proxy_inbox()
             return
-        elif path == "/notes":
-            content = notes_page().encode()
-            self._respond(200, "text/html", content)
         elif path == "/inbox":
             content = inbox_page().encode()
             self._respond(200, "text/html", content)
@@ -8332,9 +8317,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 result = _ollama_benchmark(model, prompt)
                 self._respond(200, "application/json", json.dumps(result).encode())
             return
-        elif path == "/api/notes" or path.startswith("/api/notes/"):
-            self._proxy_notes(self.command, body=raw.encode() if raw else None)
-            return
         elif path == "/api/inbox" or path.startswith("/api/inbox/"):
             self._proxy_inbox(body=raw.encode() if raw else None)
             return
@@ -8413,15 +8395,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_response(405); self.end_headers()
 
     def do_OPTIONS(self):
-        """Handle CORS preflight for /api/notes/* and /api/service/*"""
-        if self.path.startswith("/api/notes"):
-            self.send_response(200)
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
-            self.send_header("Access-Control-Max-Age", "86400")
-            self.end_headers()
-        elif self.path.startswith("/api/ollama") or self.path.startswith("/api/gguf") or self.path.startswith("/api/llm-lab") or self.path.startswith("/api/tuning"):
+        """Handle CORS preflight for API routes."""
+        if self.path.startswith("/api/ollama") or self.path.startswith("/api/gguf") or self.path.startswith("/api/llm-lab") or self.path.startswith("/api/tuning"):
             self.send_response(200)
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
@@ -8446,19 +8421,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_response(405); self.end_headers()
 
     def do_PATCH(self):
-        path = self.path.rstrip("/") or "/"
-        if path.startswith("/api/notes/"):
-            length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(length) if length > 0 else None
-            self._proxy_notes("PATCH", body=body)
-        else:
-            self.send_response(405); self.end_headers()
+        self.send_response(405); self.end_headers()
 
     def do_DELETE(self):
         path = self.path.rstrip("/") or "/"
-        if path.startswith("/api/notes/"):
-            self._proxy_notes("DELETE")
-        elif path.startswith("/api/inbox"):
+        if path.startswith("/api/inbox"):
             self._proxy_inbox()
         else:
             self.send_response(405); self.end_headers()
@@ -8511,48 +8478,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(err_body)
         except Exception as e:
             self._respond(502, "application/json", json.dumps({"error": f"Inbox API unreachable: {e}"}).encode())
-
-    def _proxy_notes(self, method: str, body: bytes = None):
-        """Proxy /api/notes/* requests to the Notes API on port 8081 with auth."""
-        import urllib.request as _ur
-        from urllib.error import HTTPError
-        # /api/notes      -> /notes on the API
-        # /api/notes/xxx  -> /notes/xxx on the API
-        api_path = "/notes" + self.path[len("/api/notes"):]  # strip prefix, keep rest + id
-        url = f"http://127.0.0.1:8081{api_path}"
-        req = _ur.Request(url, method=method)
-        _notes_token = _load_env_var("NOTES_API_TOKEN") or "notes-secret-token"
-        req.add_header("Authorization", "Bearer " + _notes_token)
-
-        # Forward body for POST/PATCH
-        if method in ("POST", "PATCH") and body:
-            req.add_header("Content-Type", "application/json")
-            req.data = body
-
-        try:
-            with _ur.urlopen(req, timeout=10) as resp:
-                resp_body = resp.read()
-                self.send_response(resp.status)
-                for k, v in resp.getheaders():
-                    if k.lower() not in ("transfer-encoding", "connection"):
-                        self.send_header(k, v)
-                self.send_header("Content-Length", str(len(resp_body)))
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.end_headers()
-                self.wfile.write(resp_body)
-        except HTTPError as e:
-            # Forward the upstream error response body and status
-            err_body = e.read()
-            self.send_response(e.code)
-            for k, v in e.headers.items():
-                if k.lower() not in ("transfer-encoding", "connection"):
-                    self.send_header(k, v)
-            self.send_header("Content-Length", str(len(err_body)))
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(err_body)
-        except Exception as e:
-            self._respond(502, "application/json", json.dumps({"error": f"Notes API unreachable: {e}"}).encode())
 
     def _proxy_api(self):
         """Proxy /api/status and /api/service/* requests to the backend API server on port 9091."""
