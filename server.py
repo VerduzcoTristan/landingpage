@@ -7733,15 +7733,6 @@ def model_tuning_page() -> str:
         return inject_nav(tuning_html.read_text(), "model-tuning")
     return "<html><body><h1>Model tuning page not found</h1></body></html>"
 
-def inbox_page() -> str:
-    """Serve the standalone inbox.html page (with shared nav injected)."""
-    inbox_html = SITE_DIR / "inbox.html"
-    if inbox_html.exists():
-        with open(inbox_html, "r") as f:
-            return inject_nav(f.read(), "inbox")
-    return "<html><body><h1>Inbox page not found</h1></body></html>"
-
-
 class Handler(http.server.BaseHTTPRequestHandler):
     def _get_query_param(self, key: str):
         path = self.path
@@ -7855,12 +7846,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._respond(200, "application/json", json.dumps({"models": _scan_gguf_models(), "folders": _gguf_load_dirs(), "health": _gguf_health()}).encode())
         elif path == "/api/gguf/health":
             self._respond(200, "application/json", json.dumps(_gguf_health()).encode())
-        elif path == "/api/inbox" or path.startswith("/api/inbox/"):
-            self._proxy_inbox()
-            return
-        elif path == "/inbox":
-            content = inbox_page().encode()
-            self._respond(200, "text/html", content)
         elif path == "/tunnel":
             content = cloudflare_tunnel_page().encode()
             self._respond(200, "text/html", content)
@@ -8317,9 +8302,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 result = _ollama_benchmark(model, prompt)
                 self._respond(200, "application/json", json.dumps(result).encode())
             return
-        elif path == "/api/inbox" or path.startswith("/api/inbox/"):
-            self._proxy_inbox(body=raw.encode() if raw else None)
-            return
         elif path.startswith("/api/proxy/commands/"):
             # Proxy to commands API on port 8092 with API key auth
             action = path[len("/api/proxy/commands/"):]
@@ -8389,8 +8371,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._proxy_api()
         elif path.startswith("/api/status"):
             self._proxy_api()
-        elif path.startswith("/api/inbox"):
-            self._proxy_inbox()
         else:
             self.send_response(405); self.end_headers()
 
@@ -8410,13 +8390,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Headers", "Content-Type")
             self.send_header("Access-Control-Max-Age", "86400")
             self.end_headers()
-        elif self.path.startswith("/api/inbox"):
-            self.send_response(200)
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type, X-API-Key")
-            self.send_header("Access-Control-Max-Age", "86400")
-            self.end_headers()
         else:
             self.send_response(405); self.end_headers()
 
@@ -8424,60 +8397,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_response(405); self.end_headers()
 
     def do_DELETE(self):
-        path = self.path.rstrip("/") or "/"
-        if path.startswith("/api/inbox"):
-            self._proxy_inbox()
-        else:
-            self.send_response(405); self.end_headers()
-
-    def _proxy_inbox(self, body: bytes = None):
-        """Proxy /api/inbox/* to the Agent Inbox API on 127.0.0.1:8000.
-
-        Strips ONLY the /api/inbox prefix and forwards the remainder (path + query),
-        method, body and status verbatim. Adds no auth header — the inbox guide
-        specifies none — but relays the client's Content-Type / X-API-Key if present.
-        `body` is passed in by do_POST (which already consumed the request body);
-        for other methods it is read here.
-        """
-        import urllib.request as _ur
-        from urllib.error import HTTPError
-        # /api/inbox            -> /            on the API
-        # /api/inbox/api/v1/... -> /api/v1/...  on the API (query preserved)
-        rest = self.path[len("/api/inbox"):] or "/"
-        url = "http://127.0.0.1:8000" + rest
-
-        if body is None:
-            length = int(self.headers.get("Content-Length", 0))
-            if length > 0:
-                body = self.rfile.read(length)
-
-        req = _ur.Request(url, data=body, method=self.command)
-        for h in ("Content-Type", "X-API-Key"):
-            v = self.headers.get(h)
-            if v:
-                req.add_header(h, v)
-
-        try:
-            with _ur.urlopen(req, timeout=15) as resp:
-                resp_body = resp.read()
-                self.send_response(resp.status)
-                for k, v in resp.getheaders():
-                    if k.lower() not in ("transfer-encoding", "connection"):
-                        self.send_header(k, v)
-                self.send_header("Content-Length", str(len(resp_body)))
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.end_headers()
-                self.wfile.write(resp_body)
-        except HTTPError as e:
-            err_body = e.read()
-            self.send_response(e.code)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Content-Length", str(len(err_body)))
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(err_body)
-        except Exception as e:
-            self._respond(502, "application/json", json.dumps({"error": f"Inbox API unreachable: {e}"}).encode())
+        self.send_response(405); self.end_headers()
 
     def _proxy_api(self):
         """Proxy /api/status and /api/service/* requests to the backend API server on port 9091."""
