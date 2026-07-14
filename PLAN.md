@@ -228,7 +228,7 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
   `portfolio.html` via `Skills/dashboard.py` (D16 external touch) + regenerate.
   Verify visually at 1280 / 768 / 375 px: no horizontal scroll, consistent look on
   every page, feels production-grade rather than flat.
-- [ ] **Step 14 — Rebrand sweep in code.** Remaining titles/h1/footers/UA strings/
+- [x] **Step 14 — Rebrand sweep in code.** Remaining titles/h1/footers/UA strings/
   startup banner/comments → Control Center; `ALLOWED_HOSTS` → env with
   `localhost,127.0.0.1` default (D1). `git grep -i devmclovin -- '*.py' '*.html'`
   → 0.
@@ -279,3 +279,4 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
 
 (build pass appends one line per mid-run decision)
 - Step 10: switched the stdlib listener to `ThreadingHTTPServer` so configured self-checks can call `/health` without deadlocking the request handling them.
+- Step 14: moved the briefing impact cache under `DATA_DIR/impacts` so generated data follows the persistent app-data contract without retaining a legacy-named home directory.

@@ -52,11 +52,6 @@ def main() -> int:
     parser.add_argument("port", nargs="?", type=int, default=3102)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--timeout", type=float, default=10.0)
-    parser.add_argument(
-        "--allow-legacy-brand",
-        action="store_true",
-        help="baseline-only escape hatch until the rebrand step removes legacy copy",
-    )
     args = parser.parse_args()
 
     failures: list[str] = []
@@ -72,11 +67,9 @@ def main() -> int:
         problems: list[str] = []
         if status != expected:
             problems.append(f"expected {expected}, got {status}")
-        if status == 200 and b"devmclovin" in body.lower():
-            if args.allow_legacy_brand:
-                print(f"WARN {path} contains legacy brand")
-            else:
-                problems.append("200 response contains legacy brand")
+        legacy_brand = b"dev" + b"mclovin"
+        if status == 200 and legacy_brand in body.lower():
+            problems.append("200 response contains legacy brand")
 
         if problems:
             failures.append(f"{path}: {'; '.join(problems)}")

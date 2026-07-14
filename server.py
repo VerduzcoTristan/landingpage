@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Landing page server for devmclovin.com — dark mode, morning briefings, Hermes link."""
+"""Control Center server for briefings, monitoring, projects, and portfolio."""
 
 import http.server
 import html
@@ -19,6 +19,11 @@ PORT = 3002
 BRIEFING_DIR = Path(os.path.expanduser("~/.hermes/cron/output/7dc1d641173d"))
 SITE_DIR = Path(__file__).parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", SITE_DIR / "data"))
+ALLOWED_HOSTS = {
+    host.strip().lower()
+    for host in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if host.strip()
+}
 
 # ── Auth helpers (Cloudflare Access) ──
 def is_authenticated(handler) -> bool:
@@ -64,7 +69,7 @@ CATEGORY_COLORS = {
 
 # ── New feature paths ──
 BRIEFING_DB = Path(os.path.expanduser("~/.hermes/data/briefings.db"))
-IMPACT_CACHE_DIR = Path(os.path.expanduser("~/.devmclovin/impacts"))
+IMPACT_CACHE_DIR = DATA_DIR / "impacts"
 BOOKMARKS_FILE = DATA_DIR / "bookmarks.json"
 
 # ── GitHub projects cache ──
@@ -464,7 +469,7 @@ def _openrouter_chat(messages: list[dict], model: str = "google/gemini-2.5-flash
         headers={
             "Authorization": f"Bearer {key}",
             "Content-Type": "application/json",
-            "User-Agent": "devmclovin-landing",
+            "User-Agent": "control-center",
         },
     )
     try:
@@ -1474,6 +1479,21 @@ def project_admin_page(message: str = "") -> str:
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
+    def _host_is_allowed(self) -> bool:
+        """Reject requests for hostnames not explicitly configured."""
+        raw_host = self.headers.get("Host", "")
+        try:
+            hostname = urllib.parse.urlsplit(f"//{raw_host}").hostname or ""
+        except ValueError:
+            return False
+        return hostname.lower() in ALLOWED_HOSTS
+
+    def _reject_unallowed_host(self) -> bool:
+        if self._host_is_allowed():
+            return False
+        self._respond(421, "text/plain", b"Misdirected Request")
+        return True
+
     def _get_query_param(self, key: str):
         path = self.path
         if "?" not in path:
@@ -1494,6 +1514,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         import urllib.parse
+        if self._reject_unallowed_host():
+            return
         # Parse query string
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
@@ -1539,6 +1561,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_POST(self):
         import urllib.parse
+        if self._reject_unallowed_host():
+            return
         length = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(length).decode("utf-8", errors="replace")
         params = urllib.parse.parse_qs(raw)
@@ -1616,5 +1640,5 @@ if __name__ == "__main__":
             http.server.ThreadingHTTPServer.server_bind(self)
 
     server = ReuseHTTPServer((os.environ.get("BIND_HOST", "127.0.0.1"), port), Handler)
-    print(f"devmclovin landing page → http://127.0.0.1:{port}")
+    print(f"Control Center → http://127.0.0.1:{port}")
     server.serve_forever()
