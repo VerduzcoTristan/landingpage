@@ -160,7 +160,7 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
   per step as routes are removed). Local runs always `PYTHONUTF8=1 python server.py 3102`.
 - [x] **Step 2 — Delete deploy relics + attic.** `git rm` `attic/` (all),
   `devmclovin-landing.service`, `setup.sh`, `router-dashboard.service`.
-- [ ] **Step 3 — Delete router dashboard.** `router_server.py`, `router_metrics.py`,
+- [x] **Step 3 — Delete router dashboard.** `router_server.py`, `router_metrics.py`,
   `router-dashboard.html`, `e2e_integration_test.py`.
 - [ ] **Step 4 — Delete notes.** `notes.html`, `notes_api_server.py`; `/notes` route,
   `notes_page()`, `_proxy_notes` + all `/api/notes*` dispatch (GET/POST/PATCH/DELETE/
