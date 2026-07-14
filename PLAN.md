@@ -167,7 +167,7 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
   OPTIONS) and `NOTES_API_TOKEN` handling. Verify: boot + smoke; `/notes` → 404.
 - [x] **Step 5 — Delete inbox.** `inbox.html`, `docs/agent-inbox-guide.md`; `/inbox`,
   `inbox_page()`, `_proxy_inbox` + `/api/inbox*` dispatch.
-- [ ] **Step 6 — Delete LLM tooling.** `llm_lab.html`, `model_comparison.html`,
+- [x] **Step 6 — Delete LLM tooling.** `llm_lab.html`, `model_comparison.html`,
   `model_tuning.html`; routes `/models`, `/api/models`, `/model-tuning`, `/llm-lab`;
   all `/api/llm-lab/*`, `/api/tuning/*`, `/api/ollama/*`, `/api/gguf/*` handlers and
   their `_llm_lab_*`, `_tuning_*`, `_ollama_*`, `_gguf_*`, `_hf_*`, `fetch_models`
