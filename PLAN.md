@@ -247,7 +247,7 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
   `scripts/export-data.sh` (tar `data/` → `/srv/backups/exports/landing-page/`).
   Write `OPERATIONS.md` (build/run/deploy/logs/data/secrets/smoke); rewrite
   `README.md` as a short intro pointing to it.
-- [ ] **Step 18 — Full local verification.** `py_compile` all remaining .py;
+- [x] **Step 18 — Full local verification.** `py_compile` all remaining .py;
   `PYTHONUTF8=1 python server.py 3102`; `python scripts/smoke.py 3102` green
   (matrix: `/ /briefings /briefing/<latest|any> /status /projects
   /projects/admin /portfolio /health /api/status` → 200;

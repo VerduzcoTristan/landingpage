@@ -9,8 +9,7 @@ import urllib.error
 import urllib.request
 
 
-# This is the pre-overhaul baseline. Each removal step updates the matching
-# expected status from 200 to 404; surviving routes remain regression checks.
+# Retained routes are regression checks; removed surfaces must stay gone.
 ROUTES = {
     "/": 200,
     "/briefings": 200,
@@ -35,6 +34,7 @@ ROUTES = {
     "/runbooks": 404,
     "/bookmarks": 404,
     "/api/briefings/search": 404,
+    "/models.js": 404,
 }
 
 
