@@ -153,7 +153,7 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
 
 ## Build steps
 
-- [ ] **Step 1 — Branch + smoke harness.** Create `overhaul/control-center`. Add
+- [x] **Step 1 — Branch + smoke harness.** Create `overhaul/control-center`. Add
   `scripts/smoke.py`: stdlib script that hits a route matrix on a given port,
   asserts expected status codes, and fails if any 200 body contains `devmclovin`
   (case-insensitive). Baseline it against current routes (expected values updated
