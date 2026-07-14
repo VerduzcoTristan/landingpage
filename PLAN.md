@@ -254,7 +254,7 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
   `/notes /inbox /models /llm-lab /hermes /cron /tunnel /logs /disk-cleanup
   /runbooks /kanban /bookmarks /api/briefings/search /models.js` → 404). Desktop has no briefing data → all pages
   must render graceful empty states, not tracebacks.
-- [ ] **Step 19 — Merge + deploy + server prep.** Merge to main, push. Over
+- [x] **Step 19 — Merge + deploy + server prep.** Merge to main, push. Over
   `ssh server`: `mkdir -p /srv/apps/landing-page/data` chowned to uid 10001; seed
   `data/monitors.json` (self, `http://caddy:80`, uptime-kuma/dozzle links) and empty
   `data/projects.json`; write `repo/.env` (`ALLOWED_HOSTS=<current domain>,localhost,127.0.0.1`);
@@ -281,3 +281,6 @@ Verdicts: KEEP (unchanged/restyle), FIX (keep, repair), REBUILD, REMOVE (delete 
 - Step 10: switched the stdlib listener to `ThreadingHTTPServer` so configured self-checks can call `/health` without deadlocking the request handling them.
 - Step 14: moved the briefing impact cache under `DATA_DIR/impacts` so generated data follows the persistent app-data contract without retaining a legacy-named home directory.
 - Step 17: added `.dockerignore` after the first image build showed that Git metadata and ignored local state would otherwise be copied into the image.
+- Step 19: omitted Uptime Kuma and Dozzle links because the documented monitoring stack and containers are absent on the server; seeded only the live Control Center and Caddy checks, both verified healthy.
+- Step 19: granted container uid 10001 a scoped data-directory ACL because non-interactive sudo is unavailable; the directory remains owned by the deploy user and inaccessible to other users.
+- Step 19: removed the old `repo` Compose project before starting the explicitly named `landing-page` project to avoid a container-name collision during the one-time stack-name migration.
