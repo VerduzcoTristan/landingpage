@@ -1109,6 +1109,37 @@ def _merge_hub_entries() -> dict:
     for g in groups:
         groups[g].sort(key=lambda e: (e["order"] if e["order"] != 999 else 1000,
                                        e["full_name"]))
+    # Fallback: if no GitHub repos were returned (token_missing or error+no cache),
+    # surface curated entries as Stalled cards so curated-only data is visible.
+    if not any(groups.values()):
+        for fn, cur in curated.items():
+            fn = str(fn).strip()
+            if not fn:
+                continue
+            if fn in {e["full_name"] for e in (groups["stalled"] + groups["active"]
+                                               + groups["maintain"] + groups["done"])}:
+                continue
+            cur = cur or {}
+            override = str(cur.get("status_override", "")).strip().lower()
+            goal = str(cur.get("goal", "")).strip()
+            entry = {
+                "full_name": fn,
+                "name": fn,
+                "html_url": str(cur.get("live_url", "")).strip(),
+                "description": goal,
+                "language": None,
+                "recency": "stalled",
+                "commits": [],
+                "order": int(cur.get("order", 999) or 999),
+                "has_note": bool(goal),
+                "status_override": override,
+            }
+            bucket = "done" if override == "done" else "stalled"
+            groups[bucket].append(entry)
+        # Sort again after fallback inserts
+        for g in groups:
+            groups[g].sort(key=lambda e: (e["order"] if e["order"] != 999 else 1000,
+                                           e["full_name"]))
     return {"groups": groups, "status": data.get("status", "ok"),
             "banner": data.get("banner")}
 
