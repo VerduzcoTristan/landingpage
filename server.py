@@ -151,9 +151,7 @@ def render_nav(active: str = "home") -> str:
     for href, label, key in (
         ("/", "Home", "home"),
         ("/briefings", "Briefings", "briefings"),
-        ("/projects", "Projects", "projects"),
         ("/hub", "Hub", "hub"),
-        ("/portfolio", "Portfolio", "portfolio"),
         ("/status", "Status", "status"),
     ):
         current = ' class="active" aria-current="page"' if active == key else ""
@@ -161,13 +159,6 @@ def render_nav(active: str = "home") -> str:
     return ('<nav class="site-nav" aria-label="Primary"><div class="nav-shell">'
             '<a href="/" class="brand" aria-label="Control Center home"><span class="brand-mark" aria-hidden="true">◆</span><span>Control Center</span></a>'
             '<div class="nav-links">' + "".join(links) + '</div></div></nav>')
-
-def inject_nav(page_html: str, active: str) -> str:
-    """Apply the shared shell to the generated portfolio template."""
-    return (page_html
-            .replace("__SITE_NAV_CSS__", NAV_CSS)
-            .replace("__SITE_NAV_JS__", "")
-            .replace("__SITE_NAV__", render_nav(active)))
 
 BASE_CSS = """
 *{box-sizing:border-box}html{color-scheme:dark;scroll-behavior:smooth}body{margin:0;min-height:100vh;background:radial-gradient(circle at 15% -10%,rgba(139,124,255,.16),transparent 30rem),radial-gradient(circle at 100% 15%,rgba(69,214,154,.07),transparent 26rem),var(--page);color:var(--text);font:400 16px/1.65 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-rendering:optimizeLegibility}button,input,select,textarea{font:inherit}a{color:var(--accent-strong)}img{max-width:100%}.container{width:min(100% - 2rem,var(--shell));margin:auto;padding:2.5rem 0 0}main{min-height:70vh}
@@ -213,7 +204,7 @@ def html_page(title: str, body: str, active_nav: str = "home", extra_head: str =
     <a href="#main-content" class="skip-link">Skip to main content</a>
     {render_nav(active_nav)}
     <main id="main-content"><div class="container">{body}</div></main>
-    <footer class="site-footer"><span>Control Center</span><nav aria-label="Footer"><a href="/briefings">Briefings</a><a href="/status">Status</a><a href="/projects">Projects</a></nav></footer>
+    <footer class="site-footer"><span>Control Center</span><nav aria-label="Footer"><a href="/briefings">Briefings</a><a href="/status">Status</a><a href="/hub">Hub</a></nav></footer>
 </body>
 </html>"""
 
@@ -491,8 +482,7 @@ def home_page() -> str:
     body += '<div class="section-head"><h2>Monitoring</h2><a href="/status">Full status →</a></div>'
     body += status_strip()
     body += ('<div class="home-links" aria-label="Secondary destinations">'
-             '<a href="/projects"><span>Projects</span><small>Manage active work</small><b>→</b></a>'
-             '<a href="/portfolio"><span>Portfolio</span><small>Review shipped work</small><b>→</b></a></div>')
+             '<a href="/hub"><span>Hub</span><small>All projects, GitHub activity, AI summaries</small><b>→</b></a></div>')
 
     return html_page("Control Center", body, active_nav="home")
 
@@ -746,53 +736,16 @@ def status_page() -> str:
         body += '</div>'
     return html_page("Status", body, active_nav="status")
 
-def portfolio_page() -> str:
-    """Serve the standalone portfolio.html page (with shared nav injected)."""
-    portfolio_html = SITE_DIR / "portfolio.html"
-    if portfolio_html.exists():
-        return inject_nav(portfolio_html.read_text(), "portfolio")
-    return "<html><body><h1>Portfolio Not Found</h1></body></html>"
+def _migrate_hub_file() -> None:
+    """One-time migration: rename legacy projects.json to the clean curation path."""
+    legacy = DATA_DIR / "projects.json"
+    if not HUB_FILE.exists() and legacy.exists():
+        os.replace(legacy, HUB_FILE)
 
-# ── Project Launcher Config ──
+# ── Hub Curation Config ──
 
-PROJECTS_FILE = DATA_DIR / "projects.json"
-HUB_FILE = DATA_DIR / "projects.json"  # curation layer, keyed by repo full_name
-
-def _normalise_projects(items) -> list[dict]:
-    if not isinstance(items, list):
-        return []
-    projects = []
-    for index, item in enumerate(items):
-        if not isinstance(item, dict) or not str(item.get("name", "")).strip():
-            continue
-        projects.append({
-            "name": str(item.get("name", "")).strip(),
-            "description": str(item.get("description", "")).strip(),
-            "url": str(item.get("url", "")).strip(),
-            "repo_url": str(item.get("repo_url", "")).strip(),
-            "status": str(item.get("status", "active")).strip() or "active",
-            "order": int(item.get("order", index)),
-            "hidden": bool(item.get("hidden", False)),
-        })
-    projects.sort(key=lambda project: (project["order"], project["name"].lower()))
-    for order, project in enumerate(projects):
-        project["order"] = order
-    return projects
-
-def load_projects() -> list[dict]:
-    if not PROJECTS_FILE.exists():
-        return []
-    try:
-        return _normalise_projects(json.loads(PROJECTS_FILE.read_text(encoding="utf-8-sig")))
-    except (OSError, ValueError, TypeError, json.JSONDecodeError):
-        return []
-
-def save_projects(projects: list[dict]) -> None:
-    projects = _normalise_projects(projects)
-    PROJECTS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    temporary = PROJECTS_FILE.with_suffix(".tmp")
-    temporary.write_text(json.dumps(projects, indent=2) + "\n", encoding="utf-8")
-    temporary.replace(PROJECTS_FILE)
+HUB_FILE = DATA_DIR / "curation.json"  # curation layer, keyed by repo full_name
+_migrate_hub_file()
 
 def _normalise_hub(raw) -> dict:
     """Coerce arbitrary JSON into a clean curation dict keyed by full_name."""
@@ -1116,27 +1069,6 @@ def _fill_summaries(repos: list[dict]) -> None:
             with _SUMMARY_LOCK:
                 _SUMMARY_CACHE[full_name] = {"summary": summary, "ts": now}
 
-def projects_page() -> str:
-    projects = [project for project in load_projects() if not project["hidden"]]
-    body = '<div class="hero" style="padding:2rem 0 1rem"><h1>Projects</h1><p>Active work and useful services.</p></div>'
-    if not projects:
-        body += '<div class="empty-state"><p>No projects yet — add one in admin.</p><a class="button" href="/projects/admin">Open project admin</a></div>'
-        return html_page("Projects", body, active_nav="projects")
-    body += '<div class="projects-grid">'
-    for project in projects:
-        body += '<article class="project-card"><div class="project-card-head"><h2>' + html.escape(project["name"]) + '</h2>'
-        body += '<span class="status-pill">' + html.escape(project["status"]) + '</span></div>'
-        if project["description"]:
-            body += '<p>' + html.escape(project["description"]) + '</p>'
-        body += '<div class="project-actions">'
-        if project["url"]:
-            body += '<a class="button primary" href="' + html.escape(project["url"], quote=True) + '" target="_blank" rel="noopener">Open ↗</a>'
-        if project["repo_url"]:
-            body += '<a class="button" href="' + html.escape(project["repo_url"], quote=True) + '" target="_blank" rel="noopener">Repository ↗</a>'
-        body += '</div></article>'
-    body += '</div><p class="admin-link"><a href="/projects/admin">Manage projects</a></p>'
-    return html_page("Projects", body, active_nav="projects")
-
 def _merge_hub_entries() -> dict:
     """Merge GitHub repos with curated overrides keyed by full_name.
 
@@ -1264,84 +1196,6 @@ def _hub_card_html(e: dict) -> str:
     card += '</article>'
     return card
 
-def _project_fields(get) -> dict:
-    return {
-        "name": get("name").strip(),
-        "description": get("description").strip(),
-        "url": get("url").strip(),
-        "repo_url": get("repo_url").strip(),
-        "status": get("status").strip() or "active",
-        "hidden": get("hidden") in {"1", "true", "on", "yes"},
-    }
-
-def update_projects(action: str, get) -> str:
-    projects = load_projects()
-    if action == "add":
-        project = _project_fields(get)
-        if not project["name"]:
-            return "Name is required."
-        project["order"] = len(projects)
-        projects.append(project)
-        save_projects(projects)
-        return "Project added."
-    try:
-        index = int(get("index"))
-        if index < 0:
-            raise IndexError
-        project = projects[index]
-    except (ValueError, IndexError):
-        return "Project not found."
-    if action == "update":
-        fields = _project_fields(get)
-        if not fields["name"]:
-            return "Name is required."
-        project.update(fields)
-    elif action == "delete":
-        projects.pop(index)
-    elif action == "toggle-hide":
-        project["hidden"] = not project["hidden"]
-    elif action == "move":
-        target = index - 1 if get("direction") == "up" else index + 1
-        if 0 <= target < len(projects):
-            projects[index], projects[target] = projects[target], projects[index]
-            for order, item in enumerate(projects):
-                item["order"] = order
-    else:
-        return "Unknown action."
-    save_projects(projects)
-    return "Projects updated."
-
-def project_admin_page(message: str = "") -> str:
-    projects = load_projects()
-    body = '<div class="page-head"><div><h1>Project admin</h1><p>Add, edit, reorder, or hide entries.</p></div><a class="button" href="/projects">View projects</a></div>'
-    if message:
-        body += '<div class="notice">' + html.escape(message) + '</div>'
-    body += '''<section class="admin-panel"><h2>Add project</h2><form method="POST" action="/projects/admin/add" class="project-form">
-    <label>Name<input name="name" required></label><label>Status<input name="status" value="active"></label>
-    <label class="wide">Description<textarea name="description" rows="2"></textarea></label>
-    <label>URL<input name="url" type="url"></label><label>Repository URL<input name="repo_url" type="url"></label>
-    <label class="check"><input name="hidden" value="1" type="checkbox"> Hidden</label>
-    <button class="button primary" type="submit">Add project</button></form></section>'''
-    if not projects:
-        body += '<div class="empty-state"><p>No projects yet.</p></div>'
-    for index, project in enumerate(projects):
-        body += '<section class="admin-panel"><form method="POST" action="/projects/admin/update" class="project-form">'
-        body += '<input type="hidden" name="index" value="' + str(index) + '">'
-        body += '<label>Name<input name="name" required value="' + html.escape(project["name"], quote=True) + '"></label>'
-        body += '<label>Status<input name="status" value="' + html.escape(project["status"], quote=True) + '"></label>'
-        body += '<label class="wide">Description<textarea name="description" rows="2">' + html.escape(project["description"]) + '</textarea></label>'
-        body += '<label>URL<input name="url" type="url" value="' + html.escape(project["url"], quote=True) + '"></label>'
-        body += '<label>Repository URL<input name="repo_url" type="url" value="' + html.escape(project["repo_url"], quote=True) + '"></label>'
-        checked = ' checked' if project["hidden"] else ''
-        body += '<label class="check"><input name="hidden" value="1" type="checkbox"' + checked + '> Hidden</label>'
-        body += '<button class="button primary" type="submit">Save</button></form><div class="admin-actions">'
-        for direction, label in (("up", "Move up"), ("down", "Move down")):
-            body += '<form method="POST" action="/projects/admin/move"><input type="hidden" name="index" value="' + str(index) + '"><input type="hidden" name="direction" value="' + direction + '"><button class="button" type="submit">' + label + '</button></form>'
-        body += '<form method="POST" action="/projects/admin/toggle-hide"><input type="hidden" name="index" value="' + str(index) + '"><button class="button" type="submit">' + ("Show" if project["hidden"] else "Hide") + '</button></form>'
-        body += '<form method="POST" action="/projects/admin/delete" onsubmit="return confirm(\'Delete this project?\')"><input type="hidden" name="index" value="' + str(index) + '"><button class="button danger" type="submit">Delete</button></form>'
-        body += '</div></section>'
-    return html_page("Project admin", body, active_nav="projects")
-
 def hub_admin_page(message: str = "") -> str:
     """Auth-gated curation page listing every Hub repo with editable fields."""
     data = get_hub_repos(force=False)
@@ -1381,7 +1235,7 @@ def hub_admin_page(message: str = "") -> str:
         body += f'<label>Local path<input name="local_path" value="{local}" placeholder="/srv/…"></label>'
         body += ('<label>Status override<select name="status_override">'
                  f'<option value=""{" selected" if override=="" else ""}>Auto (by recency)</option>'
-                 f'<option value="done{" selected" if override=="done" else ""}>Done</option>'
+                 f'<option value="done"{" selected" if override == "done" else ""}>Done</option>'
                  '</select></label>')
         body += f'<label>Order<input type="number" name="order" value="{order}" min="0"></label>'
         body += f'<label class="check"><input type="checkbox" name="hidden" value="1"{" checked" if hidden else ""}> Hidden</label>'
@@ -1485,25 +1339,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif path == "/status":
             content = status_page().encode()
             self._respond(200, "text/html", content)
-        elif path == "/portfolio":
-            if not is_authenticated(self):
-                self._respond(403, "text/html", _UNAUTH_PAGE.encode())
-                return
-            content = portfolio_page().encode()
-            self._respond(200, "text/html", content)
         elif path == "/api/status":
             self._respond(200, "application/json", json.dumps(get_monitor_status()).encode())
         elif path == "/api/hub/summaries":
             self.hub_summaries_api()
-        elif path == "/projects":
-            content = projects_page().encode()
-            self._respond(200, "text/html", content)
-        elif path == "/projects/admin":
-            if not is_authenticated(self):
-                self._respond(403, "text/html", _UNAUTH_PAGE.encode())
-                return
-            content = project_admin_page(qs.get("message", [""])[0]).encode()
-            self._respond(200, "text/html", content)
         elif path == "/hub":
             content = hub_page().encode()
             self._respond(200, "text/html", content)
@@ -1541,16 +1380,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             _toggle_bookmark(sid, story, btype)
             active = _is_bookmarked(sid, btype)
             self._respond(200, "application/json", json.dumps({"ok": True, "active": active}).encode())
-        elif path.startswith("/projects/admin/"):
-            if not is_authenticated(self):
-                self._respond(403, "text/html", _UNAUTH_PAGE.encode())
-                return
-            action = path.removeprefix("/projects/admin/")
-            if action not in {"add", "update", "delete", "move", "toggle-hide"}:
-                self._respond(404, "text/plain", b"Not Found")
-                return
-            message = update_projects(action, get)
-            self._send_redirect("/projects/admin?" + urllib.parse.urlencode({"message": message}))
         elif path.startswith("/hub/admin/"):
             if not is_authenticated(self):
                 self._respond(403, "text/html", _UNAUTH_PAGE.encode())

@@ -378,8 +378,8 @@ class TestHubAdminPostDispatch(unittest.TestCase):
             headers={"Host": "localhost"},
             client_address=("203.0.113.9", 1234),
         )
-        with patch.object(server, "is_authenticated", return_value=False), \
-             patch.object(server, "_reject_unallowed_host", return_value=False):
+        with              patch.object(server, "is_authenticated", return_value=False), \
+             patch.object(server.Handler, "_reject_unallowed_host", return_value=False):
             server.Handler.do_POST(h)
         self.assertEqual(len(h.responses), 1)
         code, ctype, body = h.responses[0]
@@ -394,7 +394,7 @@ class TestHubAdminPostDispatch(unittest.TestCase):
         )
         captured = {}
         with patch.object(server, "is_authenticated", return_value=True), \
-             patch.object(server, "_reject_unallowed_host", return_value=False), \
+             patch.object(server.Handler, "_reject_unallowed_host", return_value=False), \
              patch.object(server, "update_hub", side_effect=lambda a, g: captured.setdefault("action", a) or "saved"):
             server.Handler.do_POST(h)
         self.assertEqual(captured["action"], "update")
@@ -409,7 +409,7 @@ class TestHubAdminPostDispatch(unittest.TestCase):
         )
         captured = {}
         with patch.object(server, "is_authenticated", return_value=True), \
-             patch.object(server, "_reject_unallowed_host", return_value=False), \
+             patch.object(server.Handler, "_reject_unallowed_host", return_value=False), \
              patch.object(server, "update_hub", side_effect=lambda a, g: captured.setdefault("action", a) or "deleted"):
             server.Handler.do_POST(h)
         self.assertEqual(captured["action"], "delete")
@@ -423,7 +423,7 @@ class TestHubAdminPostDispatch(unittest.TestCase):
         )
         captured = {}
         with patch.object(server, "is_authenticated", return_value=True), \
-             patch.object(server, "_reject_unallowed_host", return_value=False), \
+             patch.object(server.Handler, "_reject_unallowed_host", return_value=False), \
              patch.object(server, "update_hub", side_effect=lambda a, g: captured.setdefault("action", a) or "toggled"):
             server.Handler.do_POST(h)
         self.assertEqual(captured["action"], "toggle-hide")
@@ -435,8 +435,8 @@ class TestHubAdminPostDispatch(unittest.TestCase):
             body=b"",
             headers={"Host": "localhost"},
         )
-        with patch.object(server, "is_authenticated", return_value=True), \
-             patch.object(server, "_reject_unallowed_host", return_value=False):
+        with              patch.object(server, "is_authenticated", return_value=True), \
+             patch.object(server.Handler, "_reject_unallowed_host", return_value=False):
             server.Handler.do_POST(h)
         self.assertTrue(h.sent_404)
 
@@ -446,7 +446,7 @@ class TestHubAdminPostDispatch(unittest.TestCase):
             body=b"full_name=a%2Fb",
             headers={"Host": "evil.example.com"},
         )
-        with patch.object(server, "_reject_unallowed_host", return_value=True) as mock_rej, \
+        with patch.object(server.Handler, "_reject_unallowed_host", return_value=True) as mock_rej, \
              patch.object(server, "is_authenticated", return_value=True), \
              patch.object(server, "update_hub") as mock_update:
             server.Handler.do_POST(h)
