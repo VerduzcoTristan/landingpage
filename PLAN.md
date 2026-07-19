@@ -145,7 +145,7 @@ no build step, no new dependency (D12 preserved).
 - [x] **Step 7 — Route wiring + nav + delete old surfaces + link cleanup.** In `do_GET`/`do_POST`: add `/hub`, `/hub/admin`, `/hub/action/*`, `/api/hub/summaries`; remove `/projects`, `/projects/admin`, `/projects/admin/*`, `/portfolio`. Update `render_nav` to Home · Briefings · Hub · Status. **Also fix link regressions:** update the footer in `html_page()` (`/projects` → `/hub`) and the homepage secondary links in `home_page()` (`/projects` and `/portfolio` → single `/hub` link). Delete `portfolio.html`. Remove now-dead `inject_nav()` and `portfolio_page()` functions (no remaining callers). Verify: `/hub` 200, `/portfolio` + `/projects*` → 404, nav + footer + homepage links all point at `/hub`, no dead code remains.
 - [x] **Step 8 — Smoke + compile + local verify.** `py_compile` all .py; run `server.py 3102` with `GITHUB_TOKEN` unset (banner path) and set (if a token available) — both must render without traceback; update `scripts/smoke.py` matrix per H12 and run green. Desktop has no GitHub token → Hub must show the "token not configured" banner + curated-only, not crash.
 - [x] **Step 9 — Compose + OPERATIONS update (H9/H10).** `compose.yml`: add `GITHUB_TOKEN` from secret mount (`/srv/secrets/landing-page/github_token:/run/secrets/github_token` or env from `.env`), add `OLLAMA_BASE_URL`/`OLLAMA_MODEL` env, and join the network Ollama lives on (H9). `OPERATIONS.md`: document token provisioning location, Ollama env, and the Hub feature. Verify: `docker compose config --quiet` passes.
-- [ ] **Step 10 — Definition-of-done check + commit.** Walk: Hub auto-populates from GitHub (with token); Ollama summaries render with fallback; curation layer works; actions refresh + backup; old surfaces 404; briefings/monitoring untouched; smoke green; no legacy-brand regressions. Update STATE.md log. Do NOT deploy unless Tristan requests (deploy is a separate confirmed step per AGENTS.md — server prep + `docker compose up` touches the live site).
+- [x] **Step 10 — Definition-of-done check + commit.** Walk: Hub auto-populates from GitHub (with token); Ollama summaries render with fallback; curation layer works; actions refresh + backup; old surfaces 404; briefings/monitoring untouched; smoke green; no legacy-brand regressions. Update STATE.md log. Do NOT deploy unless Tristan requests (deploy is a separate confirmed step per AGENTS.md — server prep + `docker compose up` touches the live site).
 
 ## Verification summary
 
@@ -158,6 +158,8 @@ no build step, no new dependency (D12 preserved).
   route matrix passed all 27 smoke checks on port 3102.
 - Step 9: `docker compose config --quiet` passed; GitHub secret-file handling
   passed 33 focused client tests.
+- Step 10: all 126 unit tests and 27 live smoke checks passed; Compose and
+  compilation passed; hidden-file legacy-brand scan returned zero matches.
 
 ## Decision log
 
@@ -166,3 +168,6 @@ no build step, no new dependency (D12 preserved).
 - Step 9: production reads the GitHub PAT from a read-only Compose secret via
   `GITHUB_TOKEN_FILE`; Ollama is reached through its `ollama` alias on the
   already-shared `proxy_net`. No live infrastructure was changed.
+- Step 10: repaired stale Hub-admin test fixtures/assertions so the full suite
+  validates the current handler and generated markup instead of failing in test
+  scaffolding. No application behavior changed.

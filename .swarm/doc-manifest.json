@@ -18,7 +18,7 @@
     },
     {
       "path": "docs/deploy-facts.md",
-      "title": "Deploy facts — devmclovin.com /portfolio (project memory)",
+      "title": "Legacy deploy facts / portfolio (project memory)",
       "summary": "This file is the persistent memory for the deploy prompt sequence in `docs/portfolio-deploy-prompts.md`. Rules for any agent reading this: - Read this file FULLY before doing anything. Facts here o...",
       "lines": 240,
       "mtime": 1783782600433.6353

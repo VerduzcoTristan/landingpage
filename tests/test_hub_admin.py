@@ -89,6 +89,11 @@ class FakeHandler:
     def _send_redirect(self, location):
         self.redirects.append(location)
 
+    def _reject_unallowed_host(self):
+        # Delegate through Handler so patch.object(server.Handler, ...) remains
+        # effective while do_POST is exercised as an unbound method.
+        return server.Handler._reject_unallowed_host(self)
+
     def send_response(self, code):
         if code == 404:
             self.sent_404 = True
@@ -178,7 +183,7 @@ class TestHubAdminPageRender(unittest.TestCase):
         }
         self.mock_load.return_value = {}
         out = server.hub_admin_page()
-        self.assertIn('<option value="">', out)
+        self.assertIn('<option value=""', out)
         self.assertIn('>Auto (by recency)</option>', out)
         self.assertIn('<option value="done', out)
         self.assertIn('>Done</option>', out)
@@ -438,7 +443,7 @@ class TestHubAdminPostDispatch(unittest.TestCase):
         with              patch.object(server, "is_authenticated", return_value=True), \
              patch.object(server.Handler, "_reject_unallowed_host", return_value=False):
             server.Handler.do_POST(h)
-        self.assertTrue(h.sent_404)
+        self.assertEqual(h.responses[0][0], 404)
 
     def test_unallowed_host_short_circuits(self):
         h = self._make_handler(
