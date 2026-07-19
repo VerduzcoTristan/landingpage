@@ -849,14 +849,24 @@ def update_hub(action: str, get) -> str:
 
 # ── GitHub client (Hub data source) ──
 # Reads the user's owned repos + recent commits via the REST API.
-# Token is read from GITHUB_TOKEN (read-only PAT, repo scope). Never logged/echoed.
+# Token is read from GITHUB_TOKEN (local development) or GITHUB_TOKEN_FILE
+# (production secret mount). It is never logged or echoed.
 
 _GH_CACHE: dict = {"repos": None, "ts": 0.0}
 _GH_CACHE_TTL = 600  # 10 minutes
 _GH_API = "https://api.github.com"
 
 def _gh_token() -> str:
-    return os.environ.get("GITHUB_TOKEN", "").strip()
+    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    if token:
+        return token
+    token_file = os.environ.get("GITHUB_TOKEN_FILE", "").strip()
+    if not token_file:
+        return ""
+    try:
+        return Path(token_file).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
 
 def _gh_request(url: str) -> dict | None:
     """GET a GitHub API URL. Returns parsed JSON, or None on any failure.

@@ -12,6 +12,15 @@ services:
       DATA_DIR: /app/data
       HOME: /home/landing
       BRIEFING_DB_READ_ONLY: "true"
+      GITHUB_TOKEN_FILE: /run/secrets/github_token
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
+    secrets:
+      - source: github_token
+        target: github_token
+        uid: "10001"
+        gid: "10001"
+        mode: 0400
     networks:
       - app_net
       - proxy_net
@@ -38,6 +47,10 @@ services:
       - ../data:/app/data
       - /home/hermes/.hermes/data/briefings.db:/home/landing/.hermes/data/briefings.db:ro
       - /home/hermes/.hermes/cron/output/7dc1d641173d:/home/landing/.hermes/cron/output/7dc1d641173d:ro
+
+secrets:
+  github_token:
+    file: /srv/secrets/landing-page/github_token
 
 networks:
   app_net:

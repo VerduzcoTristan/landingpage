@@ -19,6 +19,7 @@ import sys
 import tempfile
 import unittest
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 # Ensure the project root is importable.
@@ -104,7 +105,7 @@ class TestClassifyRecency(unittest.TestCase):
 
 
 class TestGhToken(unittest.TestCase):
-    """_gh_token() reads + strips GITHUB_TOKEN."""
+    """_gh_token() reads direct env or the production secret mount."""
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -120,6 +121,26 @@ class TestGhToken(unittest.TestCase):
     def test_token_unset_returns_empty(self):
         env = dict(os.environ)
         env.pop("GITHUB_TOKEN", None)
+        env.pop("GITHUB_TOKEN_FILE", None)
+        with patch.dict(os.environ, env, clear=True):
+            self.assertEqual(self.server._gh_token(), "")
+
+    def test_token_file_is_read_and_stripped(self):
+        token_file = Path(self._tmp.name) / "github_token"
+        token_file.write_text("  mounted-token\n", encoding="utf-8")
+        env = {"GITHUB_TOKEN_FILE": str(token_file)}
+        with patch.dict(os.environ, env, clear=True):
+            self.assertEqual(self.server._gh_token(), "mounted-token")
+
+    def test_direct_token_takes_precedence_over_file(self):
+        token_file = Path(self._tmp.name) / "github_token"
+        token_file.write_text("mounted-token", encoding="utf-8")
+        env = {"GITHUB_TOKEN": "direct-token", "GITHUB_TOKEN_FILE": str(token_file)}
+        with patch.dict(os.environ, env, clear=True):
+            self.assertEqual(self.server._gh_token(), "direct-token")
+
+    def test_missing_token_file_returns_empty(self):
+        env = {"GITHUB_TOKEN_FILE": str(Path(self._tmp.name) / "missing")}
         with patch.dict(os.environ, env, clear=True):
             self.assertEqual(self.server._gh_token(), "")
 

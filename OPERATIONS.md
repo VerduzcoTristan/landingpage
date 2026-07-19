@@ -10,10 +10,11 @@ Control Center runs as the `landing-page` Docker Compose stack at
 - `landing-page` is a non-root Python container (uid 10001) with a read-only root
   filesystem, all Linux capabilities dropped, and `no-new-privileges` enabled.
 - The container joins internal `app_net` and shared external `proxy_net`. It does
-  not publish a host port; Caddy reaches `landing-page:3002` on `proxy_net`.
+  not publish a host port; Caddy reaches `landing-page:3002` on `proxy_net`, and
+  the app reaches Ollama at the configured service URL on that same network.
 - Caddy is fronted by the Cloudflare Tunnel. Its site address must retain the
   explicit `http://` prefix because the tunnel terminates TLS.
-- The briefing database and cron output are mounted read-only. Projects,
+- The briefing database and cron output are mounted read-only. Hub curation,
   monitors, bookmarks, and generated impact cache files are written only beneath
   `/app/data`.
 
@@ -27,15 +28,26 @@ Create `/srv/apps/landing-page/repo/.env` with mode `0600`:
 
 ```dotenv
 ALLOWED_HOSTS=<current-public-hostname>,localhost,127.0.0.1
+OLLAMA_BASE_URL=http://ollama:11434
+OLLAMA_MODEL=qwen2.5:7b
 ```
 
 `ALLOWED_HOSTS` is a comma-separated exact-host allowlist. A missing or
 unlisted `Host` header receives HTTP 421. The Compose default is suitable only
 for local checks; production must include the hostname already used by Caddy.
 
-The application currently consumes no API-key secret. If one is introduced,
-store the root-owned source file under `/srv/secrets/landing-page/` and mount or
-inject it from Compose. Never put secret values in the repository or image.
+Create a read-only GitHub PAT with repository access (including private
+repositories that should appear in the Hub) and write only the token to
+`/srv/secrets/landing-page/github_token`. Compose mounts it at
+`/run/secrets/github_token`; the value never belongs in `.env`, the repository,
+or the image. `GITHUB_TOKEN` remains supported only as a local-development
+override.
+
+`OLLAMA_BASE_URL` and `OLLAMA_MODEL` are non-secret settings. The default URL
+expects the Ollama container to join the existing external `proxy_net` with the
+network alias `ollama`. Joining Ollama to that network is an infrastructure
+operation and must be completed in Ollama's own Compose stack; this repository
+does not mutate `/srv/infra`.
 
 ## First-time host preparation
 
@@ -44,8 +56,15 @@ Run as an administrator on the server:
 ```sh
 install -d -o 10001 -g 10001 -m 0750 /srv/apps/landing-page/data
 install -d -o root -g root -m 0750 /srv/secrets/landing-page
+install -o root -g 10001 -m 0440 /dev/null /srv/secrets/landing-page/github_token
 docker network inspect proxy_net >/dev/null
 ```
+
+Populate `github_token` through the server's secret-management workflow. It
+remains root-owned on the host, with group-read permission for uid/gid 10001;
+Compose exposes it read-only to that non-root container identity. Then confirm
+Ollama resolves from `proxy_net` as `ollama`. Do not paste the token into shell
+history or command output.
 
 The two required briefing sources must exist on the host:
 
@@ -75,9 +94,14 @@ docker compose exec -T landing-page python3 -c \
 For local development without Docker:
 
 ```sh
-ALLOWED_HOSTS=localhost,127.0.0.1 PYTHONUTF8=1 python server.py 3102
+ALLOWED_HOSTS=localhost,127.0.0.1 GITHUB_TOKEN_FILE=/path/to/github_token \
+  OLLAMA_BASE_URL=http://localhost:11434 PYTHONUTF8=1 python server.py 3102
 python scripts/smoke.py 3102
 ```
+
+Omit `GITHUB_TOKEN_FILE` (and `GITHUB_TOKEN`) to exercise the Hub's curated-only
+fallback. If Ollama is unavailable, Hub cards fall back to recent commit text
+instead of failing the page.
 
 ## Deploy
 
@@ -105,15 +129,17 @@ docker compose exec -T landing-page python3 -m py_compile server.py briefing_arc
 ```
 
 The smoke script verifies all retained routes plus 404 responses for deleted
-features. `/health` is the liveness endpoint; `/api/status` runs the configured
-monitor checks and returns their live results.
+features, including `/hub` and the removal of `/projects` and `/portfolio`.
+`/health` is the liveness endpoint; `/api/status` runs the configured monitor
+checks and returns their live results.
 
 ## Data
 
 Persistent files are under `/srv/apps/landing-page/data/`:
 
 - `monitors.json` — live HTTP checks and links to existing monitoring tools.
-- `projects.json` — ordered project entries managed through `/projects/admin`.
+- `projects.json` — Hub curation keyed by GitHub `owner/repository`, managed
+  through `/hub/admin` (goals, next steps, ordering, visibility, and live links).
 - `bookmarks.json` — saved briefing stories.
 
 The container owns these files as uid 10001. Do not store user data inside the
@@ -154,5 +180,9 @@ selected archive before extraction.
   `/api/status` from inside the container.
 - Missing briefings: verify both read-only host mounts exist and are readable by
   Docker; the UI should still render a graceful empty state.
+- Hub says the GitHub token is not configured: verify the root-owned
+  `/srv/secrets/landing-page/github_token` exists, then recreate the container.
+- Hub has repositories but no generated summaries: verify Ollama is running,
+  shares `proxy_net` with alias `ollama`, and the configured model is installed.
 - Permission errors beneath `/app/data`: restore uid/gid 10001 ownership on the
   host data directory.
