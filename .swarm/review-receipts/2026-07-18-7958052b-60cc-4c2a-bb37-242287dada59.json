@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "7958052b-60cc-4c2a-bb37-242287dada59",
+  "receipt_type": "approved",
+  "verdict": "approved",
+  "reviewer": {
+    "agent": "reviewer",
+    "session_id": "ses_08ee423faffeJJ9htybJS6BZvX"
+  },
+  "reviewed_at": "2026-07-18T00:01:18.922Z",
+  "scope_fingerprint": {
+    "hash": "937e8f40f1519515903dd07748d2090f136dabf5cf7f56bd961f2711617db0d3",
+    "scope_description": "reviewer-task-prompt",
+    "content_length": 7438
+  },
+  "checked_aspects": [
+    "code-review"
+  ],
+  "validated_claims": [
+    "VERDICT: APPROVED (risk LOW)"
+  ],
+  "caveats": [
+    "None found."
+  ]
+}

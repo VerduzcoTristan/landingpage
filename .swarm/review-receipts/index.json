@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "id": "26bbb32b-dec1-45f3-a5e2-1daed408483b",
+      "verdict": "approved",
+      "reviewed_at": "2026-07-17T18:02:03.664Z",
+      "scope_hash": "3bb5e59a908f6bd2c2aa180c944a2be84703d0e897f61810a457712bf24ca5d2",
+      "agent": "curator",
+      "filename": "2026-07-17-26bbb32b-dec1-45f3-a5e2-1daed408483b.json"
+    },
+    {
+      "id": "14953a00-60e5-4d8f-94f0-53ae9ca3e209",
+      "verdict": "approved",
+      "reviewed_at": "2026-07-17T18:10:54.786Z",
+      "scope_hash": "9a95e2ce8a9fbb192daf6291b5cdad2dfa019bcfcefd7cfce7f5ea96152c15f8",
+      "agent": "reviewer",
+      "filename": "2026-07-17-14953a00-60e5-4d8f-94f0-53ae9ca3e209.json"
+    },
+    {
+      "id": "7ca5f685-ac8d-4fab-9267-6bd057a71164",
+      "verdict": "approved",
+      "reviewed_at": "2026-07-17T18:17:49.158Z",
+      "scope_hash": "5f59adb65c969258b0c012310d1920433c0c899ab5f2bb8e123a31e1caa22243",
+      "agent": "reviewer",
+      "filename": "2026-07-17-7ca5f685-ac8d-4fab-9267-6bd057a71164.json"
+    },
+    {
+      "id": "3859962b-bd31-4923-806b-63508da97977",
+      "verdict": "approved",
+      "reviewed_at": "2026-07-17T18:31:11.394Z",
+      "scope_hash": "850f16d3b29a510dccc4643dc43679522c5a7affa47eb3b151915cdae117ebe4",
+      "agent": "curator",
+      "filename": "2026-07-17-3859962b-bd31-4923-806b-63508da97977.json"
+    },
+    {
+      "id": "189f2aec-e09d-4e6b-8e98-b9bdda71c5b7",
+      "verdict": "approved",
+      "reviewed_at": "2026-07-17T18:34:23.484Z",
+      "scope_hash": "67d064b88d6c01ceda2cabbc2bc1b29dea208d1098164c5a42ea0d52693ec9e9",
+      "agent": "reviewer",
+      "filename": "2026-07-17-189f2aec-e09d-4e6b-8e98-b9bdda71c5b7.json"
+    },
+    {
+      "id": "7958052b-60cc-4c2a-bb37-242287dada59",
+      "verdict": "approved",
+      "reviewed_at": "2026-07-18T00:01:18.922Z",
+      "scope_hash": "937e8f40f1519515903dd07748d2090f136dabf5cf7f56bd961f2711617db0d3",
+      "agent": "reviewer",
+      "filename": "2026-07-18-7958052b-60cc-4c2a-bb37-242287dada59.json"
+    },
+    {
+      "id": "5fe4360c-7878-4ca0-9dc2-a9b3be373e74",
+      "verdict": "approved",
+      "reviewed_at": "2026-07-18T00:09:43.605Z",
+      "scope_hash": "6a2e4310e3ad7adb3edf537773d3f661fa1348b0cfef9548fe5f37798b417e1e",
+      "agent": "reviewer",
+      "filename": "2026-07-18-5fe4360c-7878-4ca0-9dc2-a9b3be373e74.json"
+    },
+    {
+      "id": "ca5bf374-1da1-4a91-aa2d-6545334057d3",
+      "verdict": "approved",
+      "reviewed_at": "2026-07-18T03:38:29.079Z",
+      "scope_hash": "dfa70cff142c14ab2ea7f4eb42df5b2f35777b30f45fc8d3d55e5fef70775a7c",
+      "agent": "curator",
+      "filename": "2026-07-18-ca5bf374-1da1-4a91-aa2d-6545334057d3.json"
+    },
+    {
+      "id": "f0406159-9250-4ba1-869b-49e6b5d29f17",
+      "verdict": "approved",
+      "reviewed_at": "2026-07-18T04:02:50.465Z",
+      "scope_hash": "dfa70cff142c14ab2ea7f4eb42df5b2f35777b30f45fc8d3d55e5fef70775a7c",
+      "agent": "curator",
+      "filename": "2026-07-18-f0406159-9250-4ba1-869b-49e6b5d29f17.json"
+    },
+    {
+      "id": "1ba107aa-ce74-46fc-a8fd-61c90000d202",
+      "verdict": "approved",
+      "reviewed_at": "2026-07-19T02:59:27.197Z",
+      "scope_hash": "1f7c22a02c9dc073a17546a65ace18a6f850d1b2bab961bafd84795e00bcbb62",
+      "agent": "curator",
+      "filename": "2026-07-19-1ba107aa-ce74-46fc-a8fd-61c90000d202.json"
+    },
+    {
+      "id": "330c703a-130c-49d4-a314-8f4204075121",
+      "verdict": "approved",
+      "reviewed_at": "2026-07-19T03:07:21.123Z",
+      "scope_hash": "57ee2635d6ec97932edb6c3f8c971b12caea6bf5fce7404024567dba942c950c",
+      "agent": "reviewer",
+      "filename": "2026-07-19-330c703a-130c-49d4-a314-8f4204075121.json"
+    },
+    {
+      "id": "1e9104a7-8b9d-4670-bf2e-85a0ac90615d",
+      "verdict": "approved",
+      "reviewed_at": "2026-07-19T03:24:58.146Z",
+      "scope_hash": "83787c42a895843671ddf1687b36b2d72a121d403418f0466d12f27cae55b565",
+      "agent": "curator",
+      "filename": "2026-07-19-1e9104a7-8b9d-4670-bf2e-85a0ac90615d.json"
+    }
+  ]
+}

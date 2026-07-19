@@ -7,11 +7,12 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 PORT = 3002
@@ -151,6 +152,7 @@ def render_nav(active: str = "home") -> str:
         ("/", "Home", "home"),
         ("/briefings", "Briefings", "briefings"),
         ("/projects", "Projects", "projects"),
+        ("/hub", "Hub", "hub"),
         ("/portfolio", "Portfolio", "portfolio"),
         ("/status", "Status", "status"),
     ):
@@ -179,6 +181,7 @@ h1,h2,h3,h4,p{margin-top:0}h1,h2,h3{line-height:1.15;letter-spacing:-.025em}h1{f
 .landing-status-strip{margin:1.4rem 0;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-1);overflow:hidden}.landing-status-strip summary{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.85rem 1rem;cursor:pointer;list-style:none}.landing-status-strip summary::-webkit-details-marker{display:none}.status-summary-left,.status-summary-right{display:flex;align-items:center;gap:.55rem}.status-summary-title{font-weight:800}.status-summary-meta{color:var(--muted);font-size:.8rem}.status-mini-pill{padding:.2rem .5rem;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:.68rem}.status-mini-pill.ok{color:var(--success)}.status-mini-pill.warn{color:var(--warning)}.status-strip-dot,.status-dot{display:inline-block;width:.65rem;height:.65rem;border-radius:50%;background:var(--subtle);box-shadow:0 0 0 4px rgba(111,125,149,.1)}.green{background:var(--success)!important}.red{background:var(--danger)!important}.amber{background:var(--warning)!important}.landing-status-body{padding:1rem;border-top:1px solid var(--border)}
 .status-mini-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:.55rem}.status-mini-service{display:flex;align-items:center;justify-content:space-between;gap:.7rem;padding:.65rem .75rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--page);color:var(--text);font-size:.78rem;text-decoration:none}.status-mini-service>span{display:flex;align-items:center;gap:.5rem}.status-mini-service small{color:var(--muted)}.status-board{display:grid;gap:.75rem}.status-check{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.1rem;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);box-shadow:var(--shadow-1)}.status-check>div{display:flex;align-items:center;gap:.7rem}.status-check>span{color:var(--muted);font-size:.8rem}.monitor-links,.project-actions,.admin-actions{display:flex;flex-wrap:wrap;gap:.6rem}.link-card{padding:.7rem .9rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-weight:750;text-decoration:none;transition:all var(--ease)}.link-card:hover{transform:translateY(-1px);border-color:var(--accent)}
 .home-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem;margin:1rem 0 0}.home-links a{display:grid;grid-template-columns:1fr auto;gap:.1rem .7rem;padding:1rem 1.1rem;border:1px solid var(--border);border-radius:var(--radius-md);background:linear-gradient(145deg,rgba(255,255,255,.035),transparent),var(--surface);color:var(--text);text-decoration:none;box-shadow:var(--shadow-1);transition:all var(--ease)}.home-links a:hover{transform:translateY(-2px);border-color:var(--accent)}.home-links span{font-weight:850}.home-links small{grid-column:1;color:var(--muted)}.home-links b{grid-column:2;grid-row:1/3;align-self:center;color:var(--accent-strong)}.project-card{padding:1.2rem}.project-card h2{margin:0;font-size:1.15rem}.project-card p{min-height:3.2rem;margin:.8rem 0;color:var(--muted)}.admin-link{margin:1.3rem 0;text-align:right}.admin-panel{margin-bottom:1rem;padding:1.2rem}.admin-panel h2{font-size:1.05rem}.project-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.85rem}.project-form label{display:grid;gap:.35rem;color:var(--muted);font-size:.75rem;font-weight:750}.project-form .wide{grid-column:1/-1}.project-form .check{display:flex;align-items:center;gap:.5rem}.project-form .check input{width:auto}.project-form textarea{resize:vertical}.admin-actions{margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--border)}.admin-actions form{margin:0}
+.hub-group{margin:2rem 0}.hub-commits{margin:.6rem 0 0;padding-left:1.1rem;color:var(--muted);font-size:.82rem}.hub-commits li{margin:.15rem 0}.hub-lang{color:var(--subtle);font-size:.78rem;margin:.4rem 0 0}.hub-attention{color:#ffb86b;font-size:.8rem;margin:.5rem 0 0}.summarizing{color:var(--subtle);font-style:italic}
 code{padding:.15rem .35rem;border:1px solid var(--border);border-radius:.35rem;background:var(--page);font:500 .86em ui-monospace,SFMono-Regular,Consolas,monospace}
 @media(max-width:640px){.container{width:min(100% - 1.25rem,var(--shell));padding-top:1.5rem}.page-head,.section-head{align-items:flex-start;flex-direction:column}.project-form{grid-template-columns:1fr}.project-form .wide{grid-column:auto}.landing-status-strip summary{align-items:flex-start;flex-direction:column}.status-summary-right{flex-wrap:wrap}.status-summary-meta{white-space:normal}.home-links{grid-template-columns:1fr}.site-footer{width:min(100% - 1.25rem,var(--shell))}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
@@ -753,6 +756,7 @@ def portfolio_page() -> str:
 # ── Project Launcher Config ──
 
 PROJECTS_FILE = DATA_DIR / "projects.json"
+HUB_FILE = DATA_DIR / "projects.json"  # curation layer, keyed by repo full_name
 
 def _normalise_projects(items) -> list[dict]:
     if not isinstance(items, list):
@@ -790,6 +794,328 @@ def save_projects(projects: list[dict]) -> None:
     temporary.write_text(json.dumps(projects, indent=2) + "\n", encoding="utf-8")
     temporary.replace(PROJECTS_FILE)
 
+def _normalise_hub(raw) -> dict:
+    """Coerce arbitrary JSON into a clean curation dict keyed by full_name."""
+    if not isinstance(raw, dict):
+        return {}
+    clean = {}
+    for key, value in raw.items():
+        if not isinstance(key, str) or not key.strip():
+            continue
+        entry = value if isinstance(value, dict) else {}
+        clean[key.strip()] = {
+            "goal": str(entry.get("goal", "")).strip(),
+            "whats_next": str(entry.get("whats_next", "")).strip(),
+            "status_override": "done" if str(entry.get("status_override", "")).strip().lower() == "done" else "",
+            "live_url": str(entry.get("live_url", "")).strip(),
+            "local_path": str(entry.get("local_path", "")).strip(),
+            "hidden": bool(entry.get("hidden", False)),
+            "order": int(entry.get("order", 0) or 0),
+        }
+    return clean
+
+def load_hub() -> dict:
+    """Load the curation layer; migrate legacy list format on first read."""
+    if not HUB_FILE.exists():
+        return {}
+    try:
+        raw = json.loads(HUB_FILE.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return {}
+    # Migration: legacy projects.json was a LIST of {name, description, url, repo_url, status, order, hidden}
+    if isinstance(raw, list):
+        migrated = {}
+        for index, item in enumerate(raw):
+            if not isinstance(item, dict):
+                continue
+            full_name = ""
+            repo_url = str(item.get("repo_url", "")).strip()
+            # derive full_name from repo_url like https://github.com/owner/repo
+            if repo_url:
+                match = re.search(r"github\.com/([^/]+/[^/#?]+)", repo_url)
+                if match:
+                    full_name = match.group(1)
+            if not full_name:
+                name = str(item.get("name", "")).strip()
+                if name:
+                    full_name = name  # best-effort key; GitHub merge will miss if not owner/repo
+            if not full_name:
+                continue
+            # Old `status` (active/inactive/archived) is intentionally NOT mapped to
+            # status_override (different semantics); entries start with no override.
+            migrated[full_name] = {
+                "goal": str(item.get("description", "")).strip(),
+                "whats_next": "",
+                "status_override": "",
+                "live_url": str(item.get("url", "")).strip(),
+                "local_path": "",
+                "hidden": bool(item.get("hidden", False)),
+                "order": int(item.get("order", index) or index),
+            }
+        save_hub(migrated)
+        return migrated
+    return _normalise_hub(raw)
+
+def save_hub(hub: dict) -> None:
+    """Atomic write of the curation layer."""
+    hub = _normalise_hub(hub)
+    HUB_FILE.parent.mkdir(parents=True, exist_ok=True)
+    temporary = HUB_FILE.with_suffix(".tmp")
+    temporary.write_text(json.dumps(hub, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(HUB_FILE)
+
+def update_hub(action: str, get) -> str:
+    """Mutate a single curation entry by full_name. Returns a message string."""
+    full_name = str(get("full_name", "")).strip()
+    if not full_name:
+        return "Repository identifier missing."
+    hub = load_hub()
+    entry = hub.get(full_name, {"goal": "", "whats_next": "", "status_override": "",
+                                "live_url": "", "local_path": "", "hidden": False, "order": 0})
+    if action == "update":
+        entry["goal"] = str(get("goal", "")).strip()
+        entry["whats_next"] = str(get("whats_next", "")).strip()
+        entry["status_override"] = "done" if str(get("status_override", "")).strip().lower() == "done" else ""
+        entry["live_url"] = str(get("live_url", "")).strip()
+        entry["local_path"] = str(get("local_path", "")).strip()
+        entry["hidden"] = get("hidden") in {"1", "true", "on", "yes"}
+        try:
+            entry["order"] = int(get("order", entry.get("order", 0)) or 0)
+        except (ValueError, TypeError):
+            pass
+        hub[full_name] = entry
+    elif action == "toggle-hide":
+        entry["hidden"] = not entry.get("hidden", False)
+        hub[full_name] = entry
+    elif action == "delete":
+        hub.pop(full_name, None)
+    else:
+        return "Unknown action."
+    save_hub(hub)
+    return "Hub updated."
+
+# ── GitHub client (Hub data source) ──
+# Reads the user's owned repos + recent commits via the REST API.
+# Token is read from GITHUB_TOKEN (read-only PAT, repo scope). Never logged/echoed.
+
+_GH_CACHE: dict = {"repos": None, "ts": 0.0}
+_GH_CACHE_TTL = 600  # 10 minutes
+_GH_API = "https://api.github.com"
+
+def _gh_token() -> str:
+    return os.environ.get("GITHUB_TOKEN", "").strip()
+
+def _gh_request(url: str) -> dict | None:
+    """GET a GitHub API URL. Returns parsed JSON, or None on any failure.
+    Never raises; never logs the token, URL-with-token, or response bodies."""
+    token = _gh_token()
+    if not token:
+        return None
+    req = urllib.request.Request(url)
+    req.add_header("Authorization", f"token {token}")
+    req.add_header("Accept", "application/vnd.github+json")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError:
+        return None
+    except urllib.error.URLError:
+        return None
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return None
+
+def fetch_all_repos() -> list[dict] | None:
+    """Return a list of owned repos (public + private), or None on failure."""
+    token = _gh_token()
+    if not token:
+        return None
+    repos = []
+    page = 1
+    try:
+        while page <= 10:  # safety ceiling: 1000 repos max
+            url = (f"{_GH_API}/user/repos?type=owner&per_page=100"
+                   f"&sort=pushed&direction=desc&page={page}")
+            data = _gh_request(url)
+            if data is None:
+                return None
+            if not data:
+                break
+            repos.extend(data)
+            if len(data) < 100:
+                break
+            page += 1
+        return repos
+    except Exception:
+        return None
+
+def fetch_recent_commits(owner: str, repo: str, branch: str) -> list[dict]:
+    """Return up to 5 recent commits (subject + body), or [] on failure.
+    Degrades silently — a single repo's failure must not break the whole refresh."""
+    url = f"{_GH_API}/repos/{owner}/{repo}/commits?sha={urllib.parse.quote(branch)}&per_page=5"
+    data = _gh_request(url)
+    if not isinstance(data, list):
+        return []
+    commits = []
+    for item in data[:5]:
+        commit = item.get("commit", {}) if isinstance(item, dict) else {}
+        message = str(commit.get("message", ""))
+        commits.append({
+            "sha": str(item.get("sha", ""))[:8],
+            "subject": message.split("\n", 1)[0].strip(),
+            "body": " ".join(
+                line.strip() for line in message.split("\n")[1:] if line.strip()
+            )[:400],
+        })
+    return commits
+
+def classify_recency(pushed_at: str) -> str:
+    """Active (<7d) / Maintain (<30d) / Stalled (>30d)."""
+    if not pushed_at:
+        return "stalled"
+    try:
+        pushed = datetime.fromisoformat(pushed_at.replace("Z", "+00:00"))
+    except ValueError:
+        return "stalled"
+    now = datetime.now(timezone.utc)
+    delta = now - pushed
+    if delta.days < 7:
+        return "active"
+    if delta.days < 30:
+        return "maintain"
+    return "stalled"
+
+def get_hub_repos(force: bool = False) -> dict:
+    """Return merged Hub data: {repos: [...], status: "ok"|"token_missing"|"error", banner: str|None, ts: float}.
+    Cached 10 min; serves stale on failure. Each repo entry carries:
+    full_name, name, description, language, html_url, default_branch, pushed_at, recency, commits (list)."""
+    global _GH_CACHE
+    now = time.time()
+    cached = _GH_CACHE["repos"] is not None and (now - _GH_CACHE["ts"]) < _GH_CACHE_TTL
+    if cached and not force:
+        return _GH_CACHE["repos"]
+    # Stale-while-revalidate: build fresh, fall back to stale on failure
+    token = _gh_token()
+    if not token:
+        if _GH_CACHE["repos"] is not None:
+            stale = dict(_GH_CACHE["repos"])
+            stale["status"] = "token_missing"
+            stale["banner"] = "GitHub token not configured — showing curated data only."
+            return stale
+        return {"repos": [], "status": "token_missing",
+                "banner": "GitHub token not configured. Set GITHUB_TOKEN to populate the Hub.",
+                "ts": now}
+    repos = fetch_all_repos()
+    if repos is None:
+        if _GH_CACHE["repos"] is not None:
+            stale = dict(_GH_CACHE["repos"])
+            stale["status"] = "error"
+            stale["banner"] = "GitHub unavailable — showing cached data."
+            return stale
+        return {"repos": [], "status": "error",
+                "banner": "GitHub unavailable — unable to load repos.", "ts": now}
+    # Enrich each repo with recency + recent commits
+    enriched = []
+    for repo in repos:
+        if not isinstance(repo, dict):
+            continue
+        full_name = str(repo.get("full_name", "")).strip()
+        if not full_name:
+            continue
+        owner, _, name = full_name.partition("/")
+        pushed_at = str(repo.get("pushed_at", ""))
+        recency = classify_recency(pushed_at)
+        try:
+            commits = fetch_recent_commits(owner, name, str(repo.get("default_branch", "main")))
+        except Exception:
+            commits = []
+        enriched.append({
+            "full_name": full_name,
+            "name": str(repo.get("name", name)).strip(),
+            "description": str(repo.get("description", "")).strip(),
+            "language": str(repo.get("language", "")).strip() or None,
+            "html_url": str(repo.get("html_url", "")).strip(),
+            "default_branch": str(repo.get("default_branch", "main")).strip(),
+            "pushed_at": pushed_at,
+            "recency": recency,
+            "commits": commits,
+        })
+    result = {"repos": enriched, "status": "ok", "banner": None, "ts": now}
+    _GH_CACHE["repos"] = result
+    _GH_CACHE["ts"] = now
+    return result
+
+# ── Ollama client (Hub summaries) ──
+# Local LLM summarization of recent commit activity. Non-blocking: the /hub
+# page renders from cache with "Summarizing…" placeholders; this endpoint
+# fills them lazily. URL/model/prompt/errors are NEVER logged or returned.
+
+_SUMMARY_CACHE: dict = {}  # full_name -> {"summary": str, "ts": float}
+_SUMMARY_TTL = 86400       # 24h
+_SUMMARY_LOCK = threading.Lock()
+
+def _ollama_base_url() -> str:
+    return os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
+
+def _ollama_model() -> str:
+    return os.environ.get("OLLAMA_MODEL", "qwen2.5:7b").strip()
+
+def _ollama_summarize(repo: dict) -> str | None:
+    """Return a one-line summary for a repo, or None on any failure.
+    Builds a prompt from recent commit subjects/bodies only. Never raises."""
+    commits = repo.get("commits") or []
+    if not commits:
+        return None
+    lines = []
+    for c in commits[:5]:
+        subj = str(c.get("subject", "")).strip()
+        if subj:
+            lines.append(f"- {subj}")
+    if not lines:
+        return None
+    prompt = (
+        "Summarize what this project is doing recently in ONE short plain-English "
+        "sentence (max 20 words), based only on these recent commit subjects. "
+        "No preamble, no quotes:\n" + "\n".join(lines)
+    )
+    url = f"{_ollama_base_url()}/api/generate"
+    payload = json.dumps({
+        "model": _ollama_model(),
+        "prompt": prompt,
+        "stream": False,
+    }).encode("utf-8")
+    req = urllib.request.Request(url, data=payload, method="POST")
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        text = str(data.get("response", "")).strip()
+        # Collapse whitespace, take first line/sentence, cap length
+        text = re.sub(r"\s+", " ", text).strip()
+        if not text:
+            return None
+        return text[:200]
+    except (urllib.error.URLError, urllib.error.HTTPError, OSError,
+            ValueError, TypeError, json.JSONDecodeError):
+        return None
+
+def _fill_summaries(repos: list[dict]) -> None:
+    """Background: fill _SUMMARY_CACHE for repos missing/expired summaries."""
+    now = time.time()
+    for repo in repos:
+        if not isinstance(repo, dict):
+            continue
+        full_name = str(repo.get("full_name", "")).strip()
+        if not full_name:
+            continue
+        with _SUMMARY_LOCK:
+            cached = _SUMMARY_CACHE.get(full_name)
+            if cached and (now - cached["ts"]) < _SUMMARY_TTL:
+                continue
+        summary = _ollama_summarize(repo)
+        if summary:
+            with _SUMMARY_LOCK:
+                _SUMMARY_CACHE[full_name] = {"summary": summary, "ts": now}
+
 def projects_page() -> str:
     projects = [project for project in load_projects() if not project["hidden"]]
     body = '<div class="hero" style="padding:2rem 0 1rem"><h1>Projects</h1><p>Active work and useful services.</p></div>'
@@ -810,6 +1136,133 @@ def projects_page() -> str:
         body += '</div></article>'
     body += '</div><p class="admin-link"><a href="/projects/admin">Manage projects</a></p>'
     return html_page("Projects", body, active_nav="projects")
+
+def _merge_hub_entries() -> dict:
+    """Merge GitHub repos with curated overrides keyed by full_name.
+
+    Returns {"groups": {group: [entry,...]}, "status": str, "banner": str|None}.
+    Group order is Active, Maintain, Stalled, Done. Done is forced by a
+    curation status_override of "done"; otherwise grouping follows recency.
+    """
+    data = get_hub_repos(force=False)
+    curated = load_hub()
+    groups = {"active": [], "maintain": [], "stalled": [], "done": []}
+    for repo in data.get("repos", []) or []:
+        fn = str(repo.get("full_name", "")).strip()
+        if not fn:
+            continue
+        cur = curated.get(fn, {}) or {}
+        # status_override "done" forces the Done group
+        override = str(cur.get("status_override", "")).strip().lower()
+        if override == "done":
+            group = "done"
+        else:
+            group = str(repo.get("recency", "stalled")).strip().lower()
+            if group not in groups:
+                group = "stalled"
+        entry = {
+            "full_name": fn,
+            "name": str(repo.get("name", fn)).strip(),
+            "html_url": str(repo.get("html_url", "")).strip(),
+            "description": str(cur.get("goal") or repo.get("description", "")).strip(),
+            "language": repo.get("language") or None,
+            "recency": str(repo.get("recency", "stalled")),
+            "commits": repo.get("commits", []) or [],
+            "order": int(cur.get("order", 999) or 999),
+            "has_note": bool(str(cur.get("goal", "")).strip()),
+            "status_override": override,
+        }
+        groups[group].append(entry)
+    # Sort within group: curated (order < 999) first by order, then by full_name
+    for g in groups:
+        groups[g].sort(key=lambda e: (e["order"] if e["order"] != 999 else 1000,
+                                       e["full_name"]))
+    return {"groups": groups, "status": data.get("status", "ok"),
+            "banner": data.get("banner")}
+
+def hub_page() -> str:
+    merged = _merge_hub_entries()
+    groups = merged["groups"]
+    total = sum(len(v) for v in groups.values())
+    body = '<div class="page-head"><div><h1>Hub</h1>'
+    body += '<p>All your projects in one place — GitHub activity, curated notes, and AI summaries.</p></div>'
+    body += '<div class="admin-link"><a class="button" href="/hub/admin">Curate Hub</a></div></div>'
+    if merged.get("banner"):
+        body += '<div class="notice">' + html.escape(merged["banner"]) + '</div>'
+    if total == 0:
+        body += '<div class="empty-state"><p>No projects yet.</p>'
+        body += '<p>Set <code>GITHUB_TOKEN</code> to populate the Hub from your repositories.</p></div>'
+        return html_page("Hub", body, active_nav="hub")
+    group_labels = {"active": "Active", "maintain": "Maintaining",
+                    "stalled": "Stalled", "done": "Done"}
+    for key in ("active", "maintain", "stalled", "done"):
+        entries = groups.get(key, [])
+        if not entries:
+            continue
+        body += f'<section class="hub-group"><div class="section-head"><h2>{group_labels[key]}</h2>'
+        body += f'<span class="status-pill">{len(entries)}</span></div>'
+        body += '<div class="projects-grid">'
+        for e in entries:
+            body += _hub_card_html(e)
+        body += '</div></section>'
+    # JS poll for summaries (non-blocking fill from cache)
+    body += ('<script>'
+             'function refreshSummaries(){'
+             'fetch("/api/hub/summaries").then(function(r){return r.json();}).then(function(d){'
+             'var s=d.summaries||{};'
+             'Object.keys(s).forEach(function(fn){'
+             'var el=document.querySelector(\'[data-summary="\'+fn+\'"]\');'
+             'if(el&&s[fn]){el.textContent=s[fn];el.classList.remove("summarizing");}});'
+             'if(d.pending&&d.pending.length){setTimeout(refreshSummaries,2500);}'
+             '}).catch(function(){});}'
+             'document.addEventListener("DOMContentLoaded",function(){setTimeout(refreshSummaries,800);});'
+             '</script>')
+    return html_page("Hub", body, active_nav="hub")
+
+def _hub_card_html(e: dict) -> str:
+    fn = e["full_name"]
+    name = html.escape(e["name"])
+    url = html.escape(e["html_url"], quote=True)
+    desc = html.escape(e["description"]) if e["description"] else ""
+    lang = html.escape(e["language"]) if e["language"] else ""
+    # Summary placeholder (filled by JS poll)
+    summary_html = (f'<p class="card-summary summarizing" data-summary="{html.escape(fn)}">'
+                    f'Summarizing…</p>')
+    # Recency / status pill
+    if e["status_override"] == "done":
+        pill = '<span class="status-pill">done</span>'
+    else:
+        pill = f'<span class="status-pill">{html.escape(e["recency"])}</span>'
+    # Attention flag: stalled + no curation note
+    attention = ''
+    if e["recency"] == "stalled" and not e["has_note"]:
+        attention = '<p class="hub-attention">⚠ Needs attention — add a note or mark done.</p>'
+    # Recent commits (last 3 subjects)
+    commits_html = ''
+    commits = e["commits"][:3]
+    if commits:
+        commits_html = '<ul class="hub-commits">'
+        for c in commits:
+            subj = html.escape(str(c.get("subject", "")).strip())
+            if subj:
+                commits_html += f'<li>{subj}</li>'
+        commits_html += '</ul>'
+    card = f'<article class="project-card"><div class="project-card-head"><h2>'
+    if url:
+        card += f'<a href="{url}" target="_blank" rel="noopener">{name}</a>'
+    else:
+        card += name
+    card += f'</h2>{pill}</div>'
+    if desc:
+        card += f'<p>{desc}</p>'
+    card += summary_html
+    if lang:
+        card += f'<p class="hub-lang">{lang}</p>'
+    card += commits_html
+    card += attention
+    card += f'<div class="project-actions"><a class="button" href="/hub/admin#{html.escape(fn)}">Curate</a></div>'
+    card += '</article>'
+    return card
 
 def _project_fields(get) -> dict:
     return {
@@ -889,6 +1342,56 @@ def project_admin_page(message: str = "") -> str:
         body += '</div></section>'
     return html_page("Project admin", body, active_nav="projects")
 
+def hub_admin_page(message: str = "") -> str:
+    """Auth-gated curation page listing every Hub repo with editable fields."""
+    data = get_hub_repos(force=False)
+    repos = data.get("repos", []) or []
+    body = '<div class="page-head"><div><h1>Curate Hub</h1>'
+    body += '<p>Add goals, override status, reorder, and hide projects.</p></div></div>'
+    if message:
+        body += '<div class="notice">' + html.escape(message) + '</div>'
+    # Action buttons (refresh + backup)
+    body += '<div class="admin-actions" style="margin-bottom:1.5rem">'
+    body += '<form method="post" action="/hub/admin/refresh" style="display:inline">'
+    body += '<button class="button" type="submit">Refresh hub now</button></form>'
+    body += '<form method="post" action="/hub/admin/backup" style="display:inline;margin-left:.5rem">'
+    body += '<button class="button" type="submit">Download backup</button></form>'
+    body += '</div>'
+    if not repos:
+        body += '<div class="empty-state"><p>No projects to curate yet.</p>'
+        body += '<p>Set <code>GITHUB_TOKEN</code> to populate the Hub.</p></div>'
+        return html_page("Curate Hub", body, active_nav="hub")
+    for repo in repos:
+        fn = str(repo.get("full_name", "")).strip()
+        if not fn:
+            continue
+        cur = load_hub().get(fn, {}) or {}
+        goal = html.escape(str(cur.get("goal", "")))
+        live = html.escape(str(cur.get("live_url", "")), quote=True)
+        local = html.escape(str(cur.get("local_path", "")), quote=True)
+        override = str(cur.get("status_override", "")).strip().lower()
+        order = int(cur.get("order", 999) or 999)
+        hidden = bool(cur.get("hidden"))
+        fid = "hub_" + re.sub(r"[^a-zA-Z0-9]", "_", fn)
+        body += f'<section class="admin-panel" id="{html.escape(fn)}"><h2>{html.escape(repo.get("name", fn))}</h2>'
+        body += f'<form class="project-form" method="post" action="/hub/admin/update">'
+        body += f'<input type="hidden" name="full_name" value="{html.escape(fn)}">'
+        body += f'<label class="wide">Goal / note<input name="goal" value="{goal}" placeholder="What is this project for?"></label>'
+        body += f'<label>Live URL<input name="live_url" value="{live}" placeholder="https://…"></label>'
+        body += f'<label>Local path<input name="local_path" value="{local}" placeholder="/srv/…"></label>'
+        body += ('<label>Status override<select name="status_override">'
+                 f'<option value=""{" selected" if override=="" else ""}>Auto (by recency)</option>'
+                 f'<option value="done{" selected" if override=="done" else ""}>Done</option>'
+                 '</select></label>')
+        body += f'<label>Order<input type="number" name="order" value="{order}" min="0"></label>'
+        body += f'<label class="check"><input type="checkbox" name="hidden" value="1"{" checked" if hidden else ""}> Hidden</label>'
+        body += '<div class="admin-actions">'
+        body += '<button class="button primary" type="submit">Save</button>'
+        body += f'<a class="button danger" href="/hub/admin/delete?full_name={urllib.parse.quote(fn)}">Delete curation</a>'
+        body += f'<a class="button" href="/hub#{urllib.parse.quote(fn)}">View on Hub</a>'
+        body += '</div></form></section>'
+    return html_page("Curate Hub", body, active_nav="hub")
+
 #  HTTP Handler
 
 # Model tuning helpers
@@ -929,6 +1432,34 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header("Location", location)
         self.end_headers()
 
+    def hub_summaries_api(self):
+        """Lazy JSON endpoint: return cached summaries, trigger background fills.
+        Never blocks on Ollama; never includes URL/model/prompt/errors."""
+        data = get_hub_repos(force=False)
+        repos = data.get("repos", []) or []
+        now = time.time()
+        summaries = {}
+        pending = []
+        for repo in repos:
+            fn = str(repo.get("full_name", "")).strip()
+            if not fn:
+                continue
+            with _SUMMARY_LOCK:
+                cached = _SUMMARY_CACHE.get(fn)
+            if cached and (now - cached["ts"]) < _SUMMARY_TTL:
+                summaries[fn] = cached["summary"]
+            else:
+                summaries[fn] = None
+                pending.append(fn)
+        if pending:
+            t = threading.Thread(target=_fill_summaries, args=(repos,), daemon=True)
+            t.start()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(json.dumps({"summaries": summaries, "pending": pending}).encode("utf-8"))
+
     def do_GET(self):
         import urllib.parse
         if self._reject_unallowed_host():
@@ -962,6 +1493,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._respond(200, "text/html", content)
         elif path == "/api/status":
             self._respond(200, "application/json", json.dumps(get_monitor_status()).encode())
+        elif path == "/api/hub/summaries":
+            self.hub_summaries_api()
         elif path == "/projects":
             content = projects_page().encode()
             self._respond(200, "text/html", content)
@@ -970,6 +1503,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._respond(403, "text/html", _UNAUTH_PAGE.encode())
                 return
             content = project_admin_page(qs.get("message", [""])[0]).encode()
+            self._respond(200, "text/html", content)
+        elif path == "/hub":
+            content = hub_page().encode()
+            self._respond(200, "text/html", content)
+        elif path == "/hub/admin":
+            if not is_authenticated(self):
+                self._respond(403, "text/html", _UNAUTH_PAGE.encode())
+                return
+            content = hub_admin_page(qs.get("message", [""])[0]).encode()
             self._respond(200, "text/html", content)
         elif path == "/health":
             self._respond(200, "text/plain", b"ok")
@@ -1009,6 +1551,46 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
             message = update_projects(action, get)
             self._send_redirect("/projects/admin?" + urllib.parse.urlencode({"message": message}))
+        elif path.startswith("/hub/admin/"):
+            if not is_authenticated(self):
+                self._respond(403, "text/html", _UNAUTH_PAGE.encode())
+                return
+            action = path.removeprefix("/hub/admin/")
+            if action == "update":
+                message = update_hub("update", get)
+                self._send_redirect("/hub/admin?" + urllib.parse.urlencode({"message": message}))
+            elif action == "delete":
+                fn = get("full_name")
+                message = update_hub("delete", lambda k: fn if k == "full_name" else get(k))
+                self._send_redirect("/hub/admin?" + urllib.parse.urlencode({"message": message}))
+            elif action == "toggle-hide":
+                fn = get("full_name")
+                message = update_hub("toggle-hide", lambda k: fn if k == "full_name" else get(k))
+                self._send_redirect("/hub/admin?" + urllib.parse.urlencode({"message": message}))
+            elif action == "refresh":
+                get_hub_repos(force=True)  # bust cache
+                self._send_redirect("/hub/admin?" + urllib.parse.urlencode({"message": "Hub refreshed."}))
+            elif action == "backup":
+                import io, tarfile, time
+                buf = io.BytesIO()
+                try:
+                    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+                        tar.add(DATA_DIR, arcname="hub-backup")
+                except OSError:
+                    self._respond(500, "text/plain", b"Backup failed: data directory unavailable.")
+                    return
+                buf.seek(0)
+                ts = time.strftime("%Y%m%d-%H%M%S")
+                filename = f"hub-backup-{ts}.tar.gz"
+                self.send_response(200)
+                self.send_header("Content-Type", "application/octet-stream")
+                self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+                self.send_header("Content-Length", str(buf.getbuffer().nbytes))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(buf.getvalue())
+            else:
+                self._respond(404, "text/plain", b"Not Found")
         else:
             self.send_response(404); self.end_headers()
 

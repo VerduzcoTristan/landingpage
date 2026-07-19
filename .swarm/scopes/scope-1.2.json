@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "taskId": "1.2",
+  "declaredAt": 1784312881078,
+  "expiresAt": 1784399281078,
+  "files": [
+    "tests/test_github_client.py"
+  ]
+}

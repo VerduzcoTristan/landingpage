@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "5fe4360c-7878-4ca0-9dc2-a9b3be373e74",
+  "receipt_type": "approved",
+  "verdict": "approved",
+  "reviewer": {
+    "agent": "reviewer",
+    "session_id": "ses_08ee423faffeJJ9htybJS6BZvX"
+  },
+  "reviewed_at": "2026-07-18T00:09:43.605Z",
+  "scope_fingerprint": {
+    "hash": "6a2e4310e3ad7adb3edf537773d3f661fa1348b0cfef9548fe5f37798b417e1e",
+    "scope_description": "reviewer-task-prompt",
+    "content_length": 7298
+  },
+  "checked_aspects": [
+    "code-review"
+  ],
+  "validated_claims": [
+    "VERDICT: APPROVED (risk LOW)"
+  ],
+  "caveats": [
+    "None. (Minor INFO: line 1366 `or 999` is redundant given `_normalise_hub` coerces order to int at line 813 — harmless.)"
+  ]
+}
