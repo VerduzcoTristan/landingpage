@@ -130,7 +130,7 @@ deployment change is planned.
   success/failure TTLs, bounded in-flight generation, terminal fallbacks, and
   correct refresh invalidation; stream/spool backups safely; verify Ollama-down,
   no-commit, overlapping-poll, refresh, and backup cases.
-- [ ] **Step 5 — Complete Hub merge, cards, and mutation safety.** Honor hidden,
+- [x] **Step 5 — Complete Hub merge, cards, and mutation safety.** Honor hidden,
   union curated-only entries, render every curation field and relative activity,
   fix nulls/headings/links, convert deletion to confirmed POST, and add CSRF to
   admin mutations with acceptance-focused tests.

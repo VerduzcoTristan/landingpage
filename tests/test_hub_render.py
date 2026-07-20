@@ -125,7 +125,8 @@ class TestMergeHubEntries(unittest.TestCase):
         }
         m = self._merged(repos, curated)
         e = m["groups"]["done"][0]
-        self.assertEqual(e["description"], "curated goal")   # goal overrides gh desc
+        self.assertEqual(e["description"], "gh desc")
+        self.assertEqual(e["goal"], "curated goal")
         self.assertEqual(e["order"], 3)
         self.assertEqual(e["status_override"], "done")
         self.assertTrue(e["has_note"])                       # goal present -> has_note
@@ -138,6 +139,31 @@ class TestMergeHubEntries(unittest.TestCase):
             m = server._merge_hub_entries()
         self.assertEqual(m["status"], "degraded")
         self.assertEqual(m["banner"], "API slow")
+
+    def test_curated_only_entries_are_unioned_with_github_results(self):
+        curated = {"local/only": make_repo("local/only") | {
+            "goal": "Local goal", "whats_next": "Ship it", "live_url": "https://example.com",
+            "local_path": "C:/work/local", "status_override": "", "hidden": False, "order": 2,
+        }}
+        merged = self._merged([make_repo("github/repo")], curated)
+        names = {entry["full_name"] for group in merged["groups"].values() for entry in group}
+        self.assertEqual(names, {"github/repo", "local/only"})
+        local = next(entry for entry in merged["groups"]["stalled"]
+                     if entry["full_name"] == "local/only")
+        self.assertTrue(local["curated_only"])
+        self.assertEqual(local["whats_next"], "Ship it")
+        self.assertEqual(local["local_path"], "C:/work/local")
+
+    def test_hidden_entries_are_publicly_excluded_but_available_to_admin_merge(self):
+        repos = [make_repo("owner/hidden")]
+        curated = {"owner/hidden": {"hidden": True, "order": 0}}
+        public = self._merged(repos, curated)
+        self.assertFalse(any(public["groups"].values()))
+        with patch.object(server, "get_hub_repos", return_value=repos_payload(repos)), patch.object(
+            server, "load_hub", return_value=curated
+        ):
+            admin = server._merge_hub_entries(include_hidden=True)
+        self.assertEqual(admin["groups"]["active"][0]["full_name"], "owner/hidden")
 
 
 # ── hub_page tests ───────────────────────────────────────────────────────────
@@ -177,7 +203,8 @@ class TestHubPage(unittest.TestCase):
         self.assertNotIn("a/repo&<x>", html)
 
     def test_summarizing_placeholder_with_data_summary(self):
-        repos = [make_repo("a/repo", recency="active")]
+        repos = [make_repo("a/repo", recency="active",
+                           commits=[{"sha": "abc", "subject": "work"}])]
         html = self._page(repos, {})
         self.assertIn("Summarizing", html)
         self.assertIn('data-summary="a/repo"', html)
@@ -245,7 +272,7 @@ class TestHubCardHtml(unittest.TestCase):
              "order": 999, "has_note": False, "status_override": ""}
         card = self._card(e)
         self.assertNotIn("<a href", card)
-        self.assertIn("<h2>repo</h2>", card)
+        self.assertIn("<h3>repo</h3>", card)
 
     def test_commit_subjects_rendered(self):
         e = {"full_name": "a/repo", "name": "repo", "html_url": "u",
@@ -270,6 +297,21 @@ class TestHubCardHtml(unittest.TestCase):
         card = self._card(e)
         self.assertIn("&lt;script&gt;", card)
         self.assertNotIn("<script>alert(1)</script>", card)
+
+    def test_card_renders_decision_fields_activity_and_safe_references(self):
+        entry = {
+            "full_name": "a/repo", "name": "repo", "html_url": "https://github.com/a/repo",
+            "description": "Description", "language": "Python", "pushed_at": "",
+            "recency": "stalled", "commits": [], "goal": "Make it useful",
+            "whats_next": "Deploy", "live_url": "https://example.com",
+            "local_path": "C:/work/repo", "status_override": "", "attention_reasons": ["Review"],
+        }
+        card = self._card(entry)
+        for expected in ("Goal", "Make it useful", "Next", "Deploy", "Activity date unavailable",
+                         "Repository", "Live site", "Local: C:/work/repo", "Needs attention"):
+            self.assertIn(expected, card)
+        entry["live_url"] = "javascript:alert(1)"
+        self.assertNotIn("javascript:", self._card(entry))
 
 
 # ── JS poll snippet tests ────────────────────────────────────────────────────

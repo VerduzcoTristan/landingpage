@@ -4,14 +4,16 @@
 import http.server
 import html
 import json
+import hmac
 import os
 import re
+import secrets
 import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from github_client import GitHubClient
@@ -27,6 +29,13 @@ ALLOWED_HOSTS = {
     for host in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
     if host.strip()
 }
+CSRF_TOKEN = secrets.token_urlsafe(32)
+
+def _csrf_field() -> str:
+    return f'<input type="hidden" name="csrf_token" value="{html.escape(CSRF_TOKEN, quote=True)}">'
+
+def _valid_csrf(value: str) -> bool:
+    return bool(value) and hmac.compare_digest(str(value), CSRF_TOKEN)
 
 # ── Auth helpers (Cloudflare Access) ──
 def is_authenticated(handler) -> bool:
@@ -808,7 +817,7 @@ def get_hub_repos(force: bool = False) -> dict:
 
 _OLLAMA_CLIENT = OllamaClient()
 
-def _merge_hub_entries() -> dict:
+def _merge_hub_entries(include_hidden: bool = False) -> dict:
     """Merge GitHub repos with curated overrides keyed by full_name.
 
     Returns {"groups": {group: [entry,...]}, "status": str, "banner": str|None}.
@@ -818,70 +827,95 @@ def _merge_hub_entries() -> dict:
     data = get_hub_repos(force=False)
     curated = load_hub()
     groups = {"active": [], "maintain": [], "stalled": [], "done": []}
+    github_repos = {}
     for repo in data.get("repos", []) or []:
-        fn = str(repo.get("full_name", "")).strip()
-        if not fn:
+        if not isinstance(repo, dict):
             continue
-        cur = curated.get(fn, {}) or {}
-        # status_override "done" forces the Done group
-        override = str(cur.get("status_override", "")).strip().lower()
-        if override == "done":
-            group = "done"
-        else:
-            group = str(repo.get("recency", "stalled")).strip().lower()
-            if group not in groups:
-                group = "stalled"
+        full_name = repo.get("full_name")
+        full_name = full_name.strip() if isinstance(full_name, str) else ""
+        if full_name:
+            github_repos[full_name] = repo
+
+    for full_name in dict.fromkeys([*github_repos, *curated]):
+        repo = github_repos.get(full_name, {})
+        cur = curated.get(full_name, {}) if isinstance(curated.get(full_name, {}), dict) else {}
+        hidden = bool(cur.get("hidden", False))
+        if hidden and not include_hidden:
+            continue
+        override = "done" if cur.get("status_override") == "done" else ""
+        recency = repo.get("recency") if isinstance(repo.get("recency"), str) else "stalled"
+        if recency not in {"active", "maintain", "stalled"}:
+            recency = "stalled"
+        group = "done" if override == "done" else recency
+        try:
+            order = int(cur.get("order", 999))
+        except (TypeError, ValueError, OverflowError):
+            order = 999
+        text = lambda value: value.strip() if isinstance(value, str) else ""
+        commits = repo.get("commits") if isinstance(repo.get("commits"), list) else []
+        goal = text(cur.get("goal"))
+        whats_next = text(cur.get("whats_next"))
+        attention_reasons = []
+        if recency == "stalled" and override != "done":
+            attention_reasons.append("No activity in 30+ days")
+        if not goal:
+            attention_reasons.append("Goal missing")
+        if not whats_next and override != "done":
+            attention_reasons.append("Next action missing")
+        if override == "done" and recency == "active":
+            attention_reasons.append("Marked done but updated recently")
         entry = {
-            "full_name": fn,
-            "name": str(repo.get("name", fn)).strip(),
-            "html_url": str(repo.get("html_url", "")).strip(),
-            "description": str(cur.get("goal") or repo.get("description", "")).strip(),
-            "language": repo.get("language") or None,
-            "recency": str(repo.get("recency", "stalled")),
-            "commits": repo.get("commits", []) or [],
-            "order": int(cur.get("order", 999) or 999),
-            "has_note": bool(str(cur.get("goal", "")).strip()),
+            "full_name": full_name,
+            "name": text(repo.get("name")) or full_name.split("/")[-1],
+            "html_url": text(repo.get("html_url")),
+            "description": text(repo.get("description")),
+            "language": text(repo.get("language")) or None,
+            "pushed_at": text(repo.get("pushed_at")),
+            "recency": recency,
+            "commits": commits,
+            "order": order,
+            "goal": goal,
+            "whats_next": whats_next,
+            "live_url": text(cur.get("live_url")),
+            "local_path": text(cur.get("local_path")),
+            "hidden": hidden,
+            "curated_only": full_name not in github_repos,
+            "has_note": bool(goal),
             "status_override": override,
+            "attention_reasons": attention_reasons,
         }
         groups[group].append(entry)
-    # Sort within group: curated (order < 999) first by order, then by full_name
-    for g in groups:
-        groups[g].sort(key=lambda e: (e["order"] if e["order"] != 999 else 1000,
-                                       e["full_name"]))
-    # Fallback: if no GitHub repos were returned (token_missing or error+no cache),
-    # surface curated entries as Stalled cards so curated-only data is visible.
-    if not any(groups.values()):
-        for fn, cur in curated.items():
-            fn = str(fn).strip()
-            if not fn:
-                continue
-            if fn in {e["full_name"] for e in (groups["stalled"] + groups["active"]
-                                               + groups["maintain"] + groups["done"])}:
-                continue
-            cur = cur or {}
-            override = str(cur.get("status_override", "")).strip().lower()
-            goal = str(cur.get("goal", "")).strip()
-            entry = {
-                "full_name": fn,
-                "name": fn,
-                "html_url": str(cur.get("live_url", "")).strip(),
-                "description": goal,
-                "language": None,
-                "recency": "stalled",
-                "commits": [],
-                "order": int(cur.get("order", 999) or 999),
-                "has_note": bool(goal),
-                "status_override": override,
-            }
-            bucket = "done" if override == "done" else "stalled"
-            groups[bucket].append(entry)
-        # Sort again after fallback inserts
-        for g in groups:
-            groups[g].sort(key=lambda e: (e["order"] if e["order"] != 999 else 1000,
-                                           e["full_name"]))
+    for entries in groups.values():
+        entries.sort(key=lambda entry: (entry["order"], entry["full_name"].lower()))
     return {"groups": groups, "status": data.get("status", "ok"),
             "state": data.get("state", "ready"),
             "version": data.get("version", 0), "banner": data.get("banner")}
+
+def _safe_http_url(value: str) -> str:
+    try:
+        parsed = urllib.parse.urlsplit(value)
+    except (TypeError, ValueError):
+        return ""
+    return value if parsed.scheme in {"http", "https"} and parsed.netloc else ""
+
+def _relative_time(pushed_at: str, now: datetime | None = None) -> str:
+    if not pushed_at:
+        return "Activity date unavailable"
+    try:
+        pushed = datetime.fromisoformat(pushed_at.replace("Z", "+00:00"))
+        if pushed.tzinfo is None:
+            pushed = pushed.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return "Activity date unavailable"
+    seconds = max(0, int(((now or datetime.now(timezone.utc)) - pushed).total_seconds()))
+    if seconds < 3600:
+        minutes = max(1, seconds // 60)
+        return f"Updated {minutes} minute{'s' if minutes != 1 else ''} ago"
+    if seconds < 86400:
+        hours = seconds // 3600
+        return f"Updated {hours} hour{'s' if hours != 1 else ''} ago"
+    days = seconds // 86400
+    return f"Updated {days} day{'s' if days != 1 else ''} ago"
 
 def hub_page() -> str:
     merged = _merge_hub_entries()
@@ -944,54 +978,74 @@ def hub_page() -> str:
     return html_page("Hub", body, active_nav="hub")
 
 def _hub_card_html(e: dict) -> str:
-    fn = e["full_name"]
-    name = html.escape(e["name"])
-    url = html.escape(e["html_url"], quote=True)
-    desc = html.escape(e["description"]) if e["description"] else ""
-    lang = html.escape(e["language"]) if e["language"] else ""
-    # Summary placeholder (filled by JS poll)
-    summary_html = (f'<p class="card-summary summarizing" data-summary="{html.escape(fn)}">'
-                    f'Summarizing…</p>')
-    # Recency / status pill
-    if e["status_override"] == "done":
+    text = lambda value: value.strip() if isinstance(value, str) else ""
+    fn = text(e.get("full_name"))
+    name = html.escape(text(e.get("name")) or fn)
+    repo_url = _safe_http_url(text(e.get("html_url")))
+    live_url = _safe_http_url(text(e.get("live_url")))
+    desc = html.escape(text(e.get("description")))
+    lang = html.escape(text(e.get("language")))
+    commits = e.get("commits") if isinstance(e.get("commits"), list) else []
+    summary_html = ""
+    if commits:
+        summary_html = (f'<p class="card-summary summarizing" data-summary="{html.escape(fn, quote=True)}">'
+                        f'Summarizing…</p>')
+    if e.get("status_override") == "done":
         pill = '<span class="status-pill">done</span>'
     else:
-        pill = f'<span class="status-pill">{html.escape(e["recency"])}</span>'
-    # Attention flag: stalled + no curation note
-    attention = ''
-    if e["recency"] == "stalled" and not e["has_note"]:
-        attention = '<p class="hub-attention">⚠ Needs attention — add a note or mark done.</p>'
-    # Recent commits (last 3 subjects)
-    commits_html = ''
-    commits = e["commits"][:3]
-    if commits:
+        pill = f'<span class="status-pill">{html.escape(text(e.get("recency")) or "stalled")}</span>'
+    commits_html = ""
+    if commits[:3]:
         commits_html = '<ul class="hub-commits">'
-        for c in commits:
-            subj = html.escape(str(c.get("subject", "")).strip())
+        for commit in commits[:3]:
+            subj = html.escape(text(commit.get("subject")) if isinstance(commit, dict) else "")
             if subj:
                 commits_html += f'<li>{subj}</li>'
         commits_html += '</ul>'
-    card = f'<article class="project-card"><div class="project-card-head"><h2>'
-    if url:
-        card += f'<a href="{url}" target="_blank" rel="noopener">{name}</a>'
+    card = (f'<article class="project-card" id="{html.escape(fn, quote=True)}">'
+            f'<div class="project-card-head"><h3>')
+    if repo_url:
+        card += f'<a href="{html.escape(repo_url, quote=True)}" target="_blank" rel="noopener">{name}</a>'
     else:
         card += name
-    card += f'</h2>{pill}</div>'
+    card += f'</h3>{pill}</div>'
     if desc:
-        card += f'<p>{desc}</p>'
+        card += f'<p class="hub-description">{desc}</p>'
+    goal = text(e.get("goal"))
+    whats_next = text(e.get("whats_next"))
+    if goal:
+        card += f'<div class="hub-decision"><span>Goal</span><p>{html.escape(goal)}</p></div>'
+    if whats_next:
+        card += f'<div class="hub-decision"><span>Next</span><p>{html.escape(whats_next)}</p></div>'
+    card += f'<p class="hub-updated">{html.escape(_relative_time(text(e.get("pushed_at"))))}</p>'
     card += summary_html
     if lang:
         card += f'<p class="hub-lang">{lang}</p>'
     card += commits_html
-    card += attention
-    card += f'<div class="project-actions"><a class="button" href="/hub/admin#{html.escape(fn)}">Curate</a></div>'
+    reasons = e.get("attention_reasons") if isinstance(e.get("attention_reasons"), list) else []
+    if reasons:
+        card += '<div class="hub-attention"><span>Needs attention</span><ul>'
+        card += "".join(f'<li>{html.escape(text(reason))}</li>' for reason in reasons if text(reason))
+        card += '</ul></div>'
+    references = []
+    if repo_url:
+        references.append(f'<a href="{html.escape(repo_url, quote=True)}" target="_blank" rel="noopener">Repository ↗</a>')
+    if live_url:
+        references.append(f'<a href="{html.escape(live_url, quote=True)}" target="_blank" rel="noopener">Live site ↗</a>')
+    local_path = text(e.get("local_path"))
+    if local_path:
+        references.append(f'<span class="hub-local">Local: {html.escape(local_path)}</span>')
+    if references:
+        card += '<div class="hub-references">' + "".join(references) + '</div>'
+    card += f'<div class="project-actions"><a class="button" href="/hub/admin#{urllib.parse.quote(fn)}">Edit</a></div>'
     card += '</article>'
     return card
 
 def hub_admin_page(message: str = "") -> str:
     """Auth-gated curation page listing every Hub repo with editable fields."""
-    data = get_hub_repos(force=False)
-    repos = data.get("repos", []) or []
+    merged = _merge_hub_entries(include_hidden=True)
+    repos = [entry for group in ("active", "maintain", "stalled", "done")
+             for entry in merged["groups"][group]]
     body = '<div class="page-head"><div><h1>Curate Hub</h1>'
     body += '<p>Add goals, override status, reorder, and hide projects.</p></div></div>'
     if message:
@@ -999,8 +1053,10 @@ def hub_admin_page(message: str = "") -> str:
     # Action buttons (refresh + backup)
     body += '<div class="admin-actions" style="margin-bottom:1.5rem">'
     body += '<form method="post" action="/hub/admin/refresh" style="display:inline">'
+    body += _csrf_field()
     body += '<button class="button" type="submit">Refresh hub now</button></form>'
     body += '<form method="post" action="/hub/admin/backup" style="display:inline;margin-left:.5rem">'
+    body += _csrf_field()
     body += '<button class="button" type="submit">Download backup</button></form>'
     body += '</div>'
     if not repos:
@@ -1011,8 +1067,9 @@ def hub_admin_page(message: str = "") -> str:
         fn = str(repo.get("full_name", "")).strip()
         if not fn:
             continue
-        cur = load_hub().get(fn, {}) or {}
+        cur = repo
         goal = html.escape(str(cur.get("goal", "")))
+        whats_next = html.escape(str(cur.get("whats_next", "")))
         live = html.escape(str(cur.get("live_url", "")), quote=True)
         local = html.escape(str(cur.get("local_path", "")), quote=True)
         override = str(cur.get("status_override", "")).strip().lower()
@@ -1021,8 +1078,10 @@ def hub_admin_page(message: str = "") -> str:
         fid = "hub_" + re.sub(r"[^a-zA-Z0-9]", "_", fn)
         body += f'<section class="admin-panel" id="{html.escape(fn)}"><h2>{html.escape(repo.get("name", fn))}</h2>'
         body += f'<form class="project-form" method="post" action="/hub/admin/update">'
+        body += _csrf_field()
         body += f'<input type="hidden" name="full_name" value="{html.escape(fn)}">'
         body += f'<label class="wide">Goal / note<input name="goal" value="{goal}" placeholder="What is this project for?"></label>'
+        body += f'<label class="wide">What’s next<input name="whats_next" value="{whats_next}" placeholder="Next concrete action"></label>'
         body += f'<label>Live URL<input name="live_url" value="{live}" placeholder="https://…"></label>'
         body += f'<label>Local path<input name="local_path" value="{local}" placeholder="/srv/…"></label>'
         body += ('<label>Status override<select name="status_override">'
@@ -1033,7 +1092,9 @@ def hub_admin_page(message: str = "") -> str:
         body += f'<label class="check"><input type="checkbox" name="hidden" value="1"{" checked" if hidden else ""}> Hidden</label>'
         body += '<div class="admin-actions">'
         body += '<button class="button primary" type="submit">Save</button>'
-        body += f'<a class="button danger" href="/hub/admin/delete?full_name={urllib.parse.quote(fn)}">Delete curation</a>'
+        body += ('<button class="button danger" type="submit" formmethod="post" '
+                 'formaction="/hub/admin/delete" '
+                 'onclick="return confirm(\'Delete this curation entry?\')">Delete curation</button>')
         body += f'<a class="button" href="/hub#{urllib.parse.quote(fn)}">View on Hub</a>'
         body += '</div></form></section>'
     return html_page("Curate Hub", body, active_nav="hub")
@@ -1162,10 +1223,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not is_authenticated(self):
                 self._respond(403, "text/html", _UNAUTH_PAGE.encode())
                 return
+            if not _valid_csrf(get("csrf_token")):
+                self._respond(403, "text/plain", b"Invalid form token.")
+                return
             action = path.removeprefix("/hub/admin/")
             if action == "update":
                 message = update_hub("update", get)
-                self._send_redirect("/hub/admin?" + urllib.parse.urlencode({"message": message}))
+                anchor = urllib.parse.quote(get("full_name"), safe="")
+                self._send_redirect("/hub/admin?" + urllib.parse.urlencode({"message": message}) + f"#{anchor}")
             elif action == "delete":
                 fn = get("full_name")
                 message = update_hub("delete", lambda k: fn if k == "full_name" else get(k))
@@ -1173,7 +1238,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             elif action == "toggle-hide":
                 fn = get("full_name")
                 message = update_hub("toggle-hide", lambda k: fn if k == "full_name" else get(k))
-                self._send_redirect("/hub/admin?" + urllib.parse.urlencode({"message": message}))
+                anchor = urllib.parse.quote(fn, safe="")
+                self._send_redirect("/hub/admin?" + urllib.parse.urlencode({"message": message}) + f"#{anchor}")
             elif action == "refresh":
                 _OLLAMA_CLIENT.invalidate()
                 _GITHUB_CLIENT.invalidate()

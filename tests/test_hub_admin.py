@@ -21,6 +21,7 @@ update_hub, and is_authenticated are patched at the server module level.
 import os
 import sys
 import unittest
+import urllib.parse
 from unittest.mock import patch, MagicMock
 
 # Ensure the project root is importable as a package path.
@@ -206,6 +207,15 @@ class TestHubAdminPageRender(unittest.TestCase):
         out = server.hub_admin_page()
         self.assertIn('<input type="hidden" name="full_name" value="owner/repo">', out)
 
+    def test_forms_include_csrf_and_confirmed_post_delete(self):
+        self.mock_repos.return_value = {"repos": [make_repo("owner/repo")], "status": "ok"}
+        self.mock_load.return_value = {}
+        out = server.hub_admin_page()
+        self.assertIn('name="csrf_token"', out)
+        self.assertIn('formaction="/hub/admin/delete"', out)
+        self.assertIn("return confirm", out)
+        self.assertNotIn('href="/hub/admin/delete?', out)
+
     def test_empty_state_when_no_repos(self):
         self.mock_repos.return_value = {"repos": []}
         self.mock_load.return_value = {}
@@ -368,6 +378,9 @@ class TestHubAdminPostDispatch(unittest.TestCase):
     """
 
     def _make_handler(self, path, body=b"", headers=None, client_address=None):
+        params = urllib.parse.parse_qs(body.decode("utf-8")) if body else {}
+        params["csrf_token"] = [server.CSRF_TOKEN]
+        body = urllib.parse.urlencode(params, doseq=True).encode()
         h = FakeHandler(
             path=path,
             body=body,
@@ -391,6 +404,16 @@ class TestHubAdminPostDispatch(unittest.TestCase):
         self.assertEqual(code, 403)
         self.assertIn("Access required", body.decode("utf-8", errors="replace"))
 
+    def test_authenticated_missing_csrf_returns_403_without_mutation(self):
+        h = FakeHandler(path="/hub/admin/update", headers={"Host": "localhost"},
+                        body=b"full_name=a%2Fb&goal=x")
+        with patch.object(server, "is_authenticated", return_value=True), patch.object(
+            server.Handler, "_reject_unallowed_host", return_value=False
+        ), patch.object(server, "update_hub") as update:
+            server.Handler.do_POST(h)
+        self.assertEqual(h.responses[0][0], 403)
+        update.assert_not_called()
+
     def test_authenticated_update_invokes_update_hub_and_redirects(self):
         h = self._make_handler(
             path="/hub/admin/update",
@@ -405,6 +428,7 @@ class TestHubAdminPostDispatch(unittest.TestCase):
         self.assertEqual(captured["action"], "update")
         self.assertEqual(len(h.redirects), 1)
         self.assertTrue(h.redirects[0].startswith("/hub/admin?"))
+        self.assertTrue(h.redirects[0].endswith("#a%2Fb"))
 
     def test_authenticated_delete_invokes_update_hub_delete(self):
         h = self._make_handler(

@@ -24,6 +24,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+import urllib.parse
 from unittest.mock import patch, MagicMock
 
 # Ensure the project root is importable as a package path.
@@ -60,6 +61,8 @@ class FakeHandler:
 
     def __init__(self, path="/hub/admin/refresh", headers=None, body=b"",
                  client_address=("127.0.0.1", 1234)):
+        if path.startswith("/hub/admin/") and not body:
+            body = urllib.parse.urlencode({"csrf_token": server.CSRF_TOKEN}).encode()
         self.path = path
         self.headers = _DictHeaders(headers or {})
         self.rfile = _BytesIO(body)
