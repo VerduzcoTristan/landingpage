@@ -164,7 +164,7 @@ def render_nav(active: str = "home") -> str:
     for href, label, key in (
         ("/", "Home", "home"),
         ("/briefings", "Briefings", "briefings"),
-        ("/hub", "Hub", "hub"),
+        ("/hub", "Projects", "hub"),
         ("/status", "Status", "status"),
     ):
         current = ' class="active" aria-current="page"' if active == key else ""
@@ -188,6 +188,7 @@ h1,h2,h3,h4,p{margin-top:0}h1,h2,h3{line-height:1.15;letter-spacing:-.025em}h1{f
 .home-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem;margin:1rem 0 0}.home-links a{display:grid;grid-template-columns:1fr auto;gap:.1rem .7rem;padding:1rem 1.1rem;border:1px solid var(--border);border-radius:var(--radius-md);background:linear-gradient(145deg,rgba(255,255,255,.035),transparent),var(--surface);color:var(--text);text-decoration:none;box-shadow:var(--shadow-1);transition:all var(--ease)}.home-links a:hover{transform:translateY(-2px);border-color:var(--accent)}.home-links span{font-weight:850}.home-links small{grid-column:1;color:var(--muted)}.home-links b{grid-column:2;grid-row:1/3;align-self:center;color:var(--accent-strong)}.project-card{padding:1.2rem}.project-card h3{margin:0;font-size:1.15rem}.project-card p{margin:.65rem 0;color:var(--muted)}.admin-link{margin:1.3rem 0;text-align:right}.admin-panel{margin-bottom:1rem;padding:1.2rem}.admin-panel h2{font-size:1.05rem}.project-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.85rem}.project-form label{display:grid;gap:.35rem;color:var(--muted);font-size:.75rem;font-weight:750}.project-form .wide{grid-column:1/-1}.project-form .check{display:flex;align-items:center;gap:.5rem}.project-form .check input{width:auto}.project-form textarea{resize:vertical}.admin-actions{margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--border)}.admin-actions form{margin:0}
 .admin-toolbar{display:grid;grid-template-columns:minmax(14rem,1fr) auto;gap:.75rem;align-items:end;margin:0 0 1rem}.admin-search{display:grid;gap:.35rem;color:var(--muted);font-size:.75rem;font-weight:750}.admin-filters{display:flex;flex-wrap:wrap;gap:.4rem}.admin-filters button{min-height:2.75rem;padding:.5rem .7rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--muted);cursor:pointer}.admin-filters button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--text)}.admin-result-count{grid-column:1/-1;color:var(--subtle);font-size:.76rem}.admin-repo-list{display:grid;gap:.55rem}.admin-repo{border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);box-shadow:var(--shadow-1)}.admin-repo>summary{display:flex;align-items:center;justify-content:space-between;gap:1rem;min-height:3.5rem;padding:.75rem .9rem;cursor:pointer}.admin-repo>summary>span:first-child{display:grid}.admin-repo>summary small{color:var(--subtle);font-size:.72rem}.admin-repo-badges{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.35rem}.admin-repo-body{padding:1rem;border-top:1px solid var(--border)}.admin-tech-links{display:flex;flex-wrap:wrap;gap:.8rem;margin:0 0 1rem;color:var(--subtle);font-size:.78rem}.admin-tech-links a{text-decoration:none}
 .hub-overview{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.55rem;margin:0 0 1.5rem}.hub-filter{display:flex;align-items:center;justify-content:space-between;gap:.5rem;min-height:2.75rem;padding:.55rem .7rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--muted);cursor:pointer}.hub-filter strong{color:var(--text)}.hub-filter[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--text)}.hub-group{margin:1.5rem 0}.hub-low-priority{border-top:1px solid var(--border)}.hub-low-priority>summary{display:flex;align-items:center;justify-content:space-between;min-height:3.25rem;padding:.65rem 0;cursor:pointer}.hub-group-title{font-size:1.3rem;font-weight:800}.hub-low-priority>.projects-grid{padding-top:.65rem}.status-active{border-color:rgba(69,214,154,.35);color:var(--success)}.status-maintain{border-color:rgba(169,158,255,.35);color:var(--accent-strong)}.status-stalled{border-color:rgba(243,185,95,.35);color:var(--warning)}.status-done{color:var(--subtle)}.hub-description{font-size:.88rem}.hub-decision{margin:.7rem 0;padding:.65rem .75rem;border-left:2px solid var(--border-strong);background:rgba(255,255,255,.02)}.hub-decision span,.hub-attention>span{color:var(--subtle);font-size:.68rem;font-weight:850;letter-spacing:.08em;text-transform:uppercase}.hub-decision p{margin:.2rem 0 0;color:var(--text)}.hub-updated{font-size:.76rem}.hub-commits{margin:.6rem 0 0;padding-left:1.1rem;color:var(--muted);font-size:.82rem}.hub-commits li{margin:.15rem 0}.hub-lang{color:var(--subtle);font-size:.78rem;margin:.4rem 0 0}.hub-attention{margin:.75rem 0;padding:.6rem .7rem;border:1px solid rgba(243,185,95,.22);border-radius:var(--radius-sm);background:rgba(243,185,95,.05);color:var(--warning);font-size:.78rem}.hub-attention ul{margin:.3rem 0 0;padding-left:1rem}.hub-references{display:flex;flex-wrap:wrap;gap:.65rem;margin:.75rem 0;color:var(--subtle);font-size:.76rem}.hub-references a{text-decoration:none}.hub-edit{color:var(--subtle);font-size:.76rem;text-decoration:none}.hub-edit:hover{color:var(--text)}.summarizing{color:var(--subtle);font-style:italic}
+.project-card{position:relative;overflow:hidden}.project-card.is-pinned{border-color:rgba(169,158,255,.48)}.project-card.is-new::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--accent)}.project-card-head{align-items:flex-start}.hub-card-badges{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.35rem}.hub-card-badges .status-pill{white-space:nowrap}.hub-pin{color:var(--accent-strong)}.hub-new-badge{display:none;color:var(--success)}.project-card.is-new .hub-new-badge{display:inline-flex}.hub-description{margin-bottom:.45rem!important}.hub-decision.current{border-left-color:var(--accent);background:var(--accent-soft)}.hub-decision.next{border-left-color:var(--success)}.hub-decision .source{float:right;color:var(--subtle);font-size:.62rem;letter-spacing:.03em;text-transform:none}.hub-decision .placeholder{color:var(--subtle);font-style:italic}.hub-goal{margin:.55rem 0;color:var(--muted);font-size:.8rem}.hub-goal strong{color:var(--text)}.hub-insight-meta{display:flex;flex-wrap:wrap;gap:.4rem .75rem;margin:.65rem 0;color:var(--subtle);font-size:.72rem}.hub-insight-meta a{color:var(--muted);text-decoration:none}.hub-evidence,.hub-history{margin:.65rem 0;border-top:1px solid var(--border)}.hub-evidence>summary,.hub-history>summary{min-height:2.75rem;padding:.65rem 0;color:var(--muted);font-size:.76rem;font-weight:750;cursor:pointer}.hub-file-list,.hub-history-list{display:grid;gap:.4rem;margin:0 0 .65rem;padding:0;list-style:none}.hub-file-list li{display:flex;justify-content:space-between;gap:.6rem;padding:.4rem .5rem;border-radius:var(--radius-sm);background:var(--page);color:var(--muted);font:500 .7rem/1.4 ui-monospace,SFMono-Regular,Consolas,monospace}.hub-file-list li span:first-child{min-width:0;overflow-wrap:anywhere}.hub-file-list small{color:var(--subtle);white-space:nowrap}.hub-history-list li{padding:.55rem .65rem;border-left:2px solid var(--border);background:rgba(255,255,255,.02);color:var(--muted);font-size:.76rem}.hub-history-list strong{display:block;margin-bottom:.15rem;color:var(--text)}.hub-history-list time{display:block;margin-top:.25rem;color:var(--subtle);font-size:.68rem}.hub-filter[data-hub-filter="new"] strong{color:var(--success)}
 code{padding:.15rem .35rem;border:1px solid var(--border);border-radius:.35rem;background:var(--page);font:500 .86em ui-monospace,SFMono-Regular,Consolas,monospace}
 @media(max-width:820px){.home-dashboard{grid-template-columns:1fr}.home-rail{grid-template-columns:1fr 1fr}.hub-overview{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:640px){.container{width:min(100% - 1.25rem,var(--shell));padding-top:1.5rem}.page-head,.section-head{align-items:flex-start;flex-direction:column}.project-form,.admin-toolbar{grid-template-columns:1fr}.project-form .wide{grid-column:auto}.landing-status-strip summary{align-items:flex-start;flex-direction:column;min-height:2.75rem}.status-summary-right{flex-wrap:wrap}.status-summary-meta{white-space:normal}.home-links,.home-rail{grid-template-columns:1fr}.hub-overview{grid-template-columns:repeat(2,minmax(0,1fr))}.site-footer{width:min(100% - 1.25rem,var(--shell))}}
@@ -222,7 +223,7 @@ def html_page(title: str, body: str, active_nav: str = "home", extra_head: str =
     <a href="#main-content" class="skip-link">Skip to main content</a>
     {render_nav(active_nav)}
     <main id="main-content"><div class="container">{body}</div></main>
-    <footer class="site-footer"><span>Control Center</span><nav aria-label="Footer"><a href="/briefings">Briefings</a><a href="/status">Status</a><a href="/hub">Hub</a></nav></footer>
+    <footer class="site-footer"><span>Control Center</span><nav aria-label="Footer"><a href="/briefings">Briefings</a><a href="/status">Status</a><a href="/hub">Projects</a></nav></footer>
 </body>
 </html>"""
 
@@ -1002,9 +1003,9 @@ def hub_page() -> str:
             'window.location.reload();}).catch(function(){setTimeout(pollHubState,2500);});'
             '})();</script>'
         )
-    body = '<div class="page-head"><div><h1>Hub</h1>'
-    body += '<p>All your projects in one place — GitHub activity, curated notes, and AI summaries.</p></div>'
-    body += '<div class="admin-link"><a class="button" href="/hub/admin">Curate Hub</a></div></div>'
+    body = '<div class="page-head"><div><h1>Projects</h1>'
+    body += '<p>Living project state from real code changes, with your decisions layered on top.</p></div>'
+    body += '<div class="admin-link"><a class="button" href="/hub/admin">Manage projects</a></div></div>'
     if merged.get("banner"):
         body += '<div class="notice">' + html.escape(merged["banner"]) + '</div>'
     if total == 0:
@@ -1012,24 +1013,44 @@ def hub_page() -> str:
             body += '<div class="empty-state"><p>Loading GitHub activity…</p>'
             body += '<p>Your curated projects remain available while the first snapshot loads.</p></div>'
         elif merged.get("status") == "error":
-            body += '<div class="empty-state"><p>Hub data is temporarily unavailable.</p>'
+            body += '<div class="empty-state"><p>Project data is temporarily unavailable.</p>'
             body += '<p>Refresh later or check the GitHub integration.</p></div>'
         else:
             body += '<div class="empty-state"><p>No projects yet.</p>'
-            body += '<p>Set <code>GITHUB_TOKEN</code> to populate the Hub from your repositories.</p></div>'
+            body += '<p>Set <code>GITHUB_TOKEN</code> to populate projects from your repositories.</p></div>'
         body += state_script
-        return html_page("Hub", body, active_nav="hub")
+        return html_page("Projects", body, active_nav="hub")
     group_labels = {"active": "Active", "maintain": "Maintaining",
                     "stalled": "Stalled", "done": "Done"}
+    all_entries = [entry for key in ("active", "maintain", "stalled", "done")
+                   for entry in groups.get(key, [])]
+    pinned_names = {entry["full_name"] for entry in all_entries if entry.get("pinned")}
     stalled_focus = {entry["full_name"] for entry in groups.get("stalled", [])[:4]}
-    focus_count = len(groups.get("active", [])) + len(groups.get("maintain", [])) + len(stalled_focus)
+    focus_names = pinned_names | {
+        entry["full_name"] for entry in groups.get("active", []) + groups.get("maintain", [])
+    } | stalled_focus
+    review_count = sum(bool(entry.get("attention_reasons")) for entry in all_entries)
     body += '<div class="hub-overview" aria-label="Project status overview">'
-    for key, label in (("focus", "Focus"), ("active", "Active"), ("maintain", "Maintaining"),
-                       ("stalled", "Stalled"), ("done", "Done"), ("all", "All")):
-        count = focus_count if key == "focus" else total if key == "all" else len(groups.get(key, []))
+    for key, label in (("focus", "Focus"), ("pinned", "Pinned"), ("new", "New"),
+                       ("active", "Active"), ("maintain", "Maintaining"),
+                       ("stalled", "Stalled"), ("review", "Review"),
+                       ("done", "Done"), ("all", "All")):
+        if key == "focus":
+            count = len(focus_names)
+        elif key == "pinned":
+            count = len(pinned_names)
+        elif key == "review":
+            count = review_count
+        elif key == "new":
+            count = 0
+        elif key == "all":
+            count = total
+        else:
+            count = len(groups.get(key, []))
         pressed = 'true' if key == "focus" else 'false'
         body += (f'<button type="button" class="hub-filter" data-hub-filter="{key}" '
-                 f'aria-pressed="{pressed}"><span>{label}</span><strong>{count}</strong></button>')
+                 f'aria-pressed="{pressed}"><span>{label}</span><strong'
+                 f'{" id=hub-new-count" if key == "new" else ""}>{count}</strong></button>')
     body += '</div>'
     for key in ("active", "maintain", "stalled", "done"):
         entries = groups.get(key, [])
@@ -1045,7 +1066,7 @@ def hub_page() -> str:
                      f'<span class="status-pill">{len(entries)}</span></div>')
         body += '<div class="projects-grid">'
         for e in entries:
-            e["focus_visible"] = key in {"active", "maintain"} or e["full_name"] in stalled_focus
+            e["focus_visible"] = e["full_name"] in focus_names
             body += _hub_card_html(e)
         body += '</div>' + ('</details>' if key in {"stalled", "done"} else '</section>')
     # JS poll for structured insights (non-blocking fill from persistent state)
@@ -1054,11 +1075,22 @@ def hub_page() -> str:
              'document.addEventListener("DOMContentLoaded",function(){'
              'var buttons=[].slice.call(document.querySelectorAll("[data-hub-filter]"));'
              'var sections=[].slice.call(document.querySelectorAll("[data-hub-section]"));'
+             'var cards=[].slice.call(document.querySelectorAll("[data-hub-card]"));'
+             'var lastVisit=0;try{lastVisit=Number(localStorage.getItem("control-center-projects-last-visit")||0);'
+             'var visit=Date.now();if(lastVisit){cards.forEach(function(card){var generated=Date.parse(card.dataset.generatedAt||"");'
+             'if(generated>lastVisit){card.classList.add("is-new");card.dataset.new="true";}});}'
+             'localStorage.setItem("control-center-projects-last-visit",String(visit));}catch(error){}'
+             'var newCount=cards.filter(function(card){return card.dataset.new==="true";}).length;'
+             'var newCounter=document.getElementById("hub-new-count");if(newCounter){newCounter.textContent=String(newCount);}'
              'function applyHubFilter(filter){buttons.forEach(function(button){'
              'button.setAttribute("aria-pressed",button.dataset.hubFilter===filter?"true":"false");});'
              'sections.forEach(function(section){var visible=0;'
              '[].slice.call(section.querySelectorAll("[data-hub-card]")).forEach(function(card){'
-             'var show=filter==="all"||card.dataset.group===filter||(filter==="focus"&&card.dataset.focus==="true");'
+             'var show=filter==="all"||card.dataset.group===filter||'
+             '(filter==="focus"&&card.dataset.focus==="true")||'
+             '(filter==="pinned"&&card.dataset.pinned==="true")||'
+             '(filter==="review"&&card.dataset.review==="true")||'
+             '(filter==="new"&&card.dataset.new==="true");'
              'card.hidden=!show;if(show){visible++;}});section.hidden=visible===0;'
              'if(visible&&section.tagName==="DETAILS"){section.open=true;}});}'
              'buttons.forEach(function(button){button.addEventListener("click",function(){applyHubFilter(button.dataset.hubFilter);});});'
@@ -1066,15 +1098,18 @@ def hub_page() -> str:
     body += ('<script>'
              'function refreshInsights(){'
              'fetch("/api/hub/insights").then(function(r){return r.json();}).then(function(d){'
-             'var insights=d.insights||{};Object.keys(insights).forEach(function(fn){'
-             'var el=document.querySelector(\'[data-insight-current="\'+CSS.escape(fn)+\'"]\');'
-             'if(el&&insights[fn].current_state){el.textContent=insights[fn].current_state;'
-             'el.classList.remove("summarizing");}});'
-             'if(d.pending&&d.pending.length){setTimeout(refreshInsights,2500);}'
+             'var reload=false,insights=d.insights||{};Object.keys(insights).forEach(function(fn){'
+             'var card=[].slice.call(document.querySelectorAll("[data-project-name]")).find(function(item){'
+             'return item.dataset.projectName===fn;});if(!card){return;}var insight=insights[fn];'
+             'var current=card.querySelector("[data-insight-current]");var next=card.querySelector("[data-insight-next]");'
+             'if(current&&current.dataset.source!=="manual"&&insight.current_state){current.textContent=insight.current_state;current.classList.remove("placeholder");}'
+             'if(next&&next.dataset.source!=="manual"&&insight.next_step){next.textContent=insight.next_step;next.classList.remove("placeholder");}'
+             'if(insight.head_sha&&card.dataset.insightHead!==insight.head_sha){reload=true;}});'
+             'if(d.pending&&d.pending.length){setTimeout(refreshInsights,2500);}else if(reload){window.location.reload();}'
              '}).catch(function(){});}'
              'document.addEventListener("DOMContentLoaded",function(){setTimeout(refreshInsights,800);});'
              '</script>')
-    return html_page("Hub", body, active_nav="hub")
+    return html_page("Projects", body, active_nav="hub")
 
 def _hub_card_html(e: dict) -> str:
     text = lambda value: value.strip() if isinstance(value, str) else ""
@@ -1084,42 +1119,112 @@ def _hub_card_html(e: dict) -> str:
     live_url = _safe_http_url(text(e.get("live_url")))
     desc = html.escape(text(e.get("description")))
     lang = html.escape(text(e.get("language")))
+    insight = e.get("insight") if isinstance(e.get("insight"), dict) else {}
     current_state = text(e.get("current_state"))
-    summary_html = ""
-    if current_state:
-        summary_html = (f'<p class="card-summary" data-insight-current="{html.escape(fn, quote=True)}">'
-                        f'{html.escape(current_state)}</p>')
-    elif text(e.get("change_status")) == "ready":
-        summary_html = (f'<p class="card-summary summarizing" data-insight-current="{html.escape(fn, quote=True)}">'
-                        f'Updating insight…</p>')
+    whats_next = text(e.get("whats_next"))
+    current_source = text(e.get("current_source")) or "automatic"
+    next_source = text(e.get("next_source")) or "automatic"
+    head_sha = text(e.get("head_sha"))
+    insight_head = text(insight.get("head_sha"))
+    generated_at = text(insight.get("generated_at"))
+    updating = text(e.get("change_status")) == "ready" and head_sha != insight_head
     if e.get("status_override") == "done":
         status = "done"
     else:
         status = text(e.get("recency")) or "stalled"
-    pill = f'<span class="status-pill status-{html.escape(status, quote=True)}">{html.escape(status)}</span>'
     group = text(e.get("group")) or status
     focus = "true" if e.get("focus_visible") else "false"
-    card = (f'<article class="project-card" id="{html.escape(fn, quote=True)}" '
-            f'data-hub-card data-group="{html.escape(group, quote=True)}" data-focus="{focus}">'
+    pinned = bool(e.get("pinned"))
+    reasons = e.get("attention_reasons") if isinstance(e.get("attention_reasons"), list) else []
+    review = bool(reasons)
+    classes = "project-card" + (" is-pinned" if pinned else "")
+    card = (f'<article class="{classes}" id="{html.escape(fn, quote=True)}" data-hub-card '
+            f'data-project-name="{html.escape(fn, quote=True)}" '
+            f'data-insight-head="{html.escape(insight_head, quote=True)}" '
+            f'data-generated-at="{html.escape(generated_at, quote=True)}" data-new="false" '
+            f'data-group="{html.escape(group, quote=True)}" data-focus="{focus}" '
+            f'data-pinned="{str(pinned).lower()}" data-review="{str(review).lower()}">'
             f'<div class="project-card-head"><h3>')
     if repo_url:
         card += f'<a href="{html.escape(repo_url, quote=True)}" target="_blank" rel="noopener">{name}</a>'
     else:
         card += name
-    card += f'</h3>{pill}</div>'
+    card += '</h3><span class="hub-card-badges">'
+    if pinned:
+        card += '<span class="status-pill hub-pin">Pinned</span>'
+    card += '<span class="status-pill hub-new-badge" data-new-badge>New</span>'
+    card += f'<span class="status-pill status-{html.escape(status, quote=True)}">{html.escape(status)}</span>'
+    if updating:
+        card += '<span class="status-pill">Updating</span>'
+    elif insight.get("state") == "stale":
+        card += '<span class="status-pill">Stale insight</span>'
+    elif insight.get("confidence"):
+        card += f'<span class="status-pill">AI {html.escape(text(insight.get("confidence")))}</span>'
+    card += '</span></div>'
     if desc:
         card += f'<p class="hub-description">{desc}</p>'
     goal = text(e.get("goal"))
-    whats_next = text(e.get("whats_next"))
     if goal:
-        card += f'<div class="hub-decision"><span>Goal</span><p>{html.escape(goal)}</p></div>'
-    if whats_next:
-        card += f'<div class="hub-decision"><span>Next</span><p>{html.escape(whats_next)}</p></div>'
-    card += f'<p class="hub-updated">{html.escape(_relative_time(text(e.get("pushed_at"))))}</p>'
-    card += summary_html
+        card += f'<p class="hub-goal"><strong>Goal:</strong> {html.escape(goal)}</p>'
+    current_placeholder = "Analyzing the latest code changes…" if updating else "No current-state insight yet."
+    next_placeholder = "Waiting for the current-state analysis…" if updating else "No automatic next step yet."
+    card += '<div class="hub-decision current"><span>Current'
+    card += f'<small class="source">{html.escape(current_source)}</small></span>'
+    card += (f'<p data-insight-current data-source="{html.escape(current_source, quote=True)}"'
+             f' class="{"" if current_state else "placeholder"}">'
+             f'{html.escape(current_state or current_placeholder)}</p></div>')
+    card += '<div class="hub-decision next"><span>Next'
+    card += f'<small class="source">{html.escape(next_source)}</small></span>'
+    card += (f'<p data-insight-next data-source="{html.escape(next_source, quote=True)}"'
+             f' class="{"" if whats_next else "placeholder"}">'
+             f'{html.escape(whats_next or next_placeholder)}</p></div>')
+    card += '<div class="hub-insight-meta">'
+    card += f'<span>{html.escape(_relative_time(text(e.get("pushed_at"))))}</span>'
+    if head_sha:
+        revision = html.escape(head_sha[:8])
+        if repo_url and re.fullmatch(r"[0-9a-fA-F]{7,64}", head_sha):
+            commit_url = repo_url.rstrip("/") + "/commit/" + urllib.parse.quote(head_sha, safe="")
+            card += f'<a href="{html.escape(commit_url, quote=True)}" target="_blank" rel="noopener">Revision {revision} ↗</a>'
+        else:
+            card += f'<span>Revision {revision}</span>'
+    if generated_at:
+        card += f'<span>{html.escape(_relative_time(generated_at).replace("Updated", "Generated", 1))}</span>'
+    card += '</div>'
     if lang:
         card += f'<p class="hub-lang">{lang}</p>'
-    reasons = e.get("attention_reasons") if isinstance(e.get("attention_reasons"), list) else []
+    changed_files = insight.get("changed_files") if isinstance(insight.get("changed_files"), list) else []
+    if changed_files:
+        additions = max(0, insight.get("additions", 0)) if isinstance(insight.get("additions"), int) else 0
+        deletions = max(0, insight.get("deletions", 0)) if isinstance(insight.get("deletions"), int) else 0
+        card += (f'<details class="hub-evidence"><summary>{len(changed_files)} changed file'
+                 f'{"s" if len(changed_files) != 1 else ""} · +{additions}/−{deletions}</summary>'
+                 '<ul class="hub-file-list">')
+        for changed in changed_files:
+            if not isinstance(changed, dict) or not text(changed.get("path")):
+                continue
+            path = html.escape(text(changed.get("path")))
+            file_status = html.escape(text(changed.get("status")) or "modified")
+            add = changed.get("additions", 0) if isinstance(changed.get("additions"), int) else 0
+            delete = changed.get("deletions", 0) if isinstance(changed.get("deletions"), int) else 0
+            card += f'<li><span>{path}</span><small>{file_status} +{max(0, add)}/−{max(0, delete)}</small></li>'
+        card += '</ul></details>'
+    history = insight.get("history") if isinstance(insight.get("history"), list) else []
+    if history:
+        card += f'<details class="hub-history"><summary>Previous insights · {len(history)}</summary><ol class="hub-history-list">'
+        for previous in history[:5]:
+            if not isinstance(previous, dict):
+                continue
+            previous_current = text(previous.get("current_state"))
+            previous_next = text(previous.get("next_step"))
+            card += '<li>'
+            if previous_current:
+                card += f'<strong>{html.escape(previous_current)}</strong>'
+            if previous_next:
+                card += f'<span>Next: {html.escape(previous_next)}</span>'
+            if text(previous.get("generated_at")):
+                card += f'<time>{html.escape(_relative_time(text(previous.get("generated_at"))).replace("Updated", "Generated", 1))}</time>'
+            card += '</li>'
+        card += '</ol></details>'
     if reasons:
         card += '<div class="hub-attention"><span>Needs attention</span><ul>'
         card += "".join(f'<li>{html.escape(text(reason))}</li>' for reason in reasons if text(reason))
@@ -1134,7 +1239,7 @@ def _hub_card_html(e: dict) -> str:
         references.append(f'<span class="hub-local">Local: {html.escape(local_path)}</span>')
     if references:
         card += '<div class="hub-references">' + "".join(references) + '</div>'
-    card += f'<div class="project-actions"><a class="hub-edit" href="/hub/admin#{urllib.parse.quote(fn)}">Edit details</a></div>'
+    card += f'<div class="project-actions"><a class="hub-edit" href="/hub/admin#{urllib.parse.quote(fn)}">Manage project</a></div>'
     card += '</article>'
     return card
 

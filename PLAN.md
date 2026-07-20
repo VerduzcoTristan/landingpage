@@ -210,7 +210,7 @@ curation. Malformed fields or one malformed entry degrade independently.
   invalidation precise. Verify non-blocking lifecycle, override precedence,
   terminal polling, auth, CSRF, and malformed-data tests; compile, check this
   step, and commit alone.
-- [ ] **Step 5 — Rebuild the Hub as the living Projects page.** Change the
+- [x] **Step 5 — Rebuild the Hub as the living Projects page.** Change the
   visible navigation/title to Projects while retaining `/hub`; lead cards with
   Current and Next, pinned/freshness/review signals, analyzed revision,
   safe file/stat evidence, last-good updating states, capped collapsed history,
@@ -259,6 +259,11 @@ curation. Malformed fields or one malformed entry degrade independently.
   aggregate polling is terminal, manual overrides resolve first, pinned order
   is stable, per-project regeneration is scoped/authenticated/CSRF-protected,
   and persisted insight-only projects survive a post-restart GitHub outage.
+- Step 5: all 142 unit tests passed. The `/hub` route now renders the Projects
+  surface with Current/Next first, pinned/new/review filters, automatic/manual
+  provenance, revision links, safe changed-file stats, stale/updating states,
+  five-entry collapsed history, and device-local since-last-visit markers.
+  Content remains server-rendered without JavaScript; commit prose is absent.
 
 ---
 

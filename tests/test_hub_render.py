@@ -229,7 +229,8 @@ class TestHubPage(unittest.TestCase):
 
     def test_contains_hub_title(self):
         html = self._page([make_repo("a/repo", recency="active")], {})
-        self.assertIn("Hub", html)
+        self.assertIn("<h1>Projects</h1>", html)
+        self.assertIn(">Projects</a>", html)
         self.assertIn("Control Center", html)
 
     def test_group_headings_only_for_non_empty(self):
@@ -252,8 +253,9 @@ class TestHubPage(unittest.TestCase):
     def test_updating_placeholder_uses_insight_contract(self):
         repos = [make_repo("a/repo", recency="active")]
         html = self._page(repos, {})
-        self.assertIn("Updating insight", html)
-        self.assertIn('data-insight-current="a/repo"', html)
+        self.assertIn("Analyzing the latest code changes", html)
+        self.assertIn("data-insight-current", html)
+        self.assertIn("data-insight-next", html)
 
     def test_curate_link_to_admin_anchor(self):
         repos = [make_repo("a/repo", recency="active")]
@@ -306,6 +308,9 @@ class TestHubPage(unittest.TestCase):
         curated = {"d/done": {"status_override": "done"}}
         page = self._page(repos, curated)
         self.assertIn('data-hub-filter="focus" aria-pressed="true"', page)
+        self.assertIn('data-hub-filter="pinned"', page)
+        self.assertIn('data-hub-filter="new"', page)
+        self.assertIn('data-hub-filter="review"', page)
         for key in ("active", "maintain", "stalled", "done", "all"):
             self.assertIn(f'data-hub-filter="{key}"', page)
         self.assertIn('button.setAttribute("aria-pressed"', page)
@@ -319,6 +324,13 @@ class TestHubPage(unittest.TestCase):
         self.assertIn("a/stalled", page)
         self.assertIn("b/done", page)
         self.assertNotIn('<details class="hub-group hub-low-priority" open', page)
+
+    def test_changed_since_last_visit_uses_only_device_timestamp(self):
+        page = self._page([make_repo("a/repo")], {})
+        self.assertIn("control-center-projects-last-visit", page)
+        self.assertIn("localStorage.getItem", page)
+        self.assertIn('data-generated-at="', page)
+        self.assertIn('data-new="false"', page)
 
 
 # ── _hub_card_html tests ─────────────────────────────────────────────────────
@@ -382,6 +394,35 @@ class TestHubCardHtml(unittest.TestCase):
             self.assertIn(expected, card)
         entry["live_url"] = "javascript:alert(1)"
         self.assertNotIn("javascript:", self._card(entry))
+
+    def test_card_leads_with_current_next_and_safe_provenance_history(self):
+        entry = {
+            "full_name": "a/repo", "name": "repo", "html_url": "https://github.com/a/repo",
+            "description": "Description", "language": "Python", "pushed_at": "2026-07-20T12:00:00Z",
+            "recency": "active", "head_sha": "a" * 40, "change_status": "unchanged",
+            "goal": "Ship it", "current_state": "The feature is implemented.",
+            "current_source": "automatic", "whats_next": "Validate deployment.",
+            "next_source": "manual", "pinned": True, "attention_reasons": [],
+            "insight": {
+                "head_sha": "a" * 40, "generated_at": "2026-07-20T12:01:00Z",
+                "confidence": "high", "state": "ready", "additions": 4, "deletions": 1,
+                "changed_files": [{
+                    "path": "src/<unsafe>.py", "status": "modified", "additions": 4, "deletions": 1,
+                }],
+                "history": [{
+                    "current_state": "Earlier state", "next_step": "Earlier next",
+                    "generated_at": "2026-07-19T12:00:00Z",
+                }],
+            },
+        }
+        card = self._card(entry)
+        for marker in ("Current", "The feature is implemented.", "Next", "Validate deployment.",
+                       "Pinned", "AI high", "Revision aaaaaaaa", "1 changed file", "+4/−1",
+                       "Previous insights", "Earlier state", "Manage project"):
+            self.assertIn(marker, card)
+        self.assertIn("src/&lt;unsafe&gt;.py", card)
+        self.assertIn('data-source="manual"', card)
+        self.assertNotIn("<unsafe>", card)
 
 
 # ── JS poll snippet tests ────────────────────────────────────────────────────
