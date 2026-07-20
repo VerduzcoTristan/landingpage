@@ -1,7 +1,165 @@
-# PLAN.md — Projects/Portfolio Hub (GitHub-sourced, Ollama-summarized)
+# PLAN.md — Control Center Reliability + UX Remediation
 
-Plan pass output per AGENTS.md. Single source of truth for this build pass.
-One step = one commit (`step N: <description>`); verify, tick, commit, continue.
+Current plan pass output per AGENTS.md. This section is the single source of
+truth for the next build pass. One step = one commit (`step N: <description>`);
+verify the step, tick it here, then commit before starting the next step.
+
+## Current objective
+
+Finish the Hub implementation promised by the completed build, remove the
+reliability hazards found in review, and redesign the daily experience around
+three questions: what is in today's briefing, what is unhealthy, and what work
+needs attention. Briefing data and behavior remain protected; only its homepage
+presentation changes.
+
+## Files expected to change
+
+- `.gitignore`, `.dockerignore`: exclude local agent/runtime state and receipts.
+- `server.py`: page composition, routing, auth/CSRF, Hub merge/rendering, home,
+  responsive navigation, admin interaction, and safe backup response.
+- `hub_store.py` (new): locked, robust JSON curation storage and migration.
+- `github_client.py` (new): GitHub transport, cache, bounded background refresh,
+  commit enrichment, recency, and null-safe normalization.
+- `ollama_client.py` (new): SHA-keyed summary cache, failure cache, in-flight
+  guard, bounded background generation, and prompt construction.
+- `tests/test_hub_*.py`, `tests/test_github_client.py`,
+  `tests/test_ollama_client.py`: replace implementation-shaped assertions with
+  acceptance and concurrency coverage.
+- `scripts/smoke.py`: new Hub state/API and mutation route checks.
+- `OPERATIONS.md`, `STATE.md`: correct data paths, behavior, troubleshooting,
+  and completion record.
+- `PLAN.md`: checked after every verified step with decisions logged below.
+
+No Compose, Caddy, Cloudflare Tunnel, hostname, port, secret, database, or live
+deployment change is planned.
+
+## Decisions awaiting approval
+
+- **R1 — Split Hub internals into three stdlib-only modules.** The 81 KB
+  `server.py` is no longer simpler as one file. Rendering and HTTP handling stay
+  in `server.py`; storage, GitHub, and Ollama state move to focused modules. No
+  framework or package is added.
+- **R2 — Make all GitHub enrichment non-blocking.** `/hub` renders cached or
+  curated data immediately. A single guarded daemon refresh fetches the repo
+  list, then enriches commits with at most four workers. New public
+  `GET /api/hub/state` reports `idle|refreshing|ready|error`; Hub polls it only
+  while refreshing and reloads once when fresh data becomes available.
+- **R3 — Keep Ollama optional and bounded.** Summary keys include repo + commit
+  SHAs; successes cache 30 minutes, failures/no-commit results 5 minutes; one
+  in-flight job per key, four maximum workers. The UI silently falls back to
+  recent commits and never polls forever or exposes Ollama configuration.
+- **R4 — Keep flat-file curation.** `data/curation.json` remains the only Hub
+  data model and keeps `goal`, `whats_next`, `status_override`, `live_url`,
+  `local_path`, `hidden`, and `order`. Reads tolerate malformed individual
+  fields; writes use a process lock plus atomic replacement. No database.
+- **R5 — Default Hub view is Focus.** The page opens on active and attention-
+  needed work, with counts and filters for Active, Maintaining, Stalled, Done,
+  and All. Stalled/Done do not dominate the initial daily view, but no visible
+  entry is deleted.
+- **R6 — Redesign cards around decisions.** Order: project/status, goal, next
+  action, relative update time, recent activity, repo/live/local references.
+  Edit is secondary. Status colors remain restrained and accessible.
+- **R7 — Homepage becomes a desktop 2:1 daily layout.** The latest five
+  briefing items remain first and largest; monitoring failures and up to four
+  focus projects sit in a compact side rail. All underlying briefing selection,
+  fallback, bookmark, and detail logic stays unchanged.
+- **R8 — Admin becomes a searchable compact list.** Filters include uncurated,
+  hidden, and done; each repo expands to an edit form. Save/delete use POST,
+  include a per-process CSRF token, preserve the repo anchor, and provide inline
+  success/error feedback. Numeric priority remains simpler than drag-and-drop.
+- **R9 — Remove runtime artifacts from Git, not from disk.** Untrack `.swarm/`,
+  `.opencode/`, and scratch receipts while leaving local working copies intact;
+  exclude them from Git and Docker build context. The already-deleted
+  `commit_1.8.txt` is recorded as removed.
+- **R10 — No live deployment.** This pass ends with local verification and
+  commits. Deployment remains a separate explicit request.
+
+## Keep / Remove audit (current pass)
+
+| Route / file / feature | Verdict | Change |
+|---|---|---|
+| `/` | KEEP + IMPROVE | Briefing-first 2:1 daily layout; compact header and side rail |
+| `/briefings`, `/briefing/<date>`, bookmarks | KEEP | No logic or data changes |
+| `/status`, `/api/status` | KEEP | Same monitoring source; clearer failure-first glance on home |
+| `/hub` | KEEP + REBUILD UI | Focus view, counts/filters, complete curation data, honest states |
+| `/hub/admin` | KEEP + REBUILD UI | Search/filter, expandable editor, anchor-preserving feedback |
+| `/hub/admin/update|delete|refresh|backup` | KEEP + HARDEN | CSRF, POST-only deletion, correct invalidation, streamed/temp backup |
+| `/api/hub/summaries` | KEEP + HARDEN | Bounded jobs, terminal fallback states, no endless polling |
+| `/api/hub/state` | ADD | Non-blocking GitHub refresh status and one-time page refresh signal |
+| `data/curation.json` | KEEP | Correct documented filename; locked/robust persistence |
+| GitHub/Ollama code inline in `server.py` | REMOVE | Move to focused stdlib modules |
+| `.swarm/`, `.opencode/`, scratch receipts in Git/image | REMOVE FROM TRACKING | Preserve local copies; ignore going forward |
+| Removed legacy routes (`/projects*`, `/portfolio`) | KEEP REMOVED | Smoke-test 404s |
+
+## Acceptance criteria
+
+- `/`, `/briefings`, `/status`, and bookmarks retain their existing data and
+  error behavior; five briefing previews plus status/focus information are
+  reachable without a long desktop scroll.
+- `/hub` returns promptly without waiting for per-repo GitHub or Ollama calls.
+- At most one GitHub refresh and one Ollama job per summary key can run; bounded
+  worker limits and failure TTLs are covered by deterministic tests.
+- Hidden repos do not appear publicly. Curated-only/unmatched repos remain
+  manageable. Goal, next action, live URL, local path, relative push time, and
+  attention reasons render when present. GitHub nulls never render as `None`.
+- Refresh clears GitHub activity and summary state. Ollama-down and no-commit
+  repos terminate in a raw-commit/no-activity fallback without repeated polling.
+- All admin mutations require auth + CSRF; deletion is a confirmed POST. Save
+  feedback preserves the edited repository context.
+- Mobile navigation stays one compact row; controls meet touch sizing; card
+  heading levels and focus states remain accessible; reduced motion remains.
+- No `.swarm`, `.opencode`, WAL/SHM, or receipt artifacts are tracked or copied
+  into the image; local tool state is not deleted.
+- Full unit tests, compilation, Compose config, live smoke matrix, null-field
+  checks, legacy-brand scan, and `git diff --check` pass.
+
+## Build steps
+
+- [x] **Step 1 — Clean repository and image context.** Add ignores, untrack
+  runtime/tool artifacts without deleting local copies, record the existing
+  scratch receipt deletion, and verify tracked files plus Docker context.
+- [ ] **Step 2 — Extract and harden Hub state modules.** Add `hub_store.py`,
+  `github_client.py`, and `ollama_client.py`; move behavior without changing
+  routes; add locked atomic storage and malformed-field/null tests; run full
+  regression tests.
+- [ ] **Step 3 — Make GitHub loading non-blocking.** Add the guarded background
+  refresh, bounded commit enrichment, stale snapshots, `/api/hub/state`, and
+  prompt first-load/error states; verify latency with blocking stubs and assert
+  worker/in-flight ceilings.
+- [ ] **Step 4 — Fix summary lifecycle and Hub actions.** Add SHA fingerprints,
+  success/failure TTLs, bounded in-flight generation, terminal fallbacks, and
+  correct refresh invalidation; stream/spool backups safely; verify Ollama-down,
+  no-commit, overlapping-poll, refresh, and backup cases.
+- [ ] **Step 5 — Complete Hub merge, cards, and mutation safety.** Honor hidden,
+  union curated-only entries, render every curation field and relative activity,
+  fix nulls/headings/links, convert deletion to confirmed POST, and add CSRF to
+  admin mutations with acceptance-focused tests.
+- [ ] **Step 6 — Redesign the homepage and mobile navigation.** Implement the
+  compact header, latest-five briefing surface, monitoring/focus side rail,
+  single-row mobile nav, touch/focus/responsive states, and regression tests for
+  briefing selection and retained routes.
+- [ ] **Step 7 — Redesign the Hub daily view.** Add overview counts, Focus-first
+  filters, restrained semantic status styling, clearer card hierarchy, collapsed
+  low-priority groups, and quiet edit controls; verify keyboard and no-JS access.
+- [ ] **Step 8 — Redesign Hub admin.** Add client-side search/filter, expandable
+  editors, all missing fields, anchor-preserving inline save/error feedback, and
+  usable technical-link sections; verify authenticated/unauthenticated and
+  curated-only workflows.
+- [ ] **Step 9 — Documentation and definition-of-done audit.** Correct
+  `OPERATIONS.md` paths and states, update smoke checks and `STATE.md`, run the
+  complete verification matrix and legacy-brand scan, and record final results.
+
+## Decision log (current pass)
+
+- Step 1: local `.swarm/`, `.opencode/`, and `.claude/` state is ignored and
+  removed from Git tracking only; working copies remain available locally.
+
+---
+
+## Historical completed build — GitHub/Ollama Hub
+
+The remainder of this file records the completed plan that produced the current
+Hub baseline. Its checked steps are historical and must not be resumed.
 
 ## Context
 

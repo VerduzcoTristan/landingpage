@@ -1,9 +1,0 @@
-{
-  "version": 1,
-  "taskId": "1.6",
-  "declaredAt": 1784430723228,
-  "expiresAt": 1784517123228,
-  "files": [
-    "server.py"
-  ]
-}

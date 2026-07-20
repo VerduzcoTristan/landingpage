@@ -11,6 +11,14 @@ data/
 *.db
 *.sqlite
 *.sqlite3
+*.db-shm
+*.db-wal
+
+# Local agent/tool state and scratch receipts
+.claude/
+.opencode/
+.swarm/
+commit_*.txt
 
 # Local secrets/config that should not be published
 .env
