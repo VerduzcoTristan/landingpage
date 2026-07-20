@@ -191,7 +191,7 @@ curation. Malformed fields or one malformed entry degrade independently.
   `project-insights.json` persistence, generated-record normalization, capped
   history, and corruption/concurrency tests. Verify storage tests, compile,
   check this step, and commit it alone.
-- [ ] **Step 2 — Replace commit-message enrichment with bounded change data.**
+- [x] **Step 2 — Replace commit-message enrichment with bounded change data.**
   Add pushed-at/head tracking, initial recent-range comparison, stored-head to
   branch comparison, force-push/latest-commit fallback, transient patch caps,
   and display-safe file/stat extraction. Ensure messages are not returned as
@@ -245,6 +245,10 @@ curation. Malformed fields or one malformed entry degrade independently.
   `hub_store.py` and its tests compile, atomic/parallel writes remain valid,
   history caps at five, and schema allowlisting proves raw patches, prompts,
   model names, and tokens are not persisted.
+- Step 2: all 15 GitHub client tests and the 132-test regression suite passed.
+  Initial range and prior-head comparisons, force-push fallback, four-worker
+  concurrency, 20-file/12 KB patch budgets, 2 MB response limits, and restart
+  reuse are covered; misleading commit prose is absent from returned context.
 
 ---
 

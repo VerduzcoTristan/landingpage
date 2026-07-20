@@ -49,17 +49,60 @@ class TestGitHubTransport(unittest.TestCase):
         ):
             self.assertIsNone(client.request("https://api.github.com/test"))
 
-    def test_commit_normalization_is_null_safe(self):
+    def test_request_rejects_oversized_responses(self):
+        client = GitHubClient(max_response_bytes=1024)
+        response = MagicMock()
+        response.read.return_value = b"x" * 1025
+        response.__enter__.return_value = response
+        response.__exit__.return_value = False
+        with patch.dict(os.environ, {"GITHUB_TOKEN": "secret"}, clear=True), patch(
+            "urllib.request.urlopen", return_value=response
+        ):
+            self.assertIsNone(client.request("https://api.github.com/test"))
+        response.read.assert_called_once_with(1025)
+
+    def test_change_extraction_is_null_safe_and_bounded(self):
+        client = GitHubClient(max_files=2, max_patch_chars=5, max_total_patch_chars=7)
+        payload = {
+            "sha": "abcdef1234",
+            "files": [
+                {"filename": "one.py", "status": "modified", "additions": None,
+                 "deletions": "bad", "patch": "123456789"},
+                {"filename": "two.py", "status": "added", "additions": 2,
+                 "deletions": 0, "patch": "abcdef"},
+                {"filename": "ignored.py", "patch": "ignored"},
+            ],
+        }
+        changes = client._extract_changes(payload)
+        self.assertEqual(changes["head_sha"], "abcdef1234")
+        self.assertEqual(len(changes["changed_files"]), 2)
+        self.assertEqual(changes["prompt_files"][0]["patch"], "12345")
+        self.assertEqual(changes["prompt_files"][1]["patch"], "ab")
+
+    def test_initial_change_fetch_ignores_misleading_commit_messages(self):
         client = GitHubClient()
-        payload = [
-            {"sha": None, "commit": {"message": None}},
-            {"sha": "abcdef1234", "commit": {"message": "Subject\nbody"}},
+        commits = [
+            {"sha": "new", "commit": {"message": "LIE: project is finished"}},
+            {"sha": "old", "commit": {"message": "another misleading message"}},
         ]
-        with patch.object(client, "request", return_value=payload):
-            commits = client.fetch_recent_commits("owner", "repo", "main")
-        self.assertEqual(commits[0], {"sha": "", "subject": "", "body": ""})
-        self.assertEqual(commits[1]["sha"], "abcdef12")
-        self.assertEqual(commits[1]["subject"], "Subject")
+        compare = {"head_commit": {"sha": "new"}, "files": [{
+            "filename": "src/app.py", "status": "modified", "additions": 3,
+            "deletions": 1, "patch": "+actual code",
+        }]}
+        with patch.object(client, "request", side_effect=[commits, compare]):
+            changes = client.fetch_change_context("owner", "repo", "main")
+        serialized = json.dumps(changes)
+        self.assertIn("actual code", serialized)
+        self.assertNotIn("project is finished", serialized)
+        self.assertNotIn("misleading message", serialized)
+
+    def test_previous_head_uses_compare_then_falls_back_to_latest_detail(self):
+        client = GitHubClient()
+        latest = {"sha": "new", "files": [{"filename": "README.md", "patch": "+now"}]}
+        with patch.object(client, "request", side_effect=[None, latest]) as request:
+            changes = client.fetch_change_context("owner", "repo", "feature/x", "old")
+        self.assertEqual(changes["head_sha"], "new")
+        self.assertIn("old...feature%2Fx", request.call_args_list[0].args[0])
 
 
 class TestRecency(unittest.TestCase):
@@ -102,7 +145,7 @@ class TestNonBlockingRefresh(unittest.TestCase):
             return [self.repo()]
 
         with patch.object(client, "fetch_all_repos", side_effect=blocked_fetch), patch.object(
-            client, "fetch_recent_commits", return_value=[]
+            client, "fetch_change_context", return_value=None
         ):
             started = time.perf_counter()
             snapshot = client.get_repos()
@@ -142,7 +185,7 @@ class TestNonBlockingRefresh(unittest.TestCase):
         peak = 0
         lock = threading.Lock()
 
-        def commits(*_args):
+        def changes(*_args):
             nonlocal active, peak
             with lock:
                 active += 1
@@ -153,12 +196,32 @@ class TestNonBlockingRefresh(unittest.TestCase):
             return []
 
         with patch.object(client, "fetch_all_repos", return_value=[self.repo(i) for i in range(16)]), patch.object(
-            client, "fetch_recent_commits", side_effect=commits
+            client, "fetch_change_context", side_effect=changes
         ):
             client.get_repos()
             self.assertTrue(client.wait_for_refresh())
         self.assertLessEqual(peak, 4)
         self.assertGreater(peak, 1)
+
+    def test_unchanged_repository_avoids_change_request_after_restart(self):
+        pushed_at = "2026-07-20T12:00:00Z"
+        known = {"owner/repo-0": {
+            "head_sha": "a" * 40,
+            "source_pushed_at": pushed_at,
+            "changed_files": [{"path": "saved.py", "status": "modified"}],
+        }}
+        client = GitHubClient(insight_loader=lambda: known)
+        repo = self.repo()
+        repo["pushed_at"] = pushed_at
+        with patch.object(client, "fetch_all_repos", return_value=[repo]), patch.object(
+            client, "fetch_change_context"
+        ) as fetch_changes:
+            client.get_repos()
+            self.assertTrue(client.wait_for_refresh())
+        fetch_changes.assert_not_called()
+        enriched = client.get_repos()["repos"][0]
+        self.assertEqual(enriched["change_status"], "unchanged")
+        self.assertEqual(enriched["head_sha"], "a" * 40)
 
     def test_stale_snapshot_is_served_during_refresh(self):
         client = GitHubClient(cache_ttl=0)
