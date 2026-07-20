@@ -118,7 +118,7 @@ deployment change is planned.
 - [x] **Step 1 — Clean repository and image context.** Add ignores, untrack
   runtime/tool artifacts without deleting local copies, record the existing
   scratch receipt deletion, and verify tracked files plus Docker context.
-- [ ] **Step 2 — Extract and harden Hub state modules.** Add `hub_store.py`,
+- [x] **Step 2 — Extract and harden Hub state modules.** Add `hub_store.py`,
   `github_client.py`, and `ollama_client.py`; move behavior without changing
   routes; add locked atomic storage and malformed-field/null tests; run full
   regression tests.

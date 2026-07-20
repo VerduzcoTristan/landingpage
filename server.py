@@ -12,8 +12,12 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
+
+from github_client import GitHubClient
+from hub_store import HubStore, normalise_hub
+from ollama_client import OllamaClient
 
 PORT = 3002
 BRIEFING_DIR = Path(os.path.expanduser("~/.hermes/cron/output/7dc1d641173d"))
@@ -738,273 +742,70 @@ def status_page() -> str:
 
 def _migrate_hub_file() -> None:
     """One-time migration: rename legacy projects.json to the clean curation path."""
-    legacy = DATA_DIR / "projects.json"
-    if not HUB_FILE.exists() and legacy.exists():
-        os.replace(legacy, HUB_FILE)
+    _HUB_STORE.migrate_legacy_path()
 
 # ── Hub Curation Config ──
 
 HUB_FILE = DATA_DIR / "curation.json"  # curation layer, keyed by repo full_name
+_HUB_STORE = HubStore(HUB_FILE, DATA_DIR / "projects.json")
 _migrate_hub_file()
 
 def _normalise_hub(raw) -> dict:
     """Coerce arbitrary JSON into a clean curation dict keyed by full_name."""
-    if not isinstance(raw, dict):
-        return {}
-    clean = {}
-    for key, value in raw.items():
-        if not isinstance(key, str) or not key.strip():
-            continue
-        entry = value if isinstance(value, dict) else {}
-        clean[key.strip()] = {
-            "goal": str(entry.get("goal", "")).strip(),
-            "whats_next": str(entry.get("whats_next", "")).strip(),
-            "status_override": "done" if str(entry.get("status_override", "")).strip().lower() == "done" else "",
-            "live_url": str(entry.get("live_url", "")).strip(),
-            "local_path": str(entry.get("local_path", "")).strip(),
-            "hidden": bool(entry.get("hidden", False)),
-            "order": int(entry.get("order", 0) or 0),
-        }
-    return clean
+    return normalise_hub(raw)
 
 def load_hub() -> dict:
     """Load the curation layer; migrate legacy list format on first read."""
-    if not HUB_FILE.exists():
-        return {}
-    try:
-        raw = json.loads(HUB_FILE.read_text(encoding="utf-8-sig"))
-    except (OSError, ValueError, TypeError, json.JSONDecodeError):
-        return {}
-    # Migration: legacy projects.json was a LIST of {name, description, url, repo_url, status, order, hidden}
-    if isinstance(raw, list):
-        migrated = {}
-        for index, item in enumerate(raw):
-            if not isinstance(item, dict):
-                continue
-            full_name = ""
-            repo_url = str(item.get("repo_url", "")).strip()
-            # derive full_name from repo_url like https://github.com/owner/repo
-            if repo_url:
-                match = re.search(r"github\.com/([^/]+/[^/#?]+)", repo_url)
-                if match:
-                    full_name = match.group(1)
-            if not full_name:
-                name = str(item.get("name", "")).strip()
-                if name:
-                    full_name = name  # best-effort key; GitHub merge will miss if not owner/repo
-            if not full_name:
-                continue
-            # Old `status` (active/inactive/archived) is intentionally NOT mapped to
-            # status_override (different semantics); entries start with no override.
-            migrated[full_name] = {
-                "goal": str(item.get("description", "")).strip(),
-                "whats_next": "",
-                "status_override": "",
-                "live_url": str(item.get("url", "")).strip(),
-                "local_path": "",
-                "hidden": bool(item.get("hidden", False)),
-                "order": int(item.get("order", index) or index),
-            }
-        save_hub(migrated)
-        return migrated
-    return _normalise_hub(raw)
+    return _HUB_STORE.load()
 
 def save_hub(hub: dict) -> None:
     """Atomic write of the curation layer."""
-    hub = _normalise_hub(hub)
-    HUB_FILE.parent.mkdir(parents=True, exist_ok=True)
-    temporary = HUB_FILE.with_suffix(".tmp")
-    temporary.write_text(json.dumps(hub, indent=2) + "\n", encoding="utf-8")
-    temporary.replace(HUB_FILE)
+    _HUB_STORE.save(hub)
 
 def update_hub(action: str, get) -> str:
     """Mutate a single curation entry by full_name. Returns a message string."""
-    full_name = str(get("full_name", "")).strip()
-    if not full_name:
-        return "Repository identifier missing."
-    hub = load_hub()
-    entry = hub.get(full_name, {"goal": "", "whats_next": "", "status_override": "",
-                                "live_url": "", "local_path": "", "hidden": False, "order": 0})
-    if action == "update":
-        entry["goal"] = str(get("goal", "")).strip()
-        entry["whats_next"] = str(get("whats_next", "")).strip()
-        entry["status_override"] = "done" if str(get("status_override", "")).strip().lower() == "done" else ""
-        entry["live_url"] = str(get("live_url", "")).strip()
-        entry["local_path"] = str(get("local_path", "")).strip()
-        entry["hidden"] = get("hidden") in {"1", "true", "on", "yes"}
-        try:
-            entry["order"] = int(get("order", entry.get("order", 0)) or 0)
-        except (ValueError, TypeError):
-            pass
-        hub[full_name] = entry
-    elif action == "toggle-hide":
-        entry["hidden"] = not entry.get("hidden", False)
-        hub[full_name] = entry
-    elif action == "delete":
-        hub.pop(full_name, None)
-    else:
-        return "Unknown action."
-    save_hub(hub)
-    return "Hub updated."
+    return _HUB_STORE.update(action, get)
 
 # ── GitHub client (Hub data source) ──
 # Reads the user's owned repos + recent commits via the REST API.
 # Token is read from GITHUB_TOKEN (local development) or GITHUB_TOKEN_FILE
 # (production secret mount). It is never logged or echoed.
 
-_GH_CACHE: dict = {"repos": None, "ts": 0.0}
-_GH_CACHE_TTL = 600  # 10 minutes
-_GH_API = "https://api.github.com"
+_GITHUB_CLIENT = GitHubClient()
+_GH_CACHE = _GITHUB_CLIENT._cache  # compatibility seam for existing callers/tests
+_GH_CACHE_TTL = _GITHUB_CLIENT.cache_ttl
+_GH_API = _GITHUB_CLIENT.api_url
 
 def _gh_token() -> str:
-    token = os.environ.get("GITHUB_TOKEN", "").strip()
-    if token:
-        return token
-    token_file = os.environ.get("GITHUB_TOKEN_FILE", "").strip()
-    if not token_file:
-        return ""
-    try:
-        return Path(token_file).read_text(encoding="utf-8").strip()
-    except OSError:
-        return ""
+    return _GITHUB_CLIENT.token()
 
 def _gh_request(url: str) -> dict | None:
     """GET a GitHub API URL. Returns parsed JSON, or None on any failure.
     Never raises; never logs the token, URL-with-token, or response bodies."""
-    token = _gh_token()
-    if not token:
-        return None
-    req = urllib.request.Request(url)
-    req.add_header("Authorization", f"token {token}")
-    req.add_header("Accept", "application/vnd.github+json")
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError:
-        return None
-    except urllib.error.URLError:
-        return None
-    except (OSError, ValueError, TypeError, json.JSONDecodeError):
-        return None
+    return _GITHUB_CLIENT.request(url)
 
 def fetch_all_repos() -> list[dict] | None:
     """Return a list of owned repos (public + private), or None on failure."""
-    token = _gh_token()
-    if not token:
-        return None
-    repos = []
-    page = 1
-    try:
-        while page <= 10:  # safety ceiling: 1000 repos max
-            url = (f"{_GH_API}/user/repos?type=owner&per_page=100"
-                   f"&sort=pushed&direction=desc&page={page}")
-            data = _gh_request(url)
-            if data is None:
-                return None
-            if not data:
-                break
-            repos.extend(data)
-            if len(data) < 100:
-                break
-            page += 1
-        return repos
-    except Exception:
-        return None
+    return _GITHUB_CLIENT.fetch_all_repos()
 
 def fetch_recent_commits(owner: str, repo: str, branch: str) -> list[dict]:
     """Return up to 5 recent commits (subject + body), or [] on failure.
     Degrades silently — a single repo's failure must not break the whole refresh."""
-    url = f"{_GH_API}/repos/{owner}/{repo}/commits?sha={urllib.parse.quote(branch)}&per_page=5"
-    data = _gh_request(url)
-    if not isinstance(data, list):
-        return []
-    commits = []
-    for item in data[:5]:
-        commit = item.get("commit", {}) if isinstance(item, dict) else {}
-        message = str(commit.get("message", ""))
-        commits.append({
-            "sha": str(item.get("sha", ""))[:8],
-            "subject": message.split("\n", 1)[0].strip(),
-            "body": " ".join(
-                line.strip() for line in message.split("\n")[1:] if line.strip()
-            )[:400],
-        })
-    return commits
+    return _GITHUB_CLIENT.fetch_recent_commits(owner, repo, branch)
 
 def classify_recency(pushed_at: str) -> str:
     """Active (<7d) / Maintain (<30d) / Stalled (>30d)."""
-    if not pushed_at:
-        return "stalled"
-    try:
-        pushed = datetime.fromisoformat(pushed_at.replace("Z", "+00:00"))
-    except ValueError:
-        return "stalled"
-    now = datetime.now(timezone.utc)
-    delta = now - pushed
-    if delta.days < 7:
-        return "active"
-    if delta.days < 30:
-        return "maintain"
-    return "stalled"
+    return _GITHUB_CLIENT.classify_recency(pushed_at)
 
 def get_hub_repos(force: bool = False) -> dict:
     """Return merged Hub data: {repos: [...], status: "ok"|"token_missing"|"error", banner: str|None, ts: float}.
     Cached 10 min; serves stale on failure. Each repo entry carries:
     full_name, name, description, language, html_url, default_branch, pushed_at, recency, commits (list)."""
     global _GH_CACHE
-    now = time.time()
-    cached = _GH_CACHE["repos"] is not None and (now - _GH_CACHE["ts"]) < _GH_CACHE_TTL
-    if cached and not force:
-        return _GH_CACHE["repos"]
-    # Stale-while-revalidate: build fresh, fall back to stale on failure
-    token = _gh_token()
-    if not token:
-        if _GH_CACHE["repos"] is not None:
-            stale = dict(_GH_CACHE["repos"])
-            stale["status"] = "token_missing"
-            stale["banner"] = "GitHub token not configured — showing curated data only."
-            return stale
-        return {"repos": [], "status": "token_missing",
-                "banner": "GitHub token not configured. Set GITHUB_TOKEN to populate the Hub.",
-                "ts": now}
-    repos = fetch_all_repos()
-    if repos is None:
-        if _GH_CACHE["repos"] is not None:
-            stale = dict(_GH_CACHE["repos"])
-            stale["status"] = "error"
-            stale["banner"] = "GitHub unavailable — showing cached data."
-            return stale
-        return {"repos": [], "status": "error",
-                "banner": "GitHub unavailable — unable to load repos.", "ts": now}
-    # Enrich each repo with recency + recent commits
-    enriched = []
-    for repo in repos:
-        if not isinstance(repo, dict):
-            continue
-        full_name = str(repo.get("full_name", "")).strip()
-        if not full_name:
-            continue
-        owner, _, name = full_name.partition("/")
-        pushed_at = str(repo.get("pushed_at", ""))
-        recency = classify_recency(pushed_at)
-        try:
-            commits = fetch_recent_commits(owner, name, str(repo.get("default_branch", "main")))
-        except Exception:
-            commits = []
-        enriched.append({
-            "full_name": full_name,
-            "name": str(repo.get("name", name)).strip(),
-            "description": str(repo.get("description", "")).strip(),
-            "language": str(repo.get("language", "")).strip() or None,
-            "html_url": str(repo.get("html_url", "")).strip(),
-            "default_branch": str(repo.get("default_branch", "main")).strip(),
-            "pushed_at": pushed_at,
-            "recency": recency,
-            "commits": commits,
-        })
-    result = {"repos": enriched, "status": "ok", "banner": None, "ts": now}
-    _GH_CACHE["repos"] = result
-    _GH_CACHE["ts"] = now
+    if _GH_CACHE is not _GITHUB_CLIENT._cache:
+        _GITHUB_CLIENT._cache = _GH_CACHE
+    result = _GITHUB_CLIENT.get_repos(force=force)
+    _GH_CACHE = _GITHUB_CLIENT._cache
     return result
 
 # ── Ollama client (Hub summaries) ──
@@ -1012,72 +813,29 @@ def get_hub_repos(force: bool = False) -> dict:
 # page renders from cache with "Summarizing…" placeholders; this endpoint
 # fills them lazily. URL/model/prompt/errors are NEVER logged or returned.
 
-_SUMMARY_CACHE: dict = {}  # full_name -> {"summary": str, "ts": float}
-_SUMMARY_TTL = 86400       # 24h
-_SUMMARY_LOCK = threading.Lock()
+_OLLAMA_CLIENT = OllamaClient()
+_SUMMARY_CACHE = _OLLAMA_CLIENT.cache  # compatibility seam for existing callers/tests
+_SUMMARY_TTL = _OLLAMA_CLIENT.cache_ttl
+_SUMMARY_LOCK = _OLLAMA_CLIENT.lock
 
 def _ollama_base_url() -> str:
-    return os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
+    return _OLLAMA_CLIENT.base_url()
 
 def _ollama_model() -> str:
-    return os.environ.get("OLLAMA_MODEL", "qwen2.5:7b").strip()
+    return _OLLAMA_CLIENT.model()
 
 def _ollama_summarize(repo: dict) -> str | None:
     """Return a one-line summary for a repo, or None on any failure.
     Builds a prompt from recent commit subjects/bodies only. Never raises."""
-    commits = repo.get("commits") or []
-    if not commits:
-        return None
-    lines = []
-    for c in commits[:5]:
-        subj = str(c.get("subject", "")).strip()
-        if subj:
-            lines.append(f"- {subj}")
-    if not lines:
-        return None
-    prompt = (
-        "Summarize what this project is doing recently in ONE short plain-English "
-        "sentence (max 20 words), based only on these recent commit subjects. "
-        "No preamble, no quotes:\n" + "\n".join(lines)
-    )
-    url = f"{_ollama_base_url()}/api/generate"
-    payload = json.dumps({
-        "model": _ollama_model(),
-        "prompt": prompt,
-        "stream": False,
-    }).encode("utf-8")
-    req = urllib.request.Request(url, data=payload, method="POST")
-    req.add_header("Content-Type", "application/json")
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        text = str(data.get("response", "")).strip()
-        # Collapse whitespace, take first line/sentence, cap length
-        text = re.sub(r"\s+", " ", text).strip()
-        if not text:
-            return None
-        return text[:200]
-    except (urllib.error.URLError, urllib.error.HTTPError, OSError,
-            ValueError, TypeError, json.JSONDecodeError):
-        return None
+    return _OLLAMA_CLIENT.summarize(repo)
 
 def _fill_summaries(repos: list[dict]) -> None:
     """Background: fill _SUMMARY_CACHE for repos missing/expired summaries."""
-    now = time.time()
-    for repo in repos:
-        if not isinstance(repo, dict):
-            continue
-        full_name = str(repo.get("full_name", "")).strip()
-        if not full_name:
-            continue
-        with _SUMMARY_LOCK:
-            cached = _SUMMARY_CACHE.get(full_name)
-            if cached and (now - cached["ts"]) < _SUMMARY_TTL:
-                continue
-        summary = _ollama_summarize(repo)
-        if summary:
-            with _SUMMARY_LOCK:
-                _SUMMARY_CACHE[full_name] = {"summary": summary, "ts": now}
+    global _SUMMARY_CACHE
+    if _SUMMARY_CACHE is not _OLLAMA_CLIENT.cache:
+        _OLLAMA_CLIENT.cache = _SUMMARY_CACHE
+    _OLLAMA_CLIENT.fill(repos)
+    _SUMMARY_CACHE = _OLLAMA_CLIENT.cache
 
 def _merge_hub_entries() -> dict:
     """Merge GitHub repos with curated overrides keyed by full_name.

@@ -18,6 +18,7 @@ import os
 import sys
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 
 # Ensure the project root is importable as a package path.
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -104,7 +105,7 @@ class TestHubCuration(unittest.TestCase):
                 "status_override": "  DONE  ",
                 "live_url": "  https://x  ",
                 "local_path": "  /p  ",
-                "hidden": "truthy",  # non-empty string is truthy -> bool() True
+                "hidden": "true",
                 "order": "7",
             }
         }
@@ -119,6 +120,23 @@ class TestHubCuration(unittest.TestCase):
         self.assertTrue(entry["hidden"])
         self.assertEqual(entry["order"], 7)
         self.assertIsInstance(entry["order"], int)
+
+    def test_normalise_hub_tolerates_malformed_individual_fields(self):
+        clean = self.server._normalise_hub({
+            "owner/repo": {
+                "goal": None,
+                "whats_next": ["not", "text"],
+                "status_override": {"bad": "shape"},
+                "live_url": 42,
+                "local_path": False,
+                "hidden": "false",
+                "order": "not-a-number",
+            }
+        })
+        self.assertEqual(clean["owner/repo"], {
+            "goal": "", "whats_next": "", "status_override": "",
+            "live_url": "", "local_path": "", "hidden": False, "order": 0,
+        })
 
     def test_normalise_hub_status_non_done_becomes_empty(self):
         raw = {"o/r": {"status_override": "active"}}
@@ -252,6 +270,23 @@ class TestHubCuration(unittest.TestCase):
     def test_update_hub_unknown_action_returns_error(self):
         msg = self.server.update_hub("frobnicate", FormGet({"full_name": "owner/repo"}))
         self.assertEqual(msg, "Unknown action.")
+
+    def test_concurrent_updates_do_not_lose_entries_or_corrupt_json(self):
+        def write(index):
+            return self.server.update_hub("update", FormGet({
+                "full_name": f"owner/repo-{index}",
+                "goal": f"goal {index}",
+                "order": str(index),
+            }))
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            messages = list(pool.map(write, range(40)))
+
+        self.assertEqual(set(messages), {"Hub updated."})
+        loaded = self.server.load_hub()
+        self.assertEqual(len(loaded), 40)
+        self.assertEqual(loaded["owner/repo-39"]["goal"], "goal 39")
+        json.loads(self.server.HUB_FILE.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
