@@ -5,10 +5,14 @@ import http.server
 import html
 import json
 import hmac
+import base64
+import hashlib
 import os
 import re
 import secrets
 import sys
+import tempfile
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -30,6 +34,10 @@ ALLOWED_HOSTS = {
     if host.strip()
 }
 CSRF_TOKEN = secrets.token_urlsafe(32)
+_BOOKMARK_LOCK = threading.RLock()
+_ACCESS_JWKS_LOCK = threading.RLock()
+_ACCESS_JWKS_CACHE: dict = {"keys": {}, "expires_at": 0.0}
+_ACCESS_JWKS_TTL = 3600
 
 def _csrf_field() -> str:
     return f'<input type="hidden" name="csrf_token" value="{html.escape(CSRF_TOKEN, quote=True)}">'
@@ -38,13 +46,114 @@ def _valid_csrf(value: str) -> bool:
     return bool(value) and hmac.compare_digest(str(value), CSRF_TOKEN)
 
 # ── Auth helpers (Cloudflare Access) ──
+def _access_team_domain() -> str:
+    value = os.environ.get("CF_ACCESS_TEAM_DOMAIN", "").strip().rstrip("/")
+    if not value:
+        return ""
+    if not value.startswith(("https://", "http://")):
+        value = "https://" + value
+    try:
+        parsed = urllib.parse.urlsplit(value)
+    except ValueError:
+        return ""
+    if parsed.scheme != "https" or not parsed.netloc or parsed.path not in ("", "/"):
+        return ""
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def _b64url_decode(value: str) -> bytes:
+    return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+
+
+def _access_jwks() -> dict:
+    """Load and cache the configured Cloudflare Access JSON web keys."""
+    team_domain = _access_team_domain()
+    if not team_domain:
+        return {}
+    now = time.time()
+    with _ACCESS_JWKS_LOCK:
+        if _ACCESS_JWKS_CACHE["keys"] and _ACCESS_JWKS_CACHE["expires_at"] > now:
+            return dict(_ACCESS_JWKS_CACHE["keys"])
+        url = os.environ.get(
+            "CF_ACCESS_JWKS_URL",
+            f"{team_domain}/cdn-cgi/access/certs",
+        ).strip()
+        if not url.startswith("https://"):
+            return {}
+        try:
+            request = urllib.request.Request(url, headers={"Accept": "application/json"})
+            with urllib.request.urlopen(request, timeout=3) as response:
+                payload = json.loads(response.read(512 * 1024).decode("utf-8"))
+            keys = {
+                item.get("kid"): item
+                for item in payload.get("keys", [])
+                if isinstance(item, dict) and item.get("kid") and item.get("kty") == "RSA"
+            }
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            return {}
+        if not keys:
+            return {}
+        _ACCESS_JWKS_CACHE.update({"keys": keys, "expires_at": now + _ACCESS_JWKS_TTL})
+        return dict(keys)
+
+
+def _verify_access_jwt(token: str) -> bool:
+    """Verify an RS256 Cloudflare Access JWT and its issuer/audience/time claims."""
+    audience = os.environ.get("CF_ACCESS_AUDIENCE", "").strip()
+    team_domain = _access_team_domain()
+    if not token or not audience or not team_domain:
+        return False
+    parts = token.split(".")
+    if len(parts) != 3:
+        return False
+    try:
+        header = json.loads(_b64url_decode(parts[0]).decode("utf-8"))
+        payload = json.loads(_b64url_decode(parts[1]).decode("utf-8"))
+        signature = _b64url_decode(parts[2])
+    except (ValueError, TypeError, UnicodeDecodeError, json.JSONDecodeError):
+        return False
+    if header.get("alg") != "RS256" or not header.get("kid"):
+        return False
+    if payload.get("iss") != team_domain:
+        return False
+    token_audience = payload.get("aud")
+    if isinstance(token_audience, str):
+        token_audience = [token_audience]
+    if not isinstance(token_audience, list) or audience not in token_audience:
+        return False
+    now = time.time()
+    try:
+        if float(payload["exp"]) <= now:
+            return False
+        if "nbf" in payload and float(payload["nbf"]) > now + 30:
+            return False
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return False
+    key = _access_jwks().get(header["kid"], {})
+    try:
+        modulus = int.from_bytes(_b64url_decode(key["n"]), "big")
+        exponent = int.from_bytes(_b64url_decode(key["e"]), "big")
+        if modulus <= 0 or exponent <= 1:
+            return False
+        key_size = (modulus.bit_length() + 7) // 8
+        if len(signature) != key_size:
+            return False
+        encoded = pow(int.from_bytes(signature, "big"), exponent, modulus).to_bytes(key_size, "big")
+        digest_info = bytes.fromhex(
+            "3031300d060960864801650304020105000420"
+        ) + hashlib.sha256(f"{parts[0]}.{parts[1]}".encode("ascii")).digest()
+        expected = b"\x00\x01" + b"\xff" * (key_size - len(digest_info) - 3) + b"\x00" + digest_info
+        return hmac.compare_digest(encoded, expected)
+    except (KeyError, ValueError, TypeError, OverflowError):
+        return False
+
+
 def is_authenticated(handler) -> bool:
-    """Check Cloudflare Access JWT or localhost bypass."""
+    """Check a signed Cloudflare Access JWT or the explicit localhost bypass."""
     client_ip = handler.client_address[0] if hasattr(handler, "client_address") else ""
     if client_ip in ("127.0.0.1", "::1"):
         return True
-    cf_email = handler.headers.get("Cf-Access-Authenticated-User-Email", "")
-    return bool(cf_email)
+    return _verify_access_jwt(handler.headers.get("Cf-Access-Jwt-Assertion", ""))
 
 _UNAUTH_PAGE = """<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -85,21 +194,37 @@ BOOKMARKS_FILE = DATA_DIR / "bookmarks.json"
 
 def _load_bookmarks() -> dict:
     """Load the bookmarks JSON file, returning {'saved': [], 'read_later': []}."""
-    if BOOKMARKS_FILE.exists():
-        try:
-            data = json.loads(BOOKMARKS_FILE.read_text())
-            if isinstance(data, dict) and "saved" in data and "read_later" in data:
-                return data
-        except Exception:
-            pass
-    return {"saved": [], "read_later": []}
+    with _BOOKMARK_LOCK:
+        if BOOKMARKS_FILE.exists():
+            try:
+                data = json.loads(BOOKMARKS_FILE.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    return {
+                        "saved": data.get("saved") if isinstance(data.get("saved"), list) else [],
+                        "read_later": data.get("read_later") if isinstance(data.get("read_later"), list) else [],
+                    }
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                pass
+        return {"saved": [], "read_later": []}
 
 def _save_bookmarks(data: dict):
     """Write bookmarks to disk atomically."""
-    BOOKMARKS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    tmp = BOOKMARKS_FILE.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, indent=2, default=str))
-    tmp.replace(BOOKMARKS_FILE)
+    with _BOOKMARK_LOCK:
+        BOOKMARKS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        handle = tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=BOOKMARKS_FILE.parent,
+            prefix=f".{BOOKMARKS_FILE.name}.", suffix=".tmp", delete=False,
+        )
+        temporary = Path(handle.name)
+        try:
+            with handle:
+                json.dump(data, handle, indent=2, default=str)
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, BOOKMARKS_FILE)
+        finally:
+            temporary.unlink(missing_ok=True)
 
 def _story_id(date_str: str, title: str, source_url: str) -> str:
     """Generate a stable ID for a story."""
@@ -117,28 +242,29 @@ def _find_bookmark(bookmarks: dict, sid: str):
 
 def _toggle_bookmark(sid: str, story: dict, bookmark_type: str) -> dict:
     """Toggle a bookmark on/off. Returns the updated bookmarks dict."""
-    bookmarks = _load_bookmarks()
-    target_list, idx, current_type = _find_bookmark(bookmarks, sid)
-    if target_list is not None and current_type == bookmark_type:
-        # Already in this list — remove it (toggle off)
-        target_list.pop(idx)
-    else:
-        # Remove from any other list first
-        if target_list is not None:
+    with _BOOKMARK_LOCK:
+        bookmarks = _load_bookmarks()
+        target_list, idx, current_type = _find_bookmark(bookmarks, sid)
+        if target_list is not None and current_type == bookmark_type:
+            # Already in this list — remove it (toggle off)
             target_list.pop(idx)
-        # Add to the requested list
-        entry = {
-            "id": sid,
-            "title": story.get("title", ""),
-            "source_name": story.get("source_name", ""),
-            "source_url": story.get("source_url", ""),
-            "body": story.get("body", ""),
-            "date": story.get("date", ""),
-            "saved_at": datetime.utcnow().isoformat(),
-        }
-        bookmarks[bookmark_type].append(entry)
-    _save_bookmarks(bookmarks)
-    return bookmarks
+        else:
+            # Remove from any other list first
+            if target_list is not None:
+                target_list.pop(idx)
+            # Add to the requested list
+            entry = {
+                "id": sid,
+                "title": story.get("title", ""),
+                "source_name": story.get("source_name", ""),
+                "source_url": story.get("source_url", ""),
+                "body": story.get("body", ""),
+                "date": story.get("date", ""),
+                "saved_at": datetime.now(timezone.utc).isoformat(),
+            }
+            bookmarks[bookmark_type].append(entry)
+        _save_bookmarks(bookmarks)
+        return bookmarks
 
 def _is_bookmarked(sid: str, bookmark_type: str) -> bool:
     """Check if a story is bookmarked in the given type."""
@@ -211,8 +337,9 @@ def html_page(title: str, body: str, active_nav: str = "home", extra_head: str =
     <title>{html.escape(page_title)}</title>
     <style>{NAV_CSS}{BASE_CSS}</style>
     <script>
+    var csrfToken = {json.dumps(CSRF_TOKEN)};
     function toggleBookmark(btn, sid, date, title, url, srcName, body, btype) {{
-        var formData = new URLSearchParams({{id:sid,type:btype,title:title,source_name:srcName,source_url:url,body:body,date:date}});
+        var formData = new URLSearchParams({{csrf_token:csrfToken,id:sid,type:btype,title:title,source_name:srcName,source_url:url,body:body,date:date}});
         fetch('/bookmarks/toggle', {{method:'POST',headers:{{'Content-Type':'application/x-www-form-urlencoded'}},body:formData.toString()}})
             .then(function(response){{return response.json();}})
             .then(function(data){{if(data.ok){{btn.classList.toggle('active',data.active);btn.textContent=data.active?'⭐ Saved':'⭐ Save';}}}})
@@ -240,7 +367,7 @@ def category_badge_html(categories_str: str) -> str:
     html = '<div class="card-categories">'
     for c in cats:
         bg, fg = CATEGORY_COLORS.get(c, ("#6b7280", "#f3f4f6"))
-        html += f'<span class="category-badge" style="background:{bg};color:{fg}">{c}</span>'
+        html += f'<span class="category-badge" style="background:{bg};color:{fg}">{html_escape(c)}</span>'
     html += '</div>'
     return html
 
@@ -283,7 +410,14 @@ def _category_filter_html(
     html += '</a></div>'
     return html
 
-def briefing_card_from_db(articles: list[dict], date_str: str, show_date: bool = True) -> str:
+def html_escape(value: object, quote: bool = False) -> str:
+    """Escape arbitrary stored/external text before inserting it into HTML."""
+    return html.escape(str(value or ""), quote=quote)
+
+
+def briefing_card_from_db(
+    articles: list[dict], date_str: str, show_date: bool = True, story_date: str | None = None
+) -> str:
     """Render a responsive briefing card grid from DB-format articles."""
     if not articles:
         return '<div class="empty-state"><p>No articles found.</p></div>'
@@ -295,31 +429,39 @@ def briefing_card_from_db(articles: list[dict], date_str: str, show_date: bool =
     html += '</div>'
     html += '<div class="briefing-grid">'
     for a in articles:
-        title = a.get("title", "Untitled")
-        summary = a.get("summary", "")
-        source = a.get("source_name", "")
-        url = a.get("source_url", "")
+        title = str(a.get("title") or "Untitled")
+        summary = str(a.get("summary") or "")
+        source = str(a.get("source_name") or "")
+        url = str(a.get("source_url") or "")
         categories = a.get("categories", "")
         position = a.get("position", 0)
+        safe_url = _safe_http_url(url)
+        safe_summary = html_escape(
+            re.sub(r"<br\s*/?>", "\n", summary, flags=re.IGNORECASE)
+        ).replace("\n", "<br>")
 
         html += '<div class="briefing-card">'
-        html += f'<span class="card-num">{position}</span>'
-        html += f'<h3>{title}</h3>'
+        html += f'<span class="card-num">{html_escape(position)}</span>'
+        html += f'<h3>{html_escape(title)}</h3>'
         if summary:
-            html += f'<div class="card-summary">{summary}</div>'
+            html += f'<div class="card-summary">{safe_summary}</div>'
         html += category_badge_html(categories)
         html += '<div class="card-source">'
-        if url:
-            html += f'<a href="{url}" target="_blank" rel="noopener">{source}</a>'
+        if safe_url:
+            html += f'<a href="{html_escape(safe_url, quote=True)}" target="_blank" rel="noopener">{html_escape(source)}</a>'
         else:
-            html += source
+            html += html_escape(source)
         html += '</div>'
         # Bookmark buttons
-        sid = _story_id(date_str, title, url)
+        bookmark_date = story_date or date_str
+        sid = _story_id(bookmark_date, title, url)
         saved_active = ' active' if _is_bookmarked(sid, 'saved') else ''
         saved_label = '⭐ Saved' if _is_bookmarked(sid, 'saved') else '⭐ Save'
-        import html as _html
-        args_saved = ','.join(["'"+_html.escape(str(x), quote=False)+"'" for x in [sid, date_str, title, url, source, (summary or '')[:500], 'saved']])
+        args_saved = ",".join(
+            json.dumps(str(x), ensure_ascii=False)
+            for x in [sid, bookmark_date, title, url, source, (summary or '')[:500], "saved"]
+        )
+        args_saved = html_escape(args_saved, quote=True)
         html += f'<div class="bm-btn-row"><button class="bm-btn saved-btn{saved_active}" onclick="toggleBookmark(this,{args_saved})">{saved_label}</button></div>'
         html += '</div>'
     html += '</div>'
@@ -647,7 +789,7 @@ def briefing_detail_page(date: str, category: str = "", saved_only: bool = False
     body = '<div style="padding-top:1rem"><a href="/briefings'
     if query:
         body += '?' + urllib.parse.urlencode(query)
-    body += '" style="color:var(--text-muted);text-decoration:none;font-size:0.9rem">← Back to all briefings</a></div>'
+    body += '" style="color:var(--muted);text-decoration:none;font-size:0.9rem">← Back to all briefings</a></div>'
 
     archive = _get_archive()
     briefing = archive.get_briefing(date)
@@ -679,7 +821,7 @@ def briefing_detail_page(date: str, category: str = "", saved_only: bool = False
         sort=sort,
     )
 
-    body += briefing_card_from_db(articles, date_str, show_date=True)
+    body += briefing_card_from_db(articles, date_str, show_date=True, story_date=date)
     return html_page(f"Briefing — {date}", body, active_nav="briefings")
 
 #  Status Board Page
@@ -1422,19 +1564,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._respond(421, "text/plain", b"Misdirected Request")
         return True
 
-    def _get_query_param(self, key: str):
-        path = self.path
-        if "?" not in path:
-            return None
-        qs = path.split("?", 1)[1]
-        for pair in qs.split("&"):
-            if "=" in pair:
-                k, v = pair.split("=", 1)
-                if k == key:
-                    from urllib.parse import unquote
-                    return unquote(v)
-        return None
-
     def _send_redirect(self, location: str):
         self.send_response(302)
         self.send_header("Location", location)
@@ -1508,12 +1637,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(length).decode("utf-8", errors="replace")
         params = urllib.parse.parse_qs(raw)
-        get = lambda k: params.get(k, [""])[0]
+        get = lambda k, default="": params.get(k, [default])[0]
         path = self.path.rstrip("/") or "/"
 
         if path == "/bookmarks/toggle":
+            if not is_authenticated(self):
+                self._respond(403, "text/html", _UNAUTH_PAGE.encode())
+                return
+            if not _valid_csrf(get("csrf_token")):
+                self._respond(403, "text/plain", b"Invalid form token.")
+                return
             sid = get("id")
             btype = get("type") or "saved"
+            if not sid or btype not in {"saved", "read_later"}:
+                self._respond(400, "text/plain", b"Invalid bookmark request.")
+                return
             story = {
                 "title": get("title"),
                 "source_name": get("source_name"),
@@ -1540,11 +1678,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 }) + f"#{anchor}")
             elif action == "delete":
                 fn = get("full_name")
-                message = update_hub("delete", lambda k: fn if k == "full_name" else get(k))
+                message = update_hub("delete", lambda k, default="": fn if k == "full_name" else get(k, default))
                 self._send_redirect("/hub/admin?" + urllib.parse.urlencode({"message": message}))
             elif action == "toggle-hide":
                 fn = get("full_name")
-                message = update_hub("toggle-hide", lambda k: fn if k == "full_name" else get(k))
+                message = update_hub("toggle-hide", lambda k, default="": fn if k == "full_name" else get(k, default))
                 anchor = urllib.parse.quote(fn, safe="")
                 self._send_redirect("/hub/admin?" + urllib.parse.urlencode({
                     "message": message, "repo": fn

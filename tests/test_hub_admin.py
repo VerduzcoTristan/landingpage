@@ -338,12 +338,21 @@ class TestIsAuthenticated(unittest.TestCase):
         h = FakeHandler(client_address=("::1", 5000))
         self.assertTrue(server.is_authenticated(h))
 
-    def test_cf_access_header_grants_access(self):
+    def test_cf_access_email_header_alone_is_denied(self):
         h = FakeHandler(
             client_address=("203.0.113.5", 5000),
             headers={"Cf-Access-Authenticated-User-Email": "tristan@example.com"},
         )
-        self.assertTrue(server.is_authenticated(h))
+        self.assertFalse(server.is_authenticated(h))
+
+    def test_verified_cf_access_jwt_grants_access(self):
+        h = FakeHandler(
+            client_address=("203.0.113.5", 5000),
+            headers={"Cf-Access-Jwt-Assertion": "signed-token"},
+        )
+        with patch.object(server, "_verify_access_jwt", return_value=True) as verify:
+            self.assertTrue(server.is_authenticated(h))
+        verify.assert_called_once_with("signed-token")
 
     def test_remote_without_header_is_denied(self):
         h = FakeHandler(
@@ -485,6 +494,27 @@ class TestHubAdminPostDispatch(unittest.TestCase):
         self.assertEqual(len(h.redirects), 1)
         self.assertTrue(h.redirects[0].startswith("/hub/admin?"))
         self.assertTrue(h.redirects[0].endswith("#a%2Fb"))
+
+    def test_authenticated_update_persists_through_real_store_contract(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmp:
+            store = server.HubStore(Path(tmp) / "curation.json")
+            h = self._make_handler(
+                path="/hub/admin/update",
+                body=b"full_name=a%2Fb&goal=hello&current_override=state&order=4",
+                headers={"Host": "localhost"},
+            )
+            with patch.object(server, "_HUB_STORE", store), patch.object(
+                server.Handler, "_reject_unallowed_host", return_value=False
+            ):
+                server.Handler.do_POST(h)
+            self.assertEqual(len(h.redirects), 1)
+            saved = store.load()["a/b"]
+            self.assertEqual(saved["goal"], "hello")
+            self.assertEqual(saved["current_override"], "state")
+            self.assertEqual(saved["order"], 4)
 
     def test_authenticated_delete_invokes_update_hub_delete(self):
         h = self._make_handler(

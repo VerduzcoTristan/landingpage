@@ -1,5 +1,102 @@
 # PLAN.md — Living Projects
 
+# Remediation pass — briefing, security, operations, and UI audit
+
+This section is the active plan for the audit remediation requested on
+2026-07-20. The previous living-project pass below is complete. One step is
+one commit; complete and verify each step before moving to the next.
+
+## Current objective
+
+Make every issue in the supplied code and browser audit either fixed or
+explicitly covered by a safe, tested fallback, without changing the protected
+briefings/monitoring/project scope or touching live infrastructure.
+
+## Decisions
+
+- Verify Cloudflare Access authorization from `Cf-Access-Jwt-Assertion` using
+  the configured Access team domain and audience. A user-email header alone is
+  never sufficient. Localhost remains the explicit development bypass.
+- Keep bookmark data in the existing JSON file, but serialize read-modify-
+  write operations under a process lock with fsync-backed atomic replacement.
+- Use one canonical ISO story date for bookmark IDs while retaining the
+  display date for rendering. Inline bookmark arguments use JSON strings escaped
+  for the HTML attribute context.
+- Make monitor refresh stale-while-revalidate: cached status is returned
+  immediately and one bounded background worker refreshes it. No request path
+  waits on outbound monitor probes.
+- Do not add a dependency or mutate Caddy, Cloudflare, secrets, ports, or the
+  deployment host. Cloudflare verification settings are documented as
+  environment configuration for the existing ingress.
+
+## Keep / remove audit
+
+| Area | Verdict | Remediation |
+|---|---|---|
+| Briefing detail, archive, category tabs, bookmarks | KEEP + FIX | Canonical IDs, safe escaping, auth/CSRF, locking, unique All count |
+| Projects admin save/delete/hide | KEEP + FIX | Restore two-argument store getter contract and add end-to-end POST coverage |
+| Cloudflare Access admin gate | KEEP + HARDEN | Verify signed Access JWT claims; never trust email header alone |
+| Server monitor API/status page | KEEP + FIX | Non-blocking stale-while-refreshing probes and friendly error labels |
+| `/health` and container healthcheck | KEEP + FIX | Healthcheck uses the liveness endpoint only |
+| Briefing archive import path | KEEP + FIX | Repo-local module wins; optional legacy tools path is fallback only |
+| Focus project rail | KEEP + FIX | Respect curated order after pinned priority |
+| Existing routes and removed-feature matrix | KEEP | No route expansion or infrastructure change |
+| Raw exception/copy/CSS/accessibility polish | KEEP + FIX | Sanitize display text, pluralization, branding, palette token, touch size |
+
+## Build steps
+
+- [x] **Step R1 — Repair mutation and briefing safety.** Fix the Hub form
+  getter contract; protect bookmark POST with authentication and CSRF; add
+  locking/atomic writes and timezone-aware timestamps; canonicalize story IDs;
+  escape detail content/categories/URLs; safely encode inline bookmark JS;
+  remove the duplicate query helper; harden Cloudflare Access JWT validation.
+  Add focused regression and handler-contract tests.
+- [ ] **Step R2 — Remove blocking operational paths.** Make monitor status
+  stale-while-refreshing and bounded; use `/health` in Compose/Docker health
+  checks; remove module-shadowing behavior; preserve safe fallback output.
+  Add concurrency/latency and configuration tests.
+- [ ] **Step R3 — Finish copy, ordering, and UI polish.** Fix monitor error
+  labels, pluralization, unique briefing totals, Projects branding, detail
+  palette token, focus-rail order, manual-insight confidence labeling, and
+  Save touch target. Add render tests and update operations/config guidance.
+- [ ] **Step R4 — Full verification and handoff.** Run the complete unit suite,
+  compilation, smoke checks, Compose validation, diff/legacy-brand scans, and
+  review the resulting changes. Update this section with verification and
+  commit each completed step separately.
+
+## Acceptance criteria
+
+- Real `/hub/admin` update, delete, and hide POSTs persist correctly.
+- Saved stories render in saved views/detail pages, including display-date
+  pages and titles containing apostrophes or HTML-looking text.
+- External briefing data cannot inject HTML/attributes/scripts through the
+  detail card or bookmark control.
+- Remote admin/bookmark mutations require a valid Cloudflare Access JWT and
+  CSRF; spoofed email headers are denied.
+- Bookmark toggles cannot lose concurrent updates and use UTC-aware timestamps.
+- `/api/status`, `/status`, and homepage status use cached/non-blocking monitor
+  refreshes; healthchecks call `/health`.
+- All audited copy/layout defects are covered by tests or deterministic markup
+  assertions, and existing briefing/project/monitor behavior remains green.
+
+## Decision log
+
+(append one line per remediation step or material mid-run decision)
+
+- Step R1: remote Cloudflare Access auth now requires a signed RS256 JWT with
+  configured issuer/audience; the existing localhost bypass remains for local
+  development, and no infrastructure files were changed.
+
+## Verification summary
+
+- Step R1: focused briefing/security/Hub tests passed (85 tests), including a
+  real `/hub/admin/update` round trip through `HubStore`, bookmark auth/CSRF,
+  canonical ISO story IDs, apostrophe-safe inline JS, and external-content
+  escaping. `python -m py_compile server.py hub_store.py tests/test_audit_remediation.py`
+  passed.
+
+---
+
 Current plan pass output per AGENTS.md. This section is the single source of
 truth for the next build pass. One step = one commit (`step N: <description>`);
 verify the step, tick it here, then commit before starting the next step.
