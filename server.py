@@ -184,11 +184,11 @@ h1,h2,h3,h4,p{margin-top:0}h1,h2,h3{line-height:1.15;letter-spacing:-.025em}h1{f
 .home-dashboard{display:grid;grid-template-columns:minmax(0,2fr) minmax(17rem,1fr);gap:1.25rem;align-items:start}.home-primary .section-head,.home-rail .section-head{margin-top:0}.home-rail{display:grid;gap:1rem}.home-rail-block{padding:1rem;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-1)}.home-rail-block .landing-status-strip{margin:0;box-shadow:none}.home-focus-list{display:grid;gap:.55rem}.home-focus-item{display:grid;grid-template-columns:1fr auto;gap:.15rem .6rem;padding:.7rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--page);color:var(--text);text-decoration:none}.home-focus-item strong{font-size:.86rem}.home-focus-item small{grid-column:1;color:var(--muted);line-height:1.35}.home-focus-item .status-pill{grid-column:2;grid-row:1/3;align-self:center}.home-rail-empty{margin:0;color:var(--muted);font-size:.84rem}
 .landing-status-strip{margin:1.4rem 0;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-1);overflow:hidden}.landing-status-strip summary{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.85rem 1rem;cursor:pointer;list-style:none}.landing-status-strip summary::-webkit-details-marker{display:none}.status-summary-left,.status-summary-right{display:flex;align-items:center;gap:.55rem}.status-summary-title{font-weight:800}.status-summary-meta{color:var(--muted);font-size:.8rem}.status-mini-pill{padding:.2rem .5rem;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:.68rem}.status-mini-pill.ok{color:var(--success)}.status-mini-pill.warn{color:var(--warning)}.status-strip-dot,.status-dot{display:inline-block;width:.65rem;height:.65rem;border-radius:50%;background:var(--subtle);box-shadow:0 0 0 4px rgba(111,125,149,.1)}.green{background:var(--success)!important}.red{background:var(--danger)!important}.amber{background:var(--warning)!important}.landing-status-body{padding:1rem;border-top:1px solid var(--border)}
 .status-mini-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:.55rem}.status-mini-service{display:flex;align-items:center;justify-content:space-between;gap:.7rem;padding:.65rem .75rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--page);color:var(--text);font-size:.78rem;text-decoration:none}.status-mini-service>span{display:flex;align-items:center;gap:.5rem}.status-mini-service small{color:var(--muted)}.status-board{display:grid;gap:.75rem}.status-check{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.1rem;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);box-shadow:var(--shadow-1)}.status-check>div{display:flex;align-items:center;gap:.7rem}.status-check>span{color:var(--muted);font-size:.8rem}.monitor-links,.project-actions,.admin-actions{display:flex;flex-wrap:wrap;gap:.6rem}.link-card{padding:.7rem .9rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-weight:750;text-decoration:none;transition:all var(--ease)}.link-card:hover{transform:translateY(-1px);border-color:var(--accent)}
-.home-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem;margin:1rem 0 0}.home-links a{display:grid;grid-template-columns:1fr auto;gap:.1rem .7rem;padding:1rem 1.1rem;border:1px solid var(--border);border-radius:var(--radius-md);background:linear-gradient(145deg,rgba(255,255,255,.035),transparent),var(--surface);color:var(--text);text-decoration:none;box-shadow:var(--shadow-1);transition:all var(--ease)}.home-links a:hover{transform:translateY(-2px);border-color:var(--accent)}.home-links span{font-weight:850}.home-links small{grid-column:1;color:var(--muted)}.home-links b{grid-column:2;grid-row:1/3;align-self:center;color:var(--accent-strong)}.project-card{padding:1.2rem}.project-card h2{margin:0;font-size:1.15rem}.project-card p{min-height:3.2rem;margin:.8rem 0;color:var(--muted)}.admin-link{margin:1.3rem 0;text-align:right}.admin-panel{margin-bottom:1rem;padding:1.2rem}.admin-panel h2{font-size:1.05rem}.project-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.85rem}.project-form label{display:grid;gap:.35rem;color:var(--muted);font-size:.75rem;font-weight:750}.project-form .wide{grid-column:1/-1}.project-form .check{display:flex;align-items:center;gap:.5rem}.project-form .check input{width:auto}.project-form textarea{resize:vertical}.admin-actions{margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--border)}.admin-actions form{margin:0}
-.hub-group{margin:2rem 0}.hub-commits{margin:.6rem 0 0;padding-left:1.1rem;color:var(--muted);font-size:.82rem}.hub-commits li{margin:.15rem 0}.hub-lang{color:var(--subtle);font-size:.78rem;margin:.4rem 0 0}.hub-attention{color:#ffb86b;font-size:.8rem;margin:.5rem 0 0}.summarizing{color:var(--subtle);font-style:italic}
+.home-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem;margin:1rem 0 0}.home-links a{display:grid;grid-template-columns:1fr auto;gap:.1rem .7rem;padding:1rem 1.1rem;border:1px solid var(--border);border-radius:var(--radius-md);background:linear-gradient(145deg,rgba(255,255,255,.035),transparent),var(--surface);color:var(--text);text-decoration:none;box-shadow:var(--shadow-1);transition:all var(--ease)}.home-links a:hover{transform:translateY(-2px);border-color:var(--accent)}.home-links span{font-weight:850}.home-links small{grid-column:1;color:var(--muted)}.home-links b{grid-column:2;grid-row:1/3;align-self:center;color:var(--accent-strong)}.project-card{padding:1.2rem}.project-card h3{margin:0;font-size:1.15rem}.project-card p{margin:.65rem 0;color:var(--muted)}.admin-link{margin:1.3rem 0;text-align:right}.admin-panel{margin-bottom:1rem;padding:1.2rem}.admin-panel h2{font-size:1.05rem}.project-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.85rem}.project-form label{display:grid;gap:.35rem;color:var(--muted);font-size:.75rem;font-weight:750}.project-form .wide{grid-column:1/-1}.project-form .check{display:flex;align-items:center;gap:.5rem}.project-form .check input{width:auto}.project-form textarea{resize:vertical}.admin-actions{margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--border)}.admin-actions form{margin:0}
+.hub-overview{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.55rem;margin:0 0 1.5rem}.hub-filter{display:flex;align-items:center;justify-content:space-between;gap:.5rem;min-height:2.75rem;padding:.55rem .7rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--muted);cursor:pointer}.hub-filter strong{color:var(--text)}.hub-filter[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--text)}.hub-group{margin:1.5rem 0}.hub-low-priority{border-top:1px solid var(--border)}.hub-low-priority>summary{display:flex;align-items:center;justify-content:space-between;min-height:3.25rem;padding:.65rem 0;cursor:pointer}.hub-group-title{font-size:1.3rem;font-weight:800}.hub-low-priority>.projects-grid{padding-top:.65rem}.status-active{border-color:rgba(69,214,154,.35);color:var(--success)}.status-maintain{border-color:rgba(169,158,255,.35);color:var(--accent-strong)}.status-stalled{border-color:rgba(243,185,95,.35);color:var(--warning)}.status-done{color:var(--subtle)}.hub-description{font-size:.88rem}.hub-decision{margin:.7rem 0;padding:.65rem .75rem;border-left:2px solid var(--border-strong);background:rgba(255,255,255,.02)}.hub-decision span,.hub-attention>span{color:var(--subtle);font-size:.68rem;font-weight:850;letter-spacing:.08em;text-transform:uppercase}.hub-decision p{margin:.2rem 0 0;color:var(--text)}.hub-updated{font-size:.76rem}.hub-commits{margin:.6rem 0 0;padding-left:1.1rem;color:var(--muted);font-size:.82rem}.hub-commits li{margin:.15rem 0}.hub-lang{color:var(--subtle);font-size:.78rem;margin:.4rem 0 0}.hub-attention{margin:.75rem 0;padding:.6rem .7rem;border:1px solid rgba(243,185,95,.22);border-radius:var(--radius-sm);background:rgba(243,185,95,.05);color:var(--warning);font-size:.78rem}.hub-attention ul{margin:.3rem 0 0;padding-left:1rem}.hub-references{display:flex;flex-wrap:wrap;gap:.65rem;margin:.75rem 0;color:var(--subtle);font-size:.76rem}.hub-references a{text-decoration:none}.hub-edit{color:var(--subtle);font-size:.76rem;text-decoration:none}.hub-edit:hover{color:var(--text)}.summarizing{color:var(--subtle);font-style:italic}
 code{padding:.15rem .35rem;border:1px solid var(--border);border-radius:.35rem;background:var(--page);font:500 .86em ui-monospace,SFMono-Regular,Consolas,monospace}
-@media(max-width:820px){.home-dashboard{grid-template-columns:1fr}.home-rail{grid-template-columns:1fr 1fr}}
-@media(max-width:640px){.container{width:min(100% - 1.25rem,var(--shell));padding-top:1.5rem}.page-head,.section-head{align-items:flex-start;flex-direction:column}.project-form{grid-template-columns:1fr}.project-form .wide{grid-column:auto}.landing-status-strip summary{align-items:flex-start;flex-direction:column;min-height:2.75rem}.status-summary-right{flex-wrap:wrap}.status-summary-meta{white-space:normal}.home-links,.home-rail{grid-template-columns:1fr}.site-footer{width:min(100% - 1.25rem,var(--shell))}}
+@media(max-width:820px){.home-dashboard{grid-template-columns:1fr}.home-rail{grid-template-columns:1fr 1fr}.hub-overview{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:640px){.container{width:min(100% - 1.25rem,var(--shell));padding-top:1.5rem}.page-head,.section-head{align-items:flex-start;flex-direction:column}.project-form{grid-template-columns:1fr}.project-form .wide{grid-column:auto}.landing-status-strip summary{align-items:flex-start;flex-direction:column;min-height:2.75rem}.status-summary-right{flex-wrap:wrap}.status-summary-meta{white-space:normal}.home-links,.home-rail{grid-template-columns:1fr}.hub-overview{grid-template-columns:repeat(2,minmax(0,1fr))}.site-footer{width:min(100% - 1.25rem,var(--shell))}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
 """
 
@@ -910,6 +910,7 @@ def _merge_hub_entries(include_hidden: bool = False) -> dict:
             "has_note": bool(goal),
             "status_override": override,
             "attention_reasons": attention_reasons,
+            "group": group,
         }
         groups[group].append(entry)
     for entries in groups.values():
@@ -976,18 +977,48 @@ def hub_page() -> str:
         return html_page("Hub", body, active_nav="hub")
     group_labels = {"active": "Active", "maintain": "Maintaining",
                     "stalled": "Stalled", "done": "Done"}
+    stalled_focus = {entry["full_name"] for entry in groups.get("stalled", [])[:4]}
+    focus_count = len(groups.get("active", [])) + len(groups.get("maintain", [])) + len(stalled_focus)
+    body += '<div class="hub-overview" aria-label="Project status overview">'
+    for key, label in (("focus", "Focus"), ("active", "Active"), ("maintain", "Maintaining"),
+                       ("stalled", "Stalled"), ("done", "Done"), ("all", "All")):
+        count = focus_count if key == "focus" else total if key == "all" else len(groups.get(key, []))
+        pressed = 'true' if key == "focus" else 'false'
+        body += (f'<button type="button" class="hub-filter" data-hub-filter="{key}" '
+                 f'aria-pressed="{pressed}"><span>{label}</span><strong>{count}</strong></button>')
+    body += '</div>'
     for key in ("active", "maintain", "stalled", "done"):
         entries = groups.get(key, [])
         if not entries:
             continue
-        body += f'<section class="hub-group"><div class="section-head"><h2>{group_labels[key]}</h2>'
-        body += f'<span class="status-pill">{len(entries)}</span></div>'
+        if key in {"stalled", "done"}:
+            body += (f'<details class="hub-group hub-low-priority" data-hub-section data-group="{key}">'
+                     f'<summary><span class="hub-group-title" role="heading" aria-level="2">{group_labels[key]}</span>'
+                     f'<span class="status-pill">{len(entries)}</span></summary>')
+        else:
+            body += (f'<section class="hub-group" data-hub-section data-group="{key}">'
+                     f'<div class="section-head"><h2>{group_labels[key]}</h2>'
+                     f'<span class="status-pill">{len(entries)}</span></div>')
         body += '<div class="projects-grid">'
         for e in entries:
+            e["focus_visible"] = key in {"active", "maintain"} or e["full_name"] in stalled_focus
             body += _hub_card_html(e)
-        body += '</div></section>'
+        body += '</div>' + ('</details>' if key in {"stalled", "done"} else '</section>')
     # JS poll for summaries (non-blocking fill from cache)
     body += state_script
+    body += ('<script>'
+             'document.addEventListener("DOMContentLoaded",function(){'
+             'var buttons=[].slice.call(document.querySelectorAll("[data-hub-filter]"));'
+             'var sections=[].slice.call(document.querySelectorAll("[data-hub-section]"));'
+             'function applyHubFilter(filter){buttons.forEach(function(button){'
+             'button.setAttribute("aria-pressed",button.dataset.hubFilter===filter?"true":"false");});'
+             'sections.forEach(function(section){var visible=0;'
+             '[].slice.call(section.querySelectorAll("[data-hub-card]")).forEach(function(card){'
+             'var show=filter==="all"||card.dataset.group===filter||(filter==="focus"&&card.dataset.focus==="true");'
+             'card.hidden=!show;if(show){visible++;}});section.hidden=visible===0;'
+             'if(visible&&section.tagName==="DETAILS"){section.open=true;}});}'
+             'buttons.forEach(function(button){button.addEventListener("click",function(){applyHubFilter(button.dataset.hubFilter);});});'
+             'applyHubFilter("focus");});</script>')
     body += ('<script>'
              'function refreshSummaries(){'
              'fetch("/api/hub/summaries").then(function(r){return r.json();}).then(function(d){'
@@ -1018,9 +1049,10 @@ def _hub_card_html(e: dict) -> str:
         summary_html = (f'<p class="card-summary summarizing" data-summary="{html.escape(fn, quote=True)}">'
                         f'Summarizing…</p>')
     if e.get("status_override") == "done":
-        pill = '<span class="status-pill">done</span>'
+        status = "done"
     else:
-        pill = f'<span class="status-pill">{html.escape(text(e.get("recency")) or "stalled")}</span>'
+        status = text(e.get("recency")) or "stalled"
+    pill = f'<span class="status-pill status-{html.escape(status, quote=True)}">{html.escape(status)}</span>'
     commits_html = ""
     if commits[:3]:
         commits_html = '<ul class="hub-commits">'
@@ -1029,7 +1061,10 @@ def _hub_card_html(e: dict) -> str:
             if subj:
                 commits_html += f'<li>{subj}</li>'
         commits_html += '</ul>'
-    card = (f'<article class="project-card" id="{html.escape(fn, quote=True)}">'
+    group = text(e.get("group")) or status
+    focus = "true" if e.get("focus_visible") else "false"
+    card = (f'<article class="project-card" id="{html.escape(fn, quote=True)}" '
+            f'data-hub-card data-group="{html.escape(group, quote=True)}" data-focus="{focus}">'
             f'<div class="project-card-head"><h3>')
     if repo_url:
         card += f'<a href="{html.escape(repo_url, quote=True)}" target="_blank" rel="noopener">{name}</a>'
@@ -1064,7 +1099,7 @@ def _hub_card_html(e: dict) -> str:
         references.append(f'<span class="hub-local">Local: {html.escape(local_path)}</span>')
     if references:
         card += '<div class="hub-references">' + "".join(references) + '</div>'
-    card += f'<div class="project-actions"><a class="button" href="/hub/admin#{urllib.parse.quote(fn)}">Edit</a></div>'
+    card += f'<div class="project-actions"><a class="hub-edit" href="/hub/admin#{urllib.parse.quote(fn)}">Edit details</a></div>'
     card += '</article>'
     return card
 

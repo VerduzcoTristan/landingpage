@@ -138,7 +138,7 @@ deployment change is planned.
   compact header, latest-five briefing surface, monitoring/focus side rail,
   single-row mobile nav, touch/focus/responsive states, and regression tests for
   briefing selection and retained routes.
-- [ ] **Step 7 — Redesign the Hub daily view.** Add overview counts, Focus-first
+- [x] **Step 7 — Redesign the Hub daily view.** Add overview counts, Focus-first
   filters, restrained semantic status styling, clearer card hierarchy, collapsed
   low-priority groups, and quiet edit controls; verify keyboard and no-JS access.
 - [ ] **Step 8 — Redesign Hub admin.** Add client-side search/filter, expandable

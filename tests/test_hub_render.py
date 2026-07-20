@@ -191,10 +191,10 @@ class TestHubPage(unittest.TestCase):
             make_repo("b/stalled", recency="stalled"),
         ]
         html = self._page(repos, {})
-        self.assertIn("Active", html)
-        self.assertIn("Stalled", html)
-        self.assertNotIn("Maintaining", html)   # no maintain repos
-        self.assertNotIn(">Done<", html)        # no done repos
+        self.assertIn('data-hub-section data-group="active"', html)
+        self.assertIn('data-hub-section data-group="stalled"', html)
+        self.assertNotIn('data-hub-section data-group="maintain"', html)
+        self.assertNotIn('data-hub-section data-group="done"', html)
 
     def test_repo_name_escaped(self):
         repos = [make_repo("a/repo&<x>", recency="active")]
@@ -249,6 +249,30 @@ class TestHubPage(unittest.TestCase):
         html = self._page(repos, curated)
         # The done pill text is "done"
         self.assertIn(">done<", html)
+
+    def test_daily_view_has_focus_first_counts_and_keyboard_buttons(self):
+        repos = [
+            make_repo("a/active", recency="active"),
+            make_repo("b/maintain", recency="maintain"),
+            make_repo("c/stalled", recency="stalled"),
+            make_repo("d/done", recency="active"),
+        ]
+        curated = {"d/done": {"status_override": "done"}}
+        page = self._page(repos, curated)
+        self.assertIn('data-hub-filter="focus" aria-pressed="true"', page)
+        for key in ("active", "maintain", "stalled", "done", "all"):
+            self.assertIn(f'data-hub-filter="{key}"', page)
+        self.assertIn('button.setAttribute("aria-pressed"', page)
+        self.assertIn('applyHubFilter("focus")', page)
+
+    def test_low_priority_groups_are_collapsed_but_content_exists_without_js(self):
+        repos = [make_repo("a/stalled", recency="stalled"), make_repo("b/done", recency="active")]
+        curated = {"b/done": {"status_override": "done"}}
+        page = self._page(repos, curated)
+        self.assertIn('<details class="hub-group hub-low-priority"', page)
+        self.assertIn("a/stalled", page)
+        self.assertIn("b/done", page)
+        self.assertNotIn('<details class="hub-group hub-low-priority" open', page)
 
 
 # ── _hub_card_html tests ─────────────────────────────────────────────────────
