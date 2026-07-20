@@ -197,7 +197,7 @@ curation. Malformed fields or one malformed entry degrade independently.
   and display-safe file/stat extraction. Ensure messages are not returned as
   analysis inputs and unchanged repositories avoid change requests. Verify
   deterministic GitHub client tests, compile, check this step, and commit alone.
-- [ ] **Step 3 — Generate persistent structured Ollama insights.** Build a
+- [x] **Step 3 — Generate persistent structured Ollama insights.** Build a
   diff-first injection-resistant prompt; parse/validate structured current,
   next, and confidence fields; connect persistent last-good/history records;
   preserve bounded workers, single-flight keys, failure cooldowns, invalidation,
@@ -249,6 +249,11 @@ curation. Malformed fields or one malformed entry degrade independently.
   Initial range and prior-head comparisons, force-push fallback, four-worker
   concurrency, 20-file/12 KB patch budgets, 2 MB response limits, and restart
   reuse are covered; misleading commit prose is absent from returned context.
+- Step 3: all 12 structured-insight tests and the 133-test regression suite
+  passed. JSON-schema validation, diff-only prompts, persistent restart reuse,
+  last-good failure behavior, five-entry history, per-project/global
+  invalidation, four-worker single-flight generation, and response caps are
+  covered; raw patches never enter the insight file.
 
 ---
 
