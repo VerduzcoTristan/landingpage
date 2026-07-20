@@ -59,7 +59,7 @@ briefings/monitoring/project scope or touching live infrastructure.
   labels, pluralization, unique briefing totals, Projects branding, detail
   palette token, focus-rail order, manual-insight confidence labeling, and
   Save touch target. Add render tests and update operations/config guidance.
-- [ ] **Step R4 — Full verification and handoff.** Run the complete unit suite,
+- [x] **Step R4 — Full verification and handoff.** Run the complete unit suite,
   compilation, smoke checks, Compose validation, diff/legacy-brand scans, and
   review the resulting changes. Update this section with verification and
   commit each completed step separately.
@@ -92,6 +92,10 @@ briefings/monitoring/project scope or touching live infrastructure.
 - Step R3: the homepage heading now answers the daily-use question directly;
   the Projects fallback copy avoids leaking configuration variable names,
   while operations documentation retains the exact env names for operators.
+- Step R4: browser verification was attempted against an isolated local server,
+  but the in-app browser could not reach loopback (`ERR_CONNECTION_REFUSED`).
+  No screenshot/browser pass is claimed; the HTTP smoke server was stopped and
+  its temporary data removed.
 
 ## Verification summary
 
@@ -108,6 +112,11 @@ briefings/monitoring/project scope or touching live infrastructure.
   includes unique category totals, friendly monitor errors, focus ordering,
   manual/unavailable insight confidence, pluralization, and the 44px Save
   target.
+- Step R4: full suite passed (158 tests); all tracked Python compiled; the
+  isolated missing-token HTTP smoke matrix passed all 36 checks; Compose
+  config, `git diff --check`, and the required contiguous legacy-brand scan
+  passed. Browser loopback visual verification remains unavailable in this
+  desktop session.
 
 ---
 

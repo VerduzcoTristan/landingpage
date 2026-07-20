@@ -591,7 +591,7 @@ def status_strip() -> str:
         var okP=document.getElementById('status-ok-pill');
         var badP=document.getElementById('status-issue-pill');
         function esc(value){var el=document.createElement('span');el.textContent=value==null?'':String(value);return el.innerHTML;}
-        fetch('/api/status').then(function(response){if(!response.ok)throw new Error(response.status);return response.json();}).then(function(data){
+        function loadStatus(){fetch('/api/status').then(function(response){if(!response.ok)throw new Error(response.status);return response.json();}).then(function(data){
             var checks=Array.isArray(data.checks)?data.checks:[];
             var up=checks.filter(function(check){return !!check.healthy;}).length;
             var down=checks.length-up;
@@ -599,14 +599,16 @@ def status_strip() -> str:
             badP.textContent=down+' down';badP.classList.add(down?'warn':'ok');
             if(data.status==='checking' && !checks.length){
                 dot.classList.add('amber');meta.textContent='Checking monitors…';
-                body.innerHTML='<span class="status-summary-meta">Live checks are running in the background…</span>';return;
+                body.innerHTML='<span class="status-summary-meta">Live checks are running in the background…</span>';
+                window.setTimeout(loadStatus,1000);return;
             }
             if(!checks.length){dot.classList.add('amber');meta.textContent='No monitors configured';body.innerHTML='<span class="status-summary-meta">Add checks in monitors.json.</span> <a href="/status">Open status →</a>';return;}
             dot.classList.add(down?'red':'green');
             meta.textContent=down?(down===1?'1 monitor needs attention':down+' monitors need attention'):'All monitors healthy';
             body.innerHTML='<div class="status-mini-grid">'+checks.map(function(check){return '<a class="status-mini-service" href="/status"><span><span class="status-dot '+(check.healthy?'green':'red')+'"></span>'+esc(check.name)+'</span><small>'+esc(check.healthy?(check.latency_ms+' ms'):(check.error||'Unavailable'))+'</small></a>';}).join('')+'</div>';
             if(down){panel.open=true;}
-        }).catch(function(){dot.classList.add('amber');meta.textContent='Status unavailable';body.innerHTML='<span class="status-summary-meta">Live monitoring could not be loaded.</span> <a href="/status">Open status →</a>';});
+        }).catch(function(){dot.classList.add('amber');meta.textContent='Status unavailable';body.innerHTML='<span class="status-summary-meta">Live monitoring could not be loaded.</span> <a href="/status">Open status →</a>';});}
+        loadStatus();
     })();
     </script>"""
 

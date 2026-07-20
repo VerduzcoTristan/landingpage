@@ -146,6 +146,9 @@ class TestMonitorRefresh(unittest.TestCase):
 
 
 class TestAuditMarkup(unittest.TestCase):
+    def test_home_status_strip_retries_after_background_checking_state(self):
+        self.assertIn("setTimeout(loadStatus,1000)", server.status_strip())
+
     def test_all_count_can_be_unique_when_categories_overlap(self):
         tabs = server._category_filter_html(
             counts={"AI": 10, "coding": 6}, all_count=12

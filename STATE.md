@@ -6,6 +6,13 @@
 **Blocked on:** nothing
 
 ## Log (newest first, one line per session)
+- 2026-07-20: Audit remediation completed through four isolated steps. Hub
+  mutations now persist, briefing detail/bookmarks use canonical IDs and safe
+  escaping with auth/CSRF/locking, Access JWT claims are verified, monitor
+  probes are stale-while-refreshing, healthchecks use `/health`, and the
+  audited copy/order/touch-target issues are fixed. Full 158-test suite, 36
+  isolated smoke checks, compilation, Compose validation, whitespace, and
+  legacy-brand scans pass; browser loopback verification was unavailable.
 - 2026-07-20: Living Projects completed locally without deployment. GitHub file changes—not commit prose—now feed persistent Ollama-generated current state and next step; unchanged projects reuse last-good insights, and the Projects UI adds evidence, history, pinning, manual overrides, and per-project regeneration. Final audit results are recorded in `PLAN.md`.
 - 2026-07-20: Short-landscape density completed locally without deployment. The homepage keeps briefing and status/focus columns on viable landscape widths, vertical rhythm is compact across retained pages, full text and touch targets remain, and a visual-audit overflow was corrected. Browser checks at 812×375, 390×844, and 1440×900 pass with no horizontal overflow; all 119 unit tests, 34 smoke checks, tracked-Python compilation, legacy-brand scan, and whitespace audit pass.
 - 2026-07-19: Reliability/UX remediation executed through all nine plan steps without deployment. Hub storage, GitHub refresh, Ollama lifecycle, merge/mutation safety, homepage, daily Hub, and admin UI were hardened; docs and smoke coverage were updated. All 115 unit tests, 34 live missing-token smoke checks, tracked-Python compilation, Compose validation, artifact/legacy-brand scans, and whitespace audit pass.
