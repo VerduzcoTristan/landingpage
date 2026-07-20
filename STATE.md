@@ -1,11 +1,12 @@
 # STATE — landingpage
 **Phase:** maintain
-**Goal:** Control Center serves daily briefings, live monitoring, and a GitHub-sourced, Ollama-summarized project Hub behind Cloudflare Access
-**Current milestone:** Short-landscape responsive density completed and verified locally on 2026-07-20; production remains unchanged pending an explicit deploy
-**Next action:** When deployment is approved, provision the GitHub secret, connect Ollama to `proxy_net`, deploy the reviewed commits, and validate through Cloudflare Access
+**Goal:** Control Center serves daily briefings, live monitoring, and living Projects generated locally from GitHub code changes with optional manual control
+**Current milestone:** Living Projects implementation completed locally on 2026-07-20; production remains unchanged pending an explicit deploy
+**Next action:** Review the living Projects changes; when deployment is approved, confirm the GitHub secret and Ollama network, deploy the reviewed commits, and validate through Cloudflare Access
 **Blocked on:** nothing
 
 ## Log (newest first, one line per session)
+- 2026-07-20: Living Projects completed locally without deployment. GitHub file changes—not commit prose—now feed persistent Ollama-generated current state and next step; unchanged projects reuse last-good insights, and the Projects UI adds evidence, history, pinning, manual overrides, and per-project regeneration. Final audit results are recorded in `PLAN.md`.
 - 2026-07-20: Short-landscape density completed locally without deployment. The homepage keeps briefing and status/focus columns on viable landscape widths, vertical rhythm is compact across retained pages, full text and touch targets remain, and a visual-audit overflow was corrected. Browser checks at 812×375, 390×844, and 1440×900 pass with no horizontal overflow; all 119 unit tests, 34 smoke checks, tracked-Python compilation, legacy-brand scan, and whitespace audit pass.
 - 2026-07-19: Reliability/UX remediation executed through all nine plan steps without deployment. Hub storage, GitHub refresh, Ollama lifecycle, merge/mutation safety, homepage, daily Hub, and admin UI were hardened; docs and smoke coverage were updated. All 115 unit tests, 34 live missing-token smoke checks, tracked-Python compilation, Compose validation, artifact/legacy-brand scans, and whitespace audit pass.
 - 2026-07-19: GitHub/Ollama Hub overhaul completed locally without deployment. GitHub repo/activity ingestion, non-blocking Ollama summaries with raw-commit fallback, curated-only fallback, auth-gated curation/refresh/backup, old-route removal, Compose secret/config wiring, and operations docs are complete; 126 unit tests, 27 live smoke checks, Compose validation, compilation, and the repo-wide legacy-brand scan pass.
@@ -20,9 +21,6 @@
 - 2026-07-10: Chosen as active build project, displacing LLM-Router (explicit decision per operating manual §1). Confirmed templates are read per request — updates need no service restart.
 
 ## Parked (ideas/questions deliberately not being acted on)
-- README deploy section is stale — describes bare systemd, production is a Docker container; rewrite after M1 from docs/deploy-facts.md
-- Cloudflare Access path-scope check (Zero Trust dashboard) — no longer blocking since /portfolio is app-gated; still worth confirming someday
-- BAKED confirmed → bind-mount portfolio.html so dashboard updates skip rebuilds (post-M1 improvement)
-- M2: auto-publish on session end (Windows scheduled task: regenerate + push)
-- Live server-side regeneration from git-pulled STATE.md files — probably never; desktop push is fine
-- Hermes Kanban UI — separate project, needs spec (Plan item 6) first
+- Cloudflare Access path-scope review in the Zero Trust dashboard remains a
+  worthwhile deployment audit, but is not part of this application change.
+- Hermes Kanban UI is a separate project and needs its own specification.

@@ -1,8 +1,10 @@
 # Control Center
 
 Tristan's private home-server dashboard for daily briefings, live service health,
-project management, and the generated portfolio view. It is a small Python
-standard-library application with no framework or frontend build step.
+and living project state. Projects update automatically from GitHub code changes;
+a local Ollama model explains where each project is and suggests one next step,
+while manual overrides remain available. The app uses only Python's standard
+library and has no frontend build step.
 
 ## Run locally
 
@@ -15,9 +17,10 @@ python server.py 3102
 python scripts/smoke.py 3102
 ```
 
-Runtime state belongs under `data/` (or the directory selected by `DATA_DIR`) and
-is intentionally not committed. Production runs as the dedicated Docker Compose
-stack behind Caddy and Cloudflare Access.
+Runtime state, including generated project insights and manual curation, belongs
+under `data/` (or the directory selected by `DATA_DIR`) and is intentionally not
+committed. Production runs as the dedicated Docker Compose stack behind Caddy
+and Cloudflare Access.
 
 See `OPERATIONS.md` for build, deployment, monitoring, data, secrets, logs, and
 backup procedures.

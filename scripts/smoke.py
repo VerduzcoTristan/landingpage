@@ -20,7 +20,8 @@ ROUTES = {
     "/api/status": 200,
     "/hub": 200,
     "/api/hub/state": 200,
-    "/api/hub/summaries": 200,
+    "/api/hub/insights": 200,
+    "/api/hub/summaries": 404,
     # Localhost is intentionally authenticated by the server's development bypass.
     "/hub/admin": 200,
     "/hub/admin/delete": 404,
@@ -103,27 +104,30 @@ def main() -> int:
                     problems.append("invalid Hub refresh state")
             except (ValueError, TypeError):
                 problems.append("Hub state is not valid JSON")
-        if path == "/api/hub/summaries" and status == 200:
+        if path == "/api/hub/insights" and status == 200:
             try:
-                summaries = json.loads(body)
-                if set(summaries) != {"summaries", "states", "pending"}:
-                    problems.append("unexpected Hub summary response shape")
+                insights = json.loads(body)
+                if set(insights) != {"insights", "states", "pending"}:
+                    problems.append("unexpected Projects insight response shape")
             except (ValueError, TypeError):
-                problems.append("Hub summaries are not valid JSON")
+                problems.append("Projects insights are not valid JSON")
         if path == "/" and status == 200:
             for marker in (b"Today's Briefing", b"Monitoring", b"Focus projects"):
                 if marker not in body:
                     problems.append(f"homepage missing {marker.decode()}")
-        if (path == "/hub" and status == 200 and b'data-hub-filter="focus"' not in body
-                and b"No projects yet" not in body and b"Loading GitHub activity" not in body):
-            problems.append("Hub Focus filter missing")
+        if path == "/hub" and status == 200:
+            if b"<h1>Projects</h1>" not in body:
+                problems.append("Projects heading missing")
+            if (b'data-hub-filter="focus"' not in body and b"No projects yet" not in body
+                    and b"Loading GitHub activity" not in body):
+                problems.append("Projects Focus filter missing")
         if path == "/hub/admin" and status == 200:
-            markers = [b'name="csrf_token"']
+            markers = [b"Manage Projects", b'name="csrf_token"']
             if b"No projects to curate yet" not in body:
                 markers.append(b'id="admin-repo-search"')
             for marker in markers:
                 if marker not in body:
-                    problems.append(f"Hub admin missing {marker.decode()}")
+                    problems.append(f"Projects admin missing {marker.decode()}")
 
         if problems:
             failures.append(f"{path}: {'; '.join(problems)}")
@@ -132,7 +136,7 @@ def main() -> int:
             print(f"PASS {path} {status}")
 
     for path in ("/hub/admin/update", "/hub/admin/delete",
-                 "/hub/admin/refresh", "/hub/admin/backup"):
+                 "/hub/admin/refresh", "/hub/admin/regenerate", "/hub/admin/backup"):
         try:
             status, _ = post(base_url + path, {"csrf_token": "invalid", "full_name": "smoke/check"},
                              args.timeout)
@@ -149,7 +153,7 @@ def main() -> int:
     if failures:
         print(f"\n{len(failures)} smoke check(s) failed", file=sys.stderr)
         return 1
-    print(f"\n{len(ROUTES) + 4} smoke checks passed")
+    print(f"\n{len(ROUTES) + 5} smoke checks passed")
     return 0
 
 

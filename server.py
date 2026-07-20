@@ -147,8 +147,7 @@ def _is_bookmarked(sid: str, bookmark_type: str) -> bool:
     return current_type == bookmark_type
 
 # ── Shared nav assets (single source of truth for the top nav) ──────────────
-# Server-rendered pages use NAV_CSS directly; the generated portfolio receives
-# the same rules and markup through its three shell placeholders.
+# Server-rendered pages share these navigation rules and markup.
 NAV_CSS = """
 :root{--page:#080b12;--surface:#101624;--surface-raised:#151d2e;--overlay:#1b2538;--border:#28344b;--border-strong:#3b4964;--text:#eef3ff;--muted:#9ba9c1;--subtle:#6f7d95;--accent:#8b7cff;--accent-strong:#a99eff;--accent-soft:rgba(139,124,255,.13);--success:#45d69a;--warning:#f3b95f;--danger:#ff6b7a;--shadow-1:0 10px 30px rgba(0,0,0,.22);--shadow-2:0 24px 70px rgba(0,0,0,.38);--radius-sm:.55rem;--radius-md:.85rem;--radius-lg:1.2rem;--shell:72rem;--ease:180ms ease}
 .skip-link{position:fixed;left:1rem;top:-5rem;z-index:500;padding:.65rem 1rem;border-radius:0 0 var(--radius-sm) var(--radius-sm);background:var(--accent);color:#fff;font-weight:800;text-decoration:none;transition:top var(--ease)}.skip-link:focus{top:0}
@@ -1273,7 +1272,7 @@ def hub_admin_page(message: str = "", repo_context: str = "") -> str:
     body += '</div>'
     if not repos:
         body += '<div class="empty-state"><p>No projects to curate yet.</p>'
-        body += '<p>Set <code>GITHUB_TOKEN</code> to populate the Hub.</p></div>'
+        body += '<p>Set <code>GITHUB_TOKEN</code> to populate Projects.</p></div>'
         return html_page("Manage Projects", body, active_nav="hub")
     counts = {
         "all": len(repos),
@@ -1554,7 +1553,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 _OLLAMA_CLIENT.invalidate()
                 _GITHUB_CLIENT.invalidate()
                 get_hub_repos(force=True)
-                self._send_redirect("/hub/admin?" + urllib.parse.urlencode({"message": "Hub refreshed."}))
+                self._send_redirect("/hub/admin?" + urllib.parse.urlencode({"message": "Projects refreshed."}))
             elif action == "regenerate":
                 fn = get("full_name").strip()
                 if not fn:

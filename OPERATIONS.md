@@ -14,9 +14,10 @@ Control Center runs as the `landing-page` Docker Compose stack at
   the app reaches Ollama at the configured service URL on that same network.
 - Caddy is fronted by the Cloudflare Tunnel. Its site address must retain the
   explicit `http://` prefix because the tunnel terminates TLS.
-- The briefing database and cron output are mounted read-only. Hub curation,
-  monitors, and bookmarks are written only beneath `/app/data`. GitHub and
-  Ollama caches are process memory and disappear on restart.
+- The briefing database and cron output are mounted read-only. Project curation,
+  generated insights, monitors, and bookmarks are written only beneath
+  `/app/data`. Raw GitHub patches, prompts, tokens, and model settings are never
+  persisted. Transport caches and in-flight/failure state disappear on restart.
 
 The public hostname is intentionally not committed. Caddy and the tunnel keep
 serving the currently configured hostname; hostname or route changes belong in a
@@ -37,7 +38,7 @@ unlisted `Host` header receives HTTP 421. The Compose default is suitable only
 for local checks; production must include the hostname already used by Caddy.
 
 Create a read-only GitHub PAT with repository access (including private
-repositories that should appear in the Hub) and write only the token to
+repositories that should appear in Projects) and write only the token to
 `/srv/secrets/landing-page/github_token`. Compose mounts it at
 `/run/secrets/github_token`; the value never belongs in `.env`, the repository,
 or the image. `GITHUB_TOKEN` remains supported only as a local-development
@@ -49,18 +50,28 @@ network alias `ollama`. Joining Ollama to that network is an infrastructure
 operation and must be completed in Ollama's own Compose stack; this repository
 does not mutate `/srv/infra`.
 
-## Hub runtime behavior
+## Projects runtime behavior
 
-- `GET /hub` never waits for GitHub or Ollama. It serves curated/cached data and
-  starts at most one background GitHub refresh. `GET /api/hub/state` reports
-  only `idle`, `refreshing`, `ready`, or `error` plus safe snapshot metadata.
-- Repository activity refreshes after 10 minutes. Commit enrichment uses at
-  most four workers; stale data remains visible during refresh or failure.
-- Ollama summaries are keyed by repository and commit SHAs. Successes cache for
-  30 minutes and terminal failures for 5 minutes. At most four summaries run at
-  once, and repeated polls share one job. Missing commits or unavailable Ollama
-  fall back to the rendered commit list without endless polling.
-- Hub admin mutations require Cloudflare/local auth and a per-process CSRF
+- `GET /hub` never waits for GitHub or Ollama. It serves curated and last-good
+  data, starts at most one background GitHub refresh, and requests analysis only
+  for new repository heads. `GET /api/hub/state` exposes safe aggregate refresh
+  and analysis state; `GET /api/hub/insights` exposes display-safe insights.
+- GitHub's repository listing refreshes after 10 minutes. Initial analysis uses
+  a small recent range; later analysis compares the stored head with the current
+  default branch. Unchanged repositories do not refetch diffs or rerun Ollama.
+- Change collection uses at most four workers and caps input at 20 files, 2,000
+  patch characters per file, 12,000 total patch characters, and a 2 MiB HTTP
+  response. Commit messages are never sent to Ollama or rendered as evidence.
+- Ollama returns structured `current_state`, `next_step`, and `confidence`
+  fields. Last-good results and five prior snapshots persist in
+  `project-insights.json`; failures retain that result and back off for five
+  minutes. At most four generations run at once and overlapping requests share
+  one job. Raw patches exist only transiently in process memory.
+- Opening Projects refreshes it on use. **Refresh projects now** checks all
+  sources, while each admin editor can force **Regenerate this project**.
+  Automatic current/next text can be pinned or replaced by manual overrides;
+  clearing an override immediately returns to the generated value.
+- Projects admin mutations require Cloudflare/local auth and a per-process CSRF
   token embedded in the current admin page. After a container restart, reload
   `/hub/admin` before submitting a form opened before the restart.
 
@@ -114,9 +125,9 @@ ALLOWED_HOSTS=localhost,127.0.0.1 GITHUB_TOKEN_FILE=/path/to/github_token \
 python scripts/smoke.py 3102
 ```
 
-Omit `GITHUB_TOKEN_FILE` (and `GITHUB_TOKEN`) to exercise the Hub's curated-only
-fallback. If Ollama is unavailable, Hub cards fall back to recent commit text
-instead of failing the page.
+Omit `GITHUB_TOKEN_FILE` (and `GITHUB_TOKEN`) to exercise the curated/last-good
+Projects fallback. If Ollama is unavailable, the page retains its last-good
+insight or shows a safe unavailable state instead of failing.
 
 ## Deploy
 
@@ -140,11 +151,11 @@ or Access policy as part of a normal application deploy.
 cd /srv/apps/landing-page/repo
 docker compose logs -f --tail=100 landing-page
 docker compose exec -T landing-page python3 scripts/smoke.py 3002
-docker compose exec -T landing-page python3 -m py_compile server.py briefing_archive.py scripts/smoke.py
+docker compose exec -T landing-page python3 -m compileall -q .
 ```
 
-The smoke script verifies retained and removed routes, the Hub state/summary
-JSON contracts, the briefing-first homepage, and CSRF rejection for every Hub
+The smoke script verifies retained and removed routes, the Projects state/insight
+JSON contracts, the briefing-first homepage, and CSRF rejection for every admin
 mutation route. `/health` is the liveness endpoint; `/api/status` runs the
 configured monitor checks and returns their live results.
 
@@ -153,8 +164,11 @@ configured monitor checks and returns their live results.
 Persistent files are under `/srv/apps/landing-page/data/`:
 
 - `monitors.json` — live HTTP checks and links to existing monitoring tools.
-- `curation.json` — Hub curation keyed by GitHub `owner/repository`, managed
-  through `/hub/admin` (goals, next steps, ordering, visibility, and live links).
+- `curation.json` — manual project curation keyed by GitHub `owner/repository`,
+  managed through `/hub/admin` (goals, current/next overrides, pinning, done
+  state, ordering, visibility, and links).
+- `project-insights.json` — last-good generated current/next state, safe changed-
+  file metadata, generation state, and up to five prior snapshots per project.
 - `bookmarks.json` — saved briefing stories.
 
 The container owns these files as uid 10001. Do not store user data inside the
@@ -168,7 +182,8 @@ Create a logical export:
 sudo /srv/apps/landing-page/repo/scripts/export-data.sh
 ```
 
-The script writes an atomic, mode-0600 tarball beneath
+The script archives the entire data directory, including `curation.json` and
+`project-insights.json`, to an atomic mode-0600 tarball beneath
 `/srv/backups/exports/landing-page/`. To restore, stop the app, inspect the
 archive, extract it into an empty data directory, restore ownership, then start
 and smoke-test the app:
@@ -195,13 +210,14 @@ selected archive before extraction.
   `/api/status` from inside the container.
 - Missing briefings: verify both read-only host mounts exist and are readable by
   Docker; the UI should still render a graceful empty state.
-- Hub says the GitHub token is not configured: verify the root-owned
+- Projects says the GitHub token is not configured: verify the root-owned
   `/srv/secrets/landing-page/github_token` exists, then recreate the container.
-- Hub has repositories but no generated summaries: verify Ollama is running,
-  shares `proxy_net` with alias `ollama`, and the configured model is installed.
-- Hub remains in `error`: inspect container connectivity and the GitHub secret;
-  use **Refresh hub now** after correcting the cause. Automatic failure retry is
-  deliberately delayed to avoid hammering an unavailable service.
+- Projects has repositories but no generated insights: verify Ollama is running,
+  shares `proxy_net` with alias `ollama`, and the configured model is installed;
+  then use the project's **Regenerate this project** control.
+- Projects remains in `error`: inspect container connectivity and the GitHub
+  secret; use **Refresh projects now** after correcting the cause. Automatic
+  retry is deliberately delayed to avoid hammering an unavailable service.
 - Admin form returns `Invalid form token`: reload `/hub/admin`; the container
   likely restarted after the form was opened.
 - Permission errors beneath `/app/data`: restore uid/gid 10001 ownership on the

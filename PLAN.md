@@ -229,7 +229,7 @@ curation. Malformed fields or one malformed entry degrade independently.
   prefer pinned work and show the resolved current/next state with graceful
   cached/unavailable fallbacks. Verify homepage briefing/status regression and
   mobile/short-landscape layouts; compile, check this step, and commit alone.
-- [ ] **Step 8 — Update operations and run the full audit.** Update smoke routes
+- [x] **Step 8 — Update operations and run the full audit.** Update smoke routes
   and contracts, README/OPERATIONS/STATE data and troubleshooting guidance, run
   all unit/compile/live smoke/Compose/whitespace/removed-route/legacy-brand
   checks, verify exports cover `project-insights.json`, record results below,
@@ -238,6 +238,11 @@ curation. Malformed fields or one malformed entry degrade independently.
 ## Decision log (current pass)
 
 (build pass appends one line per mid-run decision)
+
+- Step 8: final live verification used an isolated temporary `DATA_DIR` with
+  GitHub credentials absent, exercising the documented safe fallback without
+  reading or changing production state. No deployment or infrastructure change
+  was performed.
 
 ## Verification summary (current pass)
 
@@ -273,6 +278,15 @@ curation. Malformed fields or one malformed entry degrade independently.
   regressions. The homepage remains briefing-first with unchanged monitoring;
   its compact project rail now leads with pinned work and shows resolved Current
   plus Next, while missing or unavailable insight falls back without error.
+- Step 8: all 145 unit tests and 36 isolated live smoke checks passed. Every
+  tracked Python file compiles; Compose validation and `git diff --check` pass;
+  the removed summary/projects/portfolio routes return 404; invalid CSRF is
+  rejected for all five project mutations. The export script archives the
+  entire data directory and the backup test explicitly includes
+  `project-insights.json`. Tracked-tool-artifact, removed-implementation, and
+  contiguous legacy-brand scans returned zero findings. Production, secrets,
+  Caddy, Tunnel, Ollama networking, hostnames, ports, and live data were not
+  changed.
 
 ---
 

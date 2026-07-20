@@ -184,7 +184,7 @@ class TestHubActionRefresh(unittest.TestCase):
         location = h.redirects[0]
         self.assertTrue(location.startswith("/hub/admin?"))
         self.assertIn("message=", location)
-        self.assertIn("Hub+refreshed", location)
+        self.assertIn("Projects+refreshed", location)
 
     def test_regenerate_is_scoped_and_forces_source_refresh(self):
         body = urllib.parse.urlencode({
@@ -272,7 +272,7 @@ class TestHubActionBackup(unittest.TestCase):
     def test_backup_returns_valid_targz_containing_data_dir(self):
         tmp = tempfile.mkdtemp()
         # Write a known small file inside the patched DATA_DIR.
-        known_name = "monitors.json"
+        known_name = "project-insights.json"
         known_content = b'{"hello": "world"}'
         with open(os.path.join(tmp, known_name), "wb") as fh:
             fh.write(known_content)
