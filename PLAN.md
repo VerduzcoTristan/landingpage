@@ -141,7 +141,7 @@ deployment change is planned.
 - [x] **Step 7 — Redesign the Hub daily view.** Add overview counts, Focus-first
   filters, restrained semantic status styling, clearer card hierarchy, collapsed
   low-priority groups, and quiet edit controls; verify keyboard and no-JS access.
-- [ ] **Step 8 — Redesign Hub admin.** Add client-side search/filter, expandable
+- [x] **Step 8 — Redesign Hub admin.** Add client-side search/filter, expandable
   editors, all missing fields, anchor-preserving inline save/error feedback, and
   usable technical-link sections; verify authenticated/unauthenticated and
   curated-only workflows.

@@ -171,8 +171,8 @@ class TestHubAdminPageRender(unittest.TestCase):
             "owner/repo": make_hub_entry(goal="Ship the thing", order=3, hidden=True)
         }
         out = server.hub_admin_page()
-        # goal value attribute must contain the prefilled goal
-        self.assertIn('value="Ship the thing"', out)
+        self.assertIn('name="goal"', out)
+        self.assertIn('>Ship the thing</textarea>', out)
         # order prefilled
         self.assertIn('name="order" value="3"', out)
         # hidden checkbox checked
@@ -209,12 +209,54 @@ class TestHubAdminPageRender(unittest.TestCase):
 
     def test_forms_include_csrf_and_confirmed_post_delete(self):
         self.mock_repos.return_value = {"repos": [make_repo("owner/repo")], "status": "ok"}
-        self.mock_load.return_value = {}
+        self.mock_load.return_value = {"owner/repo": make_hub_entry()}
         out = server.hub_admin_page()
         self.assertIn('name="csrf_token"', out)
         self.assertIn('formaction="/hub/admin/delete"', out)
         self.assertIn("return confirm", out)
         self.assertNotIn('href="/hub/admin/delete?', out)
+
+    def test_compact_list_has_search_filters_and_expandable_editors(self):
+        self.mock_repos.return_value = {"repos": [make_repo("owner/repo")]}
+        self.mock_load.return_value = {}
+        out = server.hub_admin_page()
+        self.assertIn('type="search" id="admin-repo-search"', out)
+        for key in ("all", "uncurated", "hidden", "done"):
+            self.assertIn(f'data-admin-filter="{key}"', out)
+        self.assertIn('<details class="admin-repo"', out)
+        self.assertNotIn('<details class="admin-repo" open', out)
+        self.assertIn('data-uncurated="true"', out)
+
+    def test_editor_contains_every_curation_field_and_technical_links(self):
+        self.mock_repos.return_value = {"repos": [make_repo("owner/repo")]}
+        self.mock_load.return_value = {"owner/repo": {
+            **make_hub_entry(live_url="https://live.example", local_path="C:/work/repo"),
+            "whats_next": "Deploy next",
+        }}
+        out = server.hub_admin_page()
+        for field in ("goal", "whats_next", "status_override", "live_url", "local_path", "hidden", "order"):
+            self.assertIn(f'name="{field}"', out)
+        self.assertIn("Repository ↗", out)
+        self.assertIn("Live site ↗", out)
+        self.assertIn("Local: C:/work/repo", out)
+
+    def test_context_feedback_is_inline_and_opens_edited_repository(self):
+        self.mock_repos.return_value = {"repos": [make_repo("owner/repo")]}
+        self.mock_load.return_value = {"owner/repo": make_hub_entry()}
+        out = server.hub_admin_page("Saved safely", "owner/repo")
+        self.assertIn('id="owner/repo"', out)
+        self.assertIn('data-done="false" open>', out)
+        self.assertIn('<div class="notice" role="status">Saved safely</div>', out)
+
+    def test_curated_only_repository_remains_editable(self):
+        self.mock_repos.return_value = {"repos": []}
+        self.mock_load.return_value = {"owner/local-only": {
+            **make_hub_entry(goal="Local goal"), "whats_next": "Finish it",
+        }}
+        out = server.hub_admin_page()
+        self.assertIn("local-only", out)
+        self.assertIn("curated only", out)
+        self.assertIn("Local goal", out)
 
     def test_empty_state_when_no_repos(self):
         self.mock_repos.return_value = {"repos": []}
