@@ -126,7 +126,7 @@ deployment change is planned.
   refresh, bounded commit enrichment, stale snapshots, `/api/hub/state`, and
   prompt first-load/error states; verify latency with blocking stubs and assert
   worker/in-flight ceilings.
-- [ ] **Step 4 — Fix summary lifecycle and Hub actions.** Add SHA fingerprints,
+- [x] **Step 4 — Fix summary lifecycle and Hub actions.** Add SHA fingerprints,
   success/failure TTLs, bounded in-flight generation, terminal fallbacks, and
   correct refresh invalidation; stream/spool backups safely; verify Ollama-down,
   no-commit, overlapping-poll, refresh, and backup cases.

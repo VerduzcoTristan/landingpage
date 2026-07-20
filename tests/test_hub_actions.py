@@ -155,10 +155,14 @@ class TestHubActionRefresh(unittest.TestCase):
     def test_refresh_authenticated_calls_get_hub_repos_force(self):
         h = self._make_handler(path="/hub/admin/refresh")
         with patch.object(server, "is_authenticated", return_value=True), \
-             patch.object(server, "get_hub_repos") as mock_repos:
+             patch.object(server, "get_hub_repos") as mock_repos, \
+             patch.object(server._GITHUB_CLIENT, "invalidate") as github_invalidate, \
+             patch.object(server._OLLAMA_CLIENT, "invalidate") as summary_invalidate:
             server.Handler.do_POST(h)
             # force=True must be passed to bust the cache
             mock_repos.assert_called_once_with(force=True)
+            github_invalidate.assert_called_once_with()
+            summary_invalidate.assert_called_once_with()
 
     def test_refresh_authenticated_redirects_to_hub_admin(self):
         h = self._make_handler(path="/hub/admin/refresh")
@@ -201,6 +205,23 @@ class TestHubActionBackup(unittest.TestCase):
             mock_tar.assert_called_once()
             _, kwargs = mock_tar.call_args
             self.assertEqual(kwargs.get("mode"), "w:gz")
+
+    def test_backup_uses_bounded_spool_instead_of_whole_archive_bytes(self):
+        tmp = tempfile.mkdtemp()
+        h = self._make_handler(path="/hub/admin/backup")
+        real_spool = tempfile.SpooledTemporaryFile
+        calls = []
+
+        def tracked_spool(*args, **kwargs):
+            calls.append(kwargs)
+            return real_spool(*args, **kwargs)
+
+        with patch.object(server, "is_authenticated", return_value=True), patch.object(
+            server, "DATA_DIR", tmp
+        ), patch("tempfile.SpooledTemporaryFile", side_effect=tracked_spool):
+            server.Handler.do_POST(h)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["max_size"], 2 * 1024 * 1024)
 
     def test_backup_authenticated_sets_octet_stream_and_disposition(self):
         tmp = tempfile.mkdtemp()

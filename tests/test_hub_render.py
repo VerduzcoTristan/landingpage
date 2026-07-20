@@ -283,6 +283,8 @@ class TestHubPageJsPoll(unittest.TestCase):
             html = server.hub_page()
         self.assertIn('fetch("/api/hub/summaries")', html)
         self.assertIn("textContent", html)
+        self.assertIn('states[fn]==="fallback"', html)
+        self.assertIn("el.remove()", html)
         self.assertNotIn("innerHTML", html)
 
 

@@ -7,7 +7,6 @@ import json
 import os
 import re
 import sys
-import threading
 import time
 import urllib.error
 import urllib.parse
@@ -808,28 +807,6 @@ def get_hub_repos(force: bool = False) -> dict:
 # fills them lazily. URL/model/prompt/errors are NEVER logged or returned.
 
 _OLLAMA_CLIENT = OllamaClient()
-_SUMMARY_CACHE = _OLLAMA_CLIENT.cache  # compatibility seam for existing callers/tests
-_SUMMARY_TTL = _OLLAMA_CLIENT.cache_ttl
-_SUMMARY_LOCK = _OLLAMA_CLIENT.lock
-
-def _ollama_base_url() -> str:
-    return _OLLAMA_CLIENT.base_url()
-
-def _ollama_model() -> str:
-    return _OLLAMA_CLIENT.model()
-
-def _ollama_summarize(repo: dict) -> str | None:
-    """Return a one-line summary for a repo, or None on any failure.
-    Builds a prompt from recent commit subjects/bodies only. Never raises."""
-    return _OLLAMA_CLIENT.summarize(repo)
-
-def _fill_summaries(repos: list[dict]) -> None:
-    """Background: fill _SUMMARY_CACHE for repos missing/expired summaries."""
-    global _SUMMARY_CACHE
-    if _SUMMARY_CACHE is not _OLLAMA_CLIENT.cache:
-        _OLLAMA_CLIENT.cache = _SUMMARY_CACHE
-    _OLLAMA_CLIENT.fill(repos)
-    _SUMMARY_CACHE = _OLLAMA_CLIENT.cache
 
 def _merge_hub_entries() -> dict:
     """Merge GitHub repos with curated overrides keyed by full_name.
@@ -957,6 +934,9 @@ def hub_page() -> str:
              'Object.keys(s).forEach(function(fn){'
              'var el=document.querySelector(\'[data-summary="\'+fn+\'"]\');'
              'if(el&&s[fn]){el.textContent=s[fn];el.classList.remove("summarizing");}});'
+             'var states=d.states||{};Object.keys(states).forEach(function(fn){'
+             'var el=document.querySelector(\'[data-summary="\'+fn+\'"]\');'
+             'if(el&&states[fn]==="fallback"){el.remove();}});'
              'if(d.pending&&d.pending.length){setTimeout(refreshSummaries,2500);}'
              '}).catch(function(){});}'
              'document.addEventListener("DOMContentLoaded",function(){setTimeout(refreshSummaries,800);});'
@@ -1103,28 +1083,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         Never blocks on Ollama; never includes URL/model/prompt/errors."""
         data = get_hub_repos(force=False)
         repos = data.get("repos", []) or []
-        now = time.time()
-        summaries = {}
-        pending = []
-        for repo in repos:
-            fn = str(repo.get("full_name", "")).strip()
-            if not fn:
-                continue
-            with _SUMMARY_LOCK:
-                cached = _SUMMARY_CACHE.get(fn)
-            if cached and (now - cached["ts"]) < _SUMMARY_TTL:
-                summaries[fn] = cached["summary"]
-            else:
-                summaries[fn] = None
-                pending.append(fn)
-        if pending:
-            t = threading.Thread(target=_fill_summaries, args=(repos,), daemon=True)
-            t.start()
+        result = _OLLAMA_CLIENT.request_summaries(repos)
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self.wfile.write(json.dumps({"summaries": summaries, "pending": pending}).encode("utf-8"))
+        self.wfile.write(json.dumps(result).encode("utf-8"))
 
     def do_GET(self):
         import urllib.parse
@@ -1211,27 +1175,30 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 message = update_hub("toggle-hide", lambda k: fn if k == "full_name" else get(k))
                 self._send_redirect("/hub/admin?" + urllib.parse.urlencode({"message": message}))
             elif action == "refresh":
-                get_hub_repos(force=True)  # bust cache
+                _OLLAMA_CLIENT.invalidate()
+                _GITHUB_CLIENT.invalidate()
+                get_hub_repos(force=True)
                 self._send_redirect("/hub/admin?" + urllib.parse.urlencode({"message": "Hub refreshed."}))
             elif action == "backup":
-                import io, tarfile, time
-                buf = io.BytesIO()
+                import tarfile, tempfile, time
                 try:
-                    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
-                        tar.add(DATA_DIR, arcname="hub-backup")
+                    with tempfile.SpooledTemporaryFile(max_size=2 * 1024 * 1024, mode="w+b") as spool:
+                        with tarfile.open(fileobj=spool, mode="w:gz") as tar:
+                            tar.add(DATA_DIR, arcname="hub-backup")
+                        size = spool.tell()
+                        spool.seek(0)
+                        ts = time.strftime("%Y%m%d-%H%M%S")
+                        filename = f"hub-backup-{ts}.tar.gz"
+                        self.send_response(200)
+                        self.send_header("Content-Type", "application/octet-stream")
+                        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+                        self.send_header("Content-Length", str(size))
+                        self.send_header("Cache-Control", "no-store")
+                        self.end_headers()
+                        while chunk := spool.read(64 * 1024):
+                            self.wfile.write(chunk)
                 except OSError:
                     self._respond(500, "text/plain", b"Backup failed: data directory unavailable.")
-                    return
-                buf.seek(0)
-                ts = time.strftime("%Y%m%d-%H%M%S")
-                filename = f"hub-backup-{ts}.tar.gz"
-                self.send_response(200)
-                self.send_header("Content-Type", "application/octet-stream")
-                self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
-                self.send_header("Content-Length", str(buf.getbuffer().nbytes))
-                self.send_header("Cache-Control", "no-store")
-                self.end_headers()
-                self.wfile.write(buf.getvalue())
             else:
                 self._respond(404, "text/plain", b"Not Found")
         else:
