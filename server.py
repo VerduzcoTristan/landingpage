@@ -1323,6 +1323,8 @@ def hub_page() -> str:
              'var current=card.querySelector("[data-insight-current]");var next=card.querySelector("[data-insight-next]");'
              'if(current&&current.dataset.source!=="manual"&&insight.current_state){current.textContent=insight.current_state;current.classList.remove("placeholder");}'
              'if(next&&next.dataset.source!=="manual"&&insight.next_step){next.textContent=insight.next_step;next.classList.remove("placeholder");}'
+             'var terminal={ready:true,stale:true,no_changes:true,unavailable:true};'
+             'if(terminal[insight.state]&&card.dataset.insightState!==insight.state){reload=true;}'
              'if(insight.head_sha&&card.dataset.insightHead!==insight.head_sha){reload=true;}});'
              'if(d.pending&&d.pending.length){setTimeout(refreshInsights,2500);}else if(reload){window.location.reload();}'
              '}).catch(function(){});}'
@@ -1345,8 +1347,13 @@ def _hub_card_html(e: dict) -> str:
     next_source = text(e.get("next_source")) or "automatic"
     head_sha = text(e.get("head_sha"))
     insight_head = text(insight.get("head_sha"))
+    insight_state = text(insight.get("state"))
     generated_at = text(insight.get("generated_at"))
-    updating = text(e.get("change_status")) == "ready" and head_sha != insight_head
+    updating = (
+        text(e.get("change_status")) == "ready"
+        and head_sha != insight_head
+        and insight_state not in {"stale", "no_changes", "unavailable"}
+    )
     if e.get("status_override") == "done":
         status = "done"
     else:
@@ -1360,6 +1367,7 @@ def _hub_card_html(e: dict) -> str:
     card = (f'<article class="{classes}" id="{html.escape(fn, quote=True)}" data-hub-card '
             f'data-project-name="{html.escape(fn, quote=True)}" '
             f'data-insight-head="{html.escape(insight_head, quote=True)}" '
+            f'data-insight-state="{html.escape(insight_state, quote=True)}" '
             f'data-generated-at="{html.escape(generated_at, quote=True)}" data-new="false" '
             f'data-group="{html.escape(group, quote=True)}" data-focus="{focus}" '
             f'data-pinned="{str(pinned).lower()}" data-review="{str(review).lower()}">'

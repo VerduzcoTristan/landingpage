@@ -64,6 +64,14 @@ briefings/monitoring/project scope or touching live infrastructure.
   review the resulting changes. Update this section with verification and
   commit each completed step separately.
 
+## Follow-up step
+
+- [x] Step R5 - Close terminal Projects insight states. Cards now carry the
+  insight lifecycle state, suppress the active `Updating` badge after terminal
+  `stale`, `no_changes`, or `unavailable` results, and allow one bounded page
+  refresh when the browser receives a terminal result. Render and JS regression
+  coverage was added.
+
 ## Acceptance criteria
 
 - Real `/hub/admin` update, delete, and hide POSTs persist correctly.
@@ -73,6 +81,8 @@ briefings/monitoring/project scope or touching live infrastructure.
   detail card or bookmark control.
 - Remote admin/bookmark mutations require a valid Cloudflare Access JWT and
   CSRF; spoofed email headers are denied.
+- Terminal Projects insight results settle the card UI instead of leaving every
+  project marked `Updating` indefinitely.
 - Bookmark toggles cannot lose concurrent updates and use UTC-aware timestamps.
 - `/api/status`, `/status`, and homepage status use cached/non-blocking monitor
   refreshes; healthchecks call `/health`.
@@ -82,6 +92,10 @@ briefings/monitoring/project scope or touching live infrastructure.
 ## Decision log
 
 (append one line per remediation step or material mid-run decision)
+
+- Step R5: terminal Ollama insight states now suppress the active `Updating`
+  badge, and the browser reloads once after receiving the terminal state so an
+  already-open Projects page settles without a polling loop.
 
 - Step R1: remote Cloudflare Access auth now requires a signed RS256 JWT with
   configured issuer/audience; the existing localhost bypass remains for local

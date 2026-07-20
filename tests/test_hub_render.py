@@ -332,6 +332,13 @@ class TestHubPage(unittest.TestCase):
         self.assertIn('data-generated-at="', page)
         self.assertIn('data-new="false"', page)
 
+    def test_terminal_insight_does_not_remain_marked_updating(self):
+        entry = make_repo("a/repo")
+        entry["insight"] = {"state": "unavailable", "head_sha": ""}
+        card = server._hub_card_html(entry)
+        self.assertNotIn(">Updating<", card)
+        self.assertIn('data-insight-state="unavailable"', card)
+
 
 # ── _hub_card_html tests ─────────────────────────────────────────────────────
 
@@ -437,6 +444,8 @@ class TestHubPageJsPoll(unittest.TestCase):
         self.assertIn('fetch("/api/hub/insights")', html)
         self.assertIn("textContent", html)
         self.assertIn("current_state", html)
+        self.assertIn("no_changes:true", html)
+        self.assertIn("card.dataset.insightState!==insight.state", html)
         self.assertNotIn("innerHTML", html)
 
 

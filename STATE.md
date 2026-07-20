@@ -6,6 +6,9 @@
 **Blocked on:** nothing
 
 ## Log (newest first, one line per session)
+- 2026-07-20: Fixed the Projects page lifecycle UI so terminal Ollama results
+  (`stale`, `no_changes`, or `unavailable`) settle cards instead of leaving
+  every project marked Updating forever; focused render/JS regressions pass.
 - 2026-07-20: Audit remediation completed through four isolated steps. Hub
   mutations now persist, briefing detail/bookmarks use canonical IDs and safe
   escaping with auth/CSRF/locking, Access JWT claims are verified, monitor
