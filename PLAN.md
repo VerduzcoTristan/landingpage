@@ -134,7 +134,7 @@ deployment change is planned.
   union curated-only entries, render every curation field and relative activity,
   fix nulls/headings/links, convert deletion to confirmed POST, and add CSRF to
   admin mutations with acceptance-focused tests.
-- [ ] **Step 6 — Redesign the homepage and mobile navigation.** Implement the
+- [x] **Step 6 — Redesign the homepage and mobile navigation.** Implement the
   compact header, latest-five briefing surface, monitoring/focus side rail,
   single-row mobile nav, touch/focus/responsive states, and regression tests for
   briefing selection and retained routes.
