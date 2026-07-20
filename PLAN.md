@@ -1,4 +1,95 @@
-# PLAN.md — Control Center Reliability + UX Remediation
+# PLAN.md — Short-Landscape Density
+
+Current plan pass output per AGENTS.md. This section is the single source of
+truth for the next build pass. One step = one commit (`step N: <description>`);
+verify the step, tick it here, then commit before starting the next step.
+
+## Current objective
+
+Make the Control Center comfortably scannable on short landscape screens
+without reducing information, clipping text, or disturbing the portrait layout.
+The current responsive rules react only to width: a landscape phone can inherit
+the desktop 4rem navigation, 2.5rem page inset, large headings, generous card
+padding, and 1.65–1.68 line heights, while the 820px breakpoint can also stack
+the homepage into one long column. The fix is a focused short-viewport density
+layer, not a site-wide visual redesign.
+
+## Files expected to change
+
+- `server.py`: add short-landscape CSS for navigation, page rhythm, typography,
+  briefing rows, Hub cards, and the homepage grid.
+- `tests/test_responsive.py` (new): protect portrait behavior, touch targets,
+  landscape layout, and the no-truncation requirement.
+- `STATE.md`: record the verified responsive-density improvement.
+- `PLAN.md`: check each completed step and record implementation decisions.
+
+No route, data model, framework, dependency, Compose, hostname, port, secret,
+Caddy, tunnel, or deployment change is planned.
+
+## Decisions awaiting approval
+
+- **L1 — Key density to viewport height and orientation.** Add a media query for
+  `(orientation: landscape) and (max-height: 600px)` rather than shrinking every
+  desktop or portrait view. This directly targets the reported failure mode.
+- **L2 — Preserve content.** Reduce whitespace and line height before reducing
+  type size. Do not clamp, hide, truncate, or collapse briefing text merely to
+  fit the viewport.
+- **L3 — Restore the two-column homepage when space permits.** At short
+  landscape widths of at least 700px, override the existing 820px single-column
+  rule with a compact briefing-plus-rail grid. Narrower landscape phones remain
+  one column to avoid unusably thin content.
+- **L4 — Keep controls touch-safe.** Navigation links, filters, buttons, and form
+  controls retain a minimum 2.75rem target even when surrounding spacing is
+  tightened.
+- **L5 — No deployment.** This pass ends with local verification and commits;
+  production changes require a separate explicit request.
+
+## Keep / Remove audit (current pass)
+
+| Route / feature | Verdict | Change |
+|---|---|---|
+| `/` | KEEP + IMPROVE | Compact short-landscape header, briefing rows, and two-column daily layout where width permits |
+| `/briefings`, `/briefing/<date>` | KEEP + IMPROVE | Denser headings/cards and readable line height; no story truncation |
+| `/status`, `/api/status` | KEEP + IMPROVE | Reduce page/card whitespace only; monitoring logic unchanged |
+| `/hub` | KEEP + IMPROVE | Compact overview, group spacing, and project cards in short landscape |
+| `/hub/admin` | KEEP + IMPROVE | Compact surrounding rhythm while retaining touch targets and form usability |
+| Hub admin/API mutation routes | KEEP | No behavior, auth, or CSRF changes |
+| Briefing, Hub, monitor, and bookmark data | KEEP | No schema or content changes |
+| Portrait and ordinary desktop layouts | KEEP | Existing width-based rules remain the default |
+| Removed legacy routes | KEEP REMOVED | Existing 404 contract remains tested |
+
+## Acceptance criteria
+
+- On landscape viewports at least 700px wide and at most 600px tall, the
+  homepage retains its briefing/rail columns instead of becoming one long stack.
+- Navigation, page heading, section gaps, briefing rows, status panels, Hub
+  cards, and footer use materially less vertical space on short landscape views.
+- Briefing summaries and project details remain fully readable: no line clamp,
+  fixed content height, hidden overflow, or content deletion is introduced.
+- Portrait layouts and normal-height desktop layouts remain visually unchanged.
+- Interactive targets remain at least 2.75rem; keyboard focus and reduced-motion
+  behavior remain intact.
+- Full unit tests, tracked-Python compilation, live smoke matrix, and
+  `git diff --check` pass.
+
+## Build steps
+
+- [x] **Step 1 — Add short-landscape responsive density.** Implement the scoped
+  height/orientation media query, restore the two-column homepage at viable
+  landscape widths, tighten vertical rhythm without truncating content, add
+  responsive contract tests, verify, check this step, and commit it alone.
+- [ ] **Step 2 — Run the regression and visual audit.** Exercise representative
+  portrait, short-landscape, and desktop viewport sizes; run the complete unit,
+  compile, smoke, legacy-brand, and whitespace checks; update `STATE.md`, check
+  this step, and commit it alone. Do not deploy.
+
+## Decision log (current pass)
+
+(build pass appends one line per mid-run decision)
+
+---
+
+## Historical completed plan — Control Center Reliability + UX Remediation
 
 Current plan pass output per AGENTS.md. This section is the single source of
 truth for the next build pass. One step = one commit (`step N: <description>`);
