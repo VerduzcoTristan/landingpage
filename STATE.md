@@ -1,11 +1,12 @@
 # STATE — landingpage
 **Phase:** maintain
 **Goal:** Control Center serves daily briefings, live monitoring, and a GitHub-sourced, Ollama-summarized project Hub behind Cloudflare Access
-**Current milestone:** Reliability and daily-use UX remediation completed and verified locally on 2026-07-19; production remains unchanged pending an explicit deploy
+**Current milestone:** Short-landscape responsive density completed and verified locally on 2026-07-20; production remains unchanged pending an explicit deploy
 **Next action:** When deployment is approved, provision the GitHub secret, connect Ollama to `proxy_net`, deploy the reviewed commits, and validate through Cloudflare Access
 **Blocked on:** nothing
 
 ## Log (newest first, one line per session)
+- 2026-07-20: Short-landscape density completed locally without deployment. The homepage keeps briefing and status/focus columns on viable landscape widths, vertical rhythm is compact across retained pages, full text and touch targets remain, and a visual-audit overflow was corrected. Browser checks at 812×375, 390×844, and 1440×900 pass with no horizontal overflow; all 119 unit tests, 34 smoke checks, tracked-Python compilation, legacy-brand scan, and whitespace audit pass.
 - 2026-07-19: Reliability/UX remediation executed through all nine plan steps without deployment. Hub storage, GitHub refresh, Ollama lifecycle, merge/mutation safety, homepage, daily Hub, and admin UI were hardened; docs and smoke coverage were updated. All 115 unit tests, 34 live missing-token smoke checks, tracked-Python compilation, Compose validation, artifact/legacy-brand scans, and whitespace audit pass.
 - 2026-07-19: GitHub/Ollama Hub overhaul completed locally without deployment. GitHub repo/activity ingestion, non-blocking Ollama summaries with raw-commit fallback, curated-only fallback, auth-gated curation/refresh/backup, old-route removal, Compose secret/config wiring, and operations docs are complete; 126 unit tests, 27 live smoke checks, Compose validation, compilation, and the repo-wide legacy-brand scan pass.
 - 2026-07-14: Control Center overhaul shipped. Briefings are primary (7 live homepage rows, 27 archive cards); Control Center and Caddy monitors are healthy; production project add/update/hide/delete passed with data restored; all 24 retained/removed route checks passed; Cloudflare Access returns 302 before content; operations, backup, Compose hardening, two-network wiring, and legacy-code deletion audited green.

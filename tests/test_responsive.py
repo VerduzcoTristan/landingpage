@@ -27,6 +27,8 @@ class TestShortLandscapeDensity(unittest.TestCase):
             landscape_override,
         )
         self.assertIn(".home-rail{grid-template-columns:1fr}", landscape_override)
+        self.assertIn(".home-rail,.home-rail-block{min-width:0}", landscape_override)
+        self.assertIn(".home-rail .section-head{flex-wrap:wrap}", landscape_override)
 
     def test_portrait_breakpoints_and_touch_targets_remain(self):
         self.assertIn("@media(max-width:820px)", server.BASE_CSS)

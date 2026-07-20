@@ -78,7 +78,7 @@ Caddy, tunnel, or deployment change is planned.
   height/orientation media query, restore the two-column homepage at viable
   landscape widths, tighten vertical rhythm without truncating content, add
   responsive contract tests, verify, check this step, and commit it alone.
-- [ ] **Step 2 — Run the regression and visual audit.** Exercise representative
+- [x] **Step 2 — Run the regression and visual audit.** Exercise representative
   portrait, short-landscape, and desktop viewport sizes; run the complete unit,
   compile, smoke, legacy-brand, and whitespace checks; update `STATE.md`, check
   this step, and commit it alone. Do not deploy.
@@ -86,6 +86,24 @@ Caddy, tunnel, or deployment change is planned.
 ## Decision log (current pass)
 
 (build pass appends one line per mid-run decision)
+
+- Step 2: the 812×375 visual audit exposed a 17px intrinsic-width overflow in
+  the restored side rail; constrain the rail/grid children with `min-width: 0`
+  and allow the rail section heading to wrap rather than narrowing content.
+
+## Verification summary (current pass)
+
+- Browser audit: 812×375 landscape retained two homepage columns with a 48px
+  navigation bar and no horizontal overflow; the Hub rendered all five visible
+  mock project cards without horizontal overflow.
+- Portrait 390×844 retained the original single-column layout and 56px mobile
+  navigation. Desktop 1440×900 retained its 16px/1.65 typography and original
+  two-column proportions.
+- All 119 unit tests and 34 live missing-token smoke checks passed; all 15
+  tracked Python files compiled.
+- Contiguous legacy-brand and whitespace scans returned zero findings.
+- No deployment, secret, hostname, port, Caddy, tunnel, or infrastructure
+  mutation was performed.
 
 ---
 
