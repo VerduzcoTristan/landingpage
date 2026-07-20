@@ -15,8 +15,8 @@ Control Center runs as the `landing-page` Docker Compose stack at
 - Caddy is fronted by the Cloudflare Tunnel. Its site address must retain the
   explicit `http://` prefix because the tunnel terminates TLS.
 - The briefing database and cron output are mounted read-only. Hub curation,
-  monitors, bookmarks, and generated impact cache files are written only beneath
-  `/app/data`.
+  monitors, and bookmarks are written only beneath `/app/data`. GitHub and
+  Ollama caches are process memory and disappear on restart.
 
 The public hostname is intentionally not committed. Caddy and the tunnel keep
 serving the currently configured hostname; hostname or route changes belong in a
@@ -48,6 +48,21 @@ expects the Ollama container to join the existing external `proxy_net` with the
 network alias `ollama`. Joining Ollama to that network is an infrastructure
 operation and must be completed in Ollama's own Compose stack; this repository
 does not mutate `/srv/infra`.
+
+## Hub runtime behavior
+
+- `GET /hub` never waits for GitHub or Ollama. It serves curated/cached data and
+  starts at most one background GitHub refresh. `GET /api/hub/state` reports
+  only `idle`, `refreshing`, `ready`, or `error` plus safe snapshot metadata.
+- Repository activity refreshes after 10 minutes. Commit enrichment uses at
+  most four workers; stale data remains visible during refresh or failure.
+- Ollama summaries are keyed by repository and commit SHAs. Successes cache for
+  30 minutes and terminal failures for 5 minutes. At most four summaries run at
+  once, and repeated polls share one job. Missing commits or unavailable Ollama
+  fall back to the rendered commit list without endless polling.
+- Hub admin mutations require Cloudflare/local auth and a per-process CSRF
+  token embedded in the current admin page. After a container restart, reload
+  `/hub/admin` before submitting a form opened before the restart.
 
 ## First-time host preparation
 
@@ -128,17 +143,17 @@ docker compose exec -T landing-page python3 scripts/smoke.py 3002
 docker compose exec -T landing-page python3 -m py_compile server.py briefing_archive.py scripts/smoke.py
 ```
 
-The smoke script verifies all retained routes plus 404 responses for deleted
-features, including `/hub` and the removal of `/projects` and `/portfolio`.
-`/health` is the liveness endpoint; `/api/status` runs the configured monitor
-checks and returns their live results.
+The smoke script verifies retained and removed routes, the Hub state/summary
+JSON contracts, the briefing-first homepage, and CSRF rejection for every Hub
+mutation route. `/health` is the liveness endpoint; `/api/status` runs the
+configured monitor checks and returns their live results.
 
 ## Data
 
 Persistent files are under `/srv/apps/landing-page/data/`:
 
 - `monitors.json` — live HTTP checks and links to existing monitoring tools.
-- `projects.json` — Hub curation keyed by GitHub `owner/repository`, managed
+- `curation.json` — Hub curation keyed by GitHub `owner/repository`, managed
   through `/hub/admin` (goals, next steps, ordering, visibility, and live links).
 - `bookmarks.json` — saved briefing stories.
 
@@ -184,5 +199,10 @@ selected archive before extraction.
   `/srv/secrets/landing-page/github_token` exists, then recreate the container.
 - Hub has repositories but no generated summaries: verify Ollama is running,
   shares `proxy_net` with alias `ollama`, and the configured model is installed.
+- Hub remains in `error`: inspect container connectivity and the GitHub secret;
+  use **Refresh hub now** after correcting the cause. Automatic failure retry is
+  deliberately delayed to avoid hammering an unavailable service.
+- Admin form returns `Invalid form token`: reload `/hub/admin`; the container
+  likely restarted after the form was opened.
 - Permission errors beneath `/app/data`: restore uid/gid 10001 ownership on the
   host data directory.

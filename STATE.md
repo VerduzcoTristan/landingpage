@@ -1,11 +1,12 @@
 # STATE — landingpage
 **Phase:** maintain
 **Goal:** Control Center serves daily briefings, live monitoring, and a GitHub-sourced, Ollama-summarized project Hub behind Cloudflare Access
-**Current milestone:** Hub overhaul completed and verified locally on 2026-07-19; production remains unchanged pending an explicit deploy
+**Current milestone:** Reliability and daily-use UX remediation completed and verified locally on 2026-07-19; production remains unchanged pending an explicit deploy
 **Next action:** When deployment is approved, provision the GitHub secret, connect Ollama to `proxy_net`, deploy the reviewed commits, and validate through Cloudflare Access
 **Blocked on:** nothing
 
 ## Log (newest first, one line per session)
+- 2026-07-19: Reliability/UX remediation executed through all nine plan steps without deployment. Hub storage, GitHub refresh, Ollama lifecycle, merge/mutation safety, homepage, daily Hub, and admin UI were hardened; docs and smoke coverage were updated. All 115 unit tests, 34 live missing-token smoke checks, tracked-Python compilation, Compose validation, artifact/legacy-brand scans, and whitespace audit pass.
 - 2026-07-19: GitHub/Ollama Hub overhaul completed locally without deployment. GitHub repo/activity ingestion, non-blocking Ollama summaries with raw-commit fallback, curated-only fallback, auth-gated curation/refresh/backup, old-route removal, Compose secret/config wiring, and operations docs are complete; 126 unit tests, 27 live smoke checks, Compose validation, compilation, and the repo-wide legacy-brand scan pass.
 - 2026-07-14: Control Center overhaul shipped. Briefings are primary (7 live homepage rows, 27 archive cards); Control Center and Caddy monitors are healthy; production project add/update/hide/delete passed with data restored; all 24 retained/removed route checks passed; Cloudflare Access returns 302 before content; operations, backup, Compose hardening, two-network wiring, and legacy-code deletion audited green.
 - 2026-07-11: M1 SHIPPED. Milestone gate verified: unauthenticated /portfolio → 302 to Access login with zero content leak; authenticated view renders dashboard with nav and all cards. publish-dashboard.bat validated 3x (two real publishes d6886e9/26bfe3e + clean no-op). Ledger fully ticked in docs/deploy-facts.md.

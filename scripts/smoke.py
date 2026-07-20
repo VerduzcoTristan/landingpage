@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 
@@ -17,8 +19,11 @@ ROUTES = {
     "/status": 200,
     "/api/status": 200,
     "/hub": 200,
+    "/api/hub/state": 200,
+    "/api/hub/summaries": 200,
     # Localhost is intentionally authenticated by the server's development bypass.
     "/hub/admin": 200,
+    "/hub/admin/delete": 404,
     "/health": 200,
     "/projects": 404,
     "/projects/admin": 404,
@@ -51,6 +56,21 @@ def fetch(url: str, timeout: float) -> tuple[int, bytes]:
         return error.code, error.read()
 
 
+def post(url: str, values: dict[str, str], timeout: float) -> tuple[int, bytes]:
+    request = urllib.request.Request(
+        url,
+        data=urllib.parse.urlencode(values).encode("utf-8"),
+        headers={"User-Agent": "control-center-smoke/1",
+                 "Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return response.status, response.read()
+    except urllib.error.HTTPError as error:
+        return error.code, error.read()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("port", nargs="?", type=int, default=3102)
@@ -74,6 +94,36 @@ def main() -> int:
         legacy_brand = b"dev" + b"mclovin"
         if status == 200 and legacy_brand in body.lower():
             problems.append("200 response contains legacy brand")
+        if status == 200 and (b">None<" in body or b">None</" in body):
+            problems.append("200 response renders a Python None value")
+        if path == "/api/hub/state" and status == 200:
+            try:
+                state = json.loads(body)
+                if state.get("state") not in {"idle", "refreshing", "ready", "error"}:
+                    problems.append("invalid Hub refresh state")
+            except (ValueError, TypeError):
+                problems.append("Hub state is not valid JSON")
+        if path == "/api/hub/summaries" and status == 200:
+            try:
+                summaries = json.loads(body)
+                if set(summaries) != {"summaries", "states", "pending"}:
+                    problems.append("unexpected Hub summary response shape")
+            except (ValueError, TypeError):
+                problems.append("Hub summaries are not valid JSON")
+        if path == "/" and status == 200:
+            for marker in (b"Today's Briefing", b"Monitoring", b"Focus projects"):
+                if marker not in body:
+                    problems.append(f"homepage missing {marker.decode()}")
+        if (path == "/hub" and status == 200 and b'data-hub-filter="focus"' not in body
+                and b"No projects yet" not in body and b"Loading GitHub activity" not in body):
+            problems.append("Hub Focus filter missing")
+        if path == "/hub/admin" and status == 200:
+            markers = [b'name="csrf_token"']
+            if b"No projects to curate yet" not in body:
+                markers.append(b'id="admin-repo-search"')
+            for marker in markers:
+                if marker not in body:
+                    problems.append(f"Hub admin missing {marker.decode()}")
 
         if problems:
             failures.append(f"{path}: {'; '.join(problems)}")
@@ -81,10 +131,25 @@ def main() -> int:
         else:
             print(f"PASS {path} {status}")
 
+    for path in ("/hub/admin/update", "/hub/admin/delete",
+                 "/hub/admin/refresh", "/hub/admin/backup"):
+        try:
+            status, _ = post(base_url + path, {"csrf_token": "invalid", "full_name": "smoke/check"},
+                             args.timeout)
+        except Exception as error:
+            failures.append(f"POST {path}: request failed: {error}")
+            print(f"FAIL POST {path} request failed: {error}")
+            continue
+        if status != 403:
+            failures.append(f"POST {path}: expected CSRF rejection 403, got {status}")
+            print(f"FAIL POST {path} expected CSRF rejection 403, got {status}")
+        else:
+            print(f"PASS POST {path} 403 invalid CSRF")
+
     if failures:
         print(f"\n{len(failures)} smoke check(s) failed", file=sys.stderr)
         return 1
-    print(f"\n{len(ROUTES)} smoke checks passed")
+    print(f"\n{len(ROUTES) + 4} smoke checks passed")
     return 0
 
 

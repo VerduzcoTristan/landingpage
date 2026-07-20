@@ -145,7 +145,7 @@ deployment change is planned.
   editors, all missing fields, anchor-preserving inline save/error feedback, and
   usable technical-link sections; verify authenticated/unauthenticated and
   curated-only workflows.
-- [ ] **Step 9 — Documentation and definition-of-done audit.** Correct
+- [x] **Step 9 — Documentation and definition-of-done audit.** Correct
   `OPERATIONS.md` paths and states, update smoke checks and `STATE.md`, run the
   complete verification matrix and legacy-brand scan, and record final results.
 
@@ -153,6 +153,23 @@ deployment change is planned.
 
 - Step 1: local `.swarm/`, `.opencode/`, and `.claude/` state is ignored and
   removed from Git tracking only; working copies remain available locally.
+- Step 9: local verification intentionally used no GitHub token and an isolated
+  temporary data directory; production remains unchanged per R10. The live
+  audit also replaced a decorative Unicode startup arrow with ASCII so the
+  server can start under redirected Windows CP-1252 output.
+
+## Verification summary (current pass)
+
+- 115 unit tests passed; all tracked Python files compile.
+- All 34 live smoke checks passed with GitHub credentials absent, including
+  retained/removed routes, Hub JSON contracts, briefing-first homepage markers,
+  null rendering, and invalid-CSRF rejection for every mutation route.
+- `docker compose config --quiet` passed. Docker emitted only a local warning
+  that its user config file was unreadable; the Compose model validated.
+- Forbidden tracked-artifact, contiguous legacy-brand, and whitespace scans
+  returned zero findings.
+- No deployment, secret, Caddy, tunnel, hostname, port, or infrastructure
+  mutation was performed.
 
 ---
 

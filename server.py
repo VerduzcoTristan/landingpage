@@ -1442,5 +1442,5 @@ if __name__ == "__main__":
             http.server.ThreadingHTTPServer.server_bind(self)
 
     server = ReuseHTTPServer((os.environ.get("BIND_HOST", "127.0.0.1"), port), Handler)
-    print(f"Control Center → http://127.0.0.1:{port}")
+    print(f"Control Center: http://127.0.0.1:{port}")
     server.serve_forever()
