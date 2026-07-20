@@ -178,6 +178,21 @@ class TestHubActionRefresh(unittest.TestCase):
         self.assertIn("message=", location)
         self.assertIn("Hub+refreshed", location)
 
+    def test_regenerate_is_scoped_and_forces_source_refresh(self):
+        body = urllib.parse.urlencode({
+            "csrf_token": server.CSRF_TOKEN, "full_name": "owner/repo",
+        }).encode()
+        h = self._make_handler(path="/hub/admin/regenerate", body=body)
+        with patch.object(server, "is_authenticated", return_value=True), \
+             patch.object(server._OLLAMA_CLIENT, "invalidate") as insight_invalidate, \
+             patch.object(server._GITHUB_CLIENT, "invalidate_repo") as source_invalidate, \
+             patch.object(server, "get_hub_repos") as refresh:
+            server.Handler.do_POST(h)
+        insight_invalidate.assert_called_once_with("owner/repo")
+        source_invalidate.assert_called_once_with("owner/repo")
+        refresh.assert_called_once_with(force=True)
+        self.assertIn("Project+regeneration+queued", h.redirects[0])
+
 
 # ── Backup success tests ────────────────────────────────────────────────────
 

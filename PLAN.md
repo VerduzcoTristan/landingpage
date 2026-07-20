@@ -204,7 +204,7 @@ curation. Malformed fields or one malformed entry degrade independently.
   and no-change terminal behavior. Verify misleading-message, malformed-model,
   restart, failure, concurrency, and secret/raw-patch non-persistence tests;
   compile, check this step, and commit alone.
-- [ ] **Step 4 — Wire the living insight lifecycle and API.** Merge generated
+- [x] **Step 4 — Wire the living insight lifecycle and API.** Merge generated
   state with manual overrides, extend aggregate refresh state, add safe
   `/api/hub/insights`, remove `/api/hub/summaries`, and make refresh/regenerate
   invalidation precise. Verify non-blocking lifecycle, override precedence,
@@ -254,6 +254,11 @@ curation. Malformed fields or one malformed entry degrade independently.
   last-good failure behavior, five-entry history, per-project/global
   invalidation, four-worker single-flight generation, and response caps are
   covered; raw patches never enter the insight file.
+- Step 4: all 140 unit tests passed and tracked project modules compile. The
+  display-safe `/api/hub/insights` contract replaces the removed summary route;
+  aggregate polling is terminal, manual overrides resolve first, pinned order
+  is stable, per-project regeneration is scoped/authenticated/CSRF-protected,
+  and persisted insight-only projects survive a post-restart GitHub outage.
 
 ---
 

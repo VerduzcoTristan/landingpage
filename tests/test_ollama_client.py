@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 
 from hub_store import InsightStore
 from ollama_client import OllamaClient
+import server
 
 
 def repo(name="owner/repo", sha="a" * 40, status="ready", patch="+real code"):
@@ -225,6 +226,36 @@ class TestInsightLifecycle(StoreCase):
         client.invalidate("owner/one")
         self.assertNotIn("one", client._failures)
         self.assertIn("two", client._failures)
+
+
+class TestInsightApi(unittest.TestCase):
+    def test_route_returns_safe_structured_contract_and_passes_goals(self):
+        handler = MagicMock()
+        handler.path = "/api/hub/insights"
+        handler._reject_unallowed_host.return_value = False
+        handler.hub_insights_api.side_effect = lambda: server.Handler.hub_insights_api(handler)
+        result = {
+            "insights": {"owner/repo": {
+                "current_state": "Current", "next_step": "Next", "confidence": "high",
+            }},
+            "states": {"owner/repo": "ready"},
+            "pending": [],
+        }
+        repos = [{"full_name": "owner/repo", "head_sha": "a" * 40}]
+        with patch.object(server, "get_hub_repos", return_value={"repos": repos}), \
+             patch.object(server, "load_hub", return_value={"owner/repo": {"goal": "Ship"}}), \
+             patch.object(server._OLLAMA_CLIENT, "request_insights", return_value=result) as request:
+            server.Handler.do_GET(handler)
+        request.assert_called_once_with(repos, {"owner/repo": "Ship"})
+        payload = json.loads(handler.wfile.write.call_args.args[0])
+        self.assertEqual(payload, result)
+
+    def test_removed_summary_route_is_404(self):
+        handler = MagicMock()
+        handler.path = "/api/hub/summaries"
+        handler._reject_unallowed_host.return_value = False
+        server.Handler.do_GET(handler)
+        self.assertEqual(handler._respond.call_args.args[0], 404)
 
 
 if __name__ == "__main__":

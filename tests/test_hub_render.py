@@ -5,7 +5,7 @@ Covers:
     curated order sorting, missing full_name skipping, empty repos, and that
     load_hub() dict keyed by full_name is read correctly.
   - hub_page(): HTML string output, title, group headings only for non-empty
-    groups, escaped repo names, "Summarizing…" placeholder with data-summary,
+    groups, escaped repo names, updating insight placeholder,
     Curate link, banner rendering, empty-state, "Needs attention", done pill,
     and the JS poll snippet (fetch + textContent).
   - _hub_card_html(): linked vs plain name, commit subjects, language omission,
@@ -32,7 +32,8 @@ import server  # noqa: E402
 
 def make_repo(full_name, name=None, description="", language="Python",
               html_url=None, recency="active",
-              commits=None, pushed_at="2024-01-01T00:00:00Z"):
+              commits=None, pushed_at="2024-01-01T00:00:00Z",
+              head_sha="a" * 40, change_status="ready"):
     if html_url is None:
         html_url = "https://github.com/" + full_name
     return {
@@ -45,6 +46,8 @@ def make_repo(full_name, name=None, description="", language="Python",
         "pushed_at": pushed_at,
         "recency": recency,
         "commits": commits or [],
+        "head_sha": head_sha,
+        "change_status": change_status,
     }
 
 
@@ -131,6 +134,50 @@ class TestMergeHubEntries(unittest.TestCase):
         self.assertEqual(e["status_override"], "done")
         self.assertTrue(e["has_note"])                       # goal present -> has_note
 
+    def test_manual_overrides_win_and_pinned_sorts_first(self):
+        repos = [make_repo("a/automatic"), make_repo("z/pinned")]
+        curated = {
+            "z/pinned": {
+                "current_override": "Manual current",
+                "whats_next": "Manual next",
+                "pinned": True,
+                "order": 99,
+            }
+        }
+        stored = {
+            "z/pinned": {
+                "current_state": "Generated current", "next_step": "Generated next",
+                "state": "ready", "confidence": "high",
+            }
+        }
+        with patch.object(server, "get_hub_repos", return_value=repos_payload(repos)), \
+             patch.object(server, "load_hub", return_value=curated), \
+             patch.object(server._INSIGHT_STORE, "load", return_value=stored):
+            merged = server._merge_hub_entries()
+        self.assertEqual(merged["groups"]["active"][0]["full_name"], "z/pinned")
+        pinned = merged["groups"]["active"][0]
+        self.assertEqual(pinned["current_state"], "Manual current")
+        self.assertEqual(pinned["whats_next"], "Manual next")
+        self.assertEqual(pinned["current_source"], "manual")
+        self.assertEqual(pinned["next_source"], "manual")
+
+    def test_persisted_insight_survives_source_outage_after_restart(self):
+        stored = {"owner/offline": {
+            "current_state": "Last known state",
+            "next_step": "Resume when GitHub returns.",
+            "source_pushed_at": "2026-07-20T12:00:00Z",
+            "state": "stale",
+            "confidence": "medium",
+        }}
+        with patch.object(server, "get_hub_repos", return_value=repos_payload([], status="error")), \
+             patch.object(server, "load_hub", return_value={}), \
+             patch.object(server._INSIGHT_STORE, "load", return_value=stored):
+            merged = server._merge_hub_entries()
+        entries = [entry for group in merged["groups"].values() for entry in group]
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["current_state"], "Last known state")
+        self.assertEqual(entries[0]["whats_next"], "Resume when GitHub returns.")
+
     def test_status_and_banner_passthrough(self):
         repos = [make_repo("a/repo", recency="active")]
         with patch.object(server, "get_hub_repos",
@@ -202,12 +249,11 @@ class TestHubPage(unittest.TestCase):
         self.assertIn("a/repo&amp;&lt;x&gt;", html)
         self.assertNotIn("a/repo&<x>", html)
 
-    def test_summarizing_placeholder_with_data_summary(self):
-        repos = [make_repo("a/repo", recency="active",
-                           commits=[{"sha": "abc", "subject": "work"}])]
+    def test_updating_placeholder_uses_insight_contract(self):
+        repos = [make_repo("a/repo", recency="active")]
         html = self._page(repos, {})
-        self.assertIn("Summarizing", html)
-        self.assertIn('data-summary="a/repo"', html)
+        self.assertIn("Updating insight", html)
+        self.assertIn('data-insight-current="a/repo"', html)
 
     def test_curate_link_to_admin_anchor(self):
         repos = [make_repo("a/repo", recency="active")]
@@ -298,14 +344,14 @@ class TestHubCardHtml(unittest.TestCase):
         self.assertNotIn("<a href", card)
         self.assertIn("<h3>repo</h3>", card)
 
-    def test_commit_subjects_rendered(self):
+    def test_commit_subjects_are_not_rendered(self):
         e = {"full_name": "a/repo", "name": "repo", "html_url": "u",
              "description": "", "language": None, "recency": "active",
              "commits": [{"sha": "1", "subject": "first"}, {"sha": "2", "subject": "second"}],
              "order": 999, "has_note": False, "status_override": ""}
         card = self._card(e)
-        self.assertIn("<li>first</li>", card)
-        self.assertIn("<li>second</li>", card)
+        self.assertNotIn("first", card)
+        self.assertNotIn("second", card)
 
     def test_language_omitted_when_none(self):
         e = {"full_name": "a/repo", "name": "repo", "html_url": "u",
@@ -342,15 +388,14 @@ class TestHubCardHtml(unittest.TestCase):
 
 class TestHubPageJsPoll(unittest.TestCase):
 
-    def test_js_poll_fetches_summaries_and_uses_textcontent(self):
+    def test_js_poll_fetches_insights_and_uses_textcontent(self):
         with patch.object(server, "get_hub_repos",
                           return_value=repos_payload([make_repo("a/repo", recency="active")])), \
              patch.object(server, "load_hub", return_value={}):
             html = server.hub_page()
-        self.assertIn('fetch("/api/hub/summaries")', html)
+        self.assertIn('fetch("/api/hub/insights")', html)
         self.assertIn("textContent", html)
-        self.assertIn('states[fn]==="fallback"', html)
-        self.assertIn("el.remove()", html)
+        self.assertIn("current_state", html)
         self.assertNotIn("innerHTML", html)
 
 

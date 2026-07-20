@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Control Center server for briefings, monitoring, projects, and portfolio."""
+"""Control Center server for briefings, monitoring, and living projects."""
 
 import http.server
 import html
@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from github_client import GitHubClient
-from hub_store import HubStore, normalise_hub
+from hub_store import HubStore, InsightStore, normalise_hub
 from ollama_client import OllamaClient
 
 PORT = 3002
@@ -787,6 +787,8 @@ def _migrate_hub_file() -> None:
 
 HUB_FILE = DATA_DIR / "curation.json"  # curation layer, keyed by repo full_name
 _HUB_STORE = HubStore(HUB_FILE, DATA_DIR / "projects.json")
+INSIGHTS_FILE = DATA_DIR / "project-insights.json"
+_INSIGHT_STORE = InsightStore(INSIGHTS_FILE)
 _migrate_hub_file()
 
 def _normalise_hub(raw) -> dict:
@@ -806,11 +808,11 @@ def update_hub(action: str, get) -> str:
     return _HUB_STORE.update(action, get)
 
 # ── GitHub client (Hub data source) ──
-# Reads the user's owned repos + recent commits via the REST API.
+# Reads the user's owned repos + bounded code changes via the REST API.
 # Token is read from GITHUB_TOKEN (local development) or GITHUB_TOKEN_FILE
 # (production secret mount). It is never logged or echoed.
 
-_GITHUB_CLIENT = GitHubClient()
+_GITHUB_CLIENT = GitHubClient(insight_loader=_INSIGHT_STORE.load)
 _GH_CACHE_TTL = _GITHUB_CLIENT.cache_ttl
 _GH_API = _GITHUB_CLIENT.api_url
 
@@ -826,11 +828,6 @@ def fetch_all_repos() -> list[dict] | None:
     """Return a list of owned repos (public + private), or None on failure."""
     return _GITHUB_CLIENT.fetch_all_repos()
 
-def fetch_recent_commits(owner: str, repo: str, branch: str) -> list[dict]:
-    """Return up to 5 recent commits (subject + body), or [] on failure.
-    Degrades silently — a single repo's failure must not break the whole refresh."""
-    return _GITHUB_CLIENT.fetch_recent_commits(owner, repo, branch)
-
 def classify_recency(pushed_at: str) -> str:
     """Active (<7d) / Maintain (<30d) / Stalled (>30d)."""
     return _GITHUB_CLIENT.classify_recency(pushed_at)
@@ -838,15 +835,34 @@ def classify_recency(pushed_at: str) -> str:
 def get_hub_repos(force: bool = False) -> dict:
     """Return merged Hub data: {repos: [...], status: "ok"|"token_missing"|"error", banner: str|None, ts: float}.
     Cached 10 min; serves stale on failure. Each repo entry carries:
-    full_name, name, description, language, html_url, default_branch, pushed_at, recency, commits (list)."""
+    full_name, repository facts, recency, head SHA, and bounded change context."""
     return _GITHUB_CLIENT.get_repos(force=force)
 
-# ── Ollama client (Hub summaries) ──
-# Local LLM summarization of recent commit activity. Non-blocking: the /hub
-# page renders from cache with "Summarizing…" placeholders; this endpoint
-# fills them lazily. URL/model/prompt/errors are NEVER logged or returned.
+# ── Ollama client (living project insights) ──
+# Structured current/next insights are persisted without raw patch content.
 
-_OLLAMA_CLIENT = OllamaClient()
+_OLLAMA_CLIENT = OllamaClient(_INSIGHT_STORE)
+
+def _hub_runtime_state() -> dict:
+    github = _GITHUB_CLIENT.state()
+    generation = _OLLAMA_CLIENT.state()
+    if github.get("state") == "refreshing" or generation.get("pending", 0):
+        state = "refreshing"
+    elif github.get("state") == "error" and not github.get("has_data"):
+        state = "error"
+    elif github.get("state") == "ready":
+        state = "ready"
+    else:
+        state = "idle"
+    return {
+        "state": state,
+        "version": github.get("version", 0),
+        "updated_at": github.get("updated_at"),
+        "has_data": github.get("has_data", False),
+        "github_state": github.get("state", "idle"),
+        "insight_state": generation.get("state", "idle"),
+        "pending": generation.get("pending", 0),
+    }
 
 def _merge_hub_entries(include_hidden: bool = False) -> dict:
     """Merge GitHub repos with curated overrides keyed by full_name.
@@ -857,6 +873,7 @@ def _merge_hub_entries(include_hidden: bool = False) -> dict:
     """
     data = get_hub_repos(force=False)
     curated = load_hub()
+    insights = _INSIGHT_STORE.load()
     groups = {"active": [], "maintain": [], "stalled": [], "done": []}
     github_repos = {}
     for repo in data.get("repos", []) or []:
@@ -867,14 +884,17 @@ def _merge_hub_entries(include_hidden: bool = False) -> dict:
         if full_name:
             github_repos[full_name] = repo
 
-    for full_name in dict.fromkeys([*github_repos, *curated]):
+    for full_name in dict.fromkeys([*github_repos, *curated, *insights]):
         repo = github_repos.get(full_name, {})
         cur = curated.get(full_name, {}) if isinstance(curated.get(full_name, {}), dict) else {}
+        insight = insights.get(full_name, {}) if isinstance(insights.get(full_name), dict) else {}
+        text = lambda value: value.strip() if isinstance(value, str) else ""
         hidden = bool(cur.get("hidden", False))
         if hidden and not include_hidden:
             continue
         override = "done" if cur.get("status_override") == "done" else ""
-        recency = repo.get("recency") if isinstance(repo.get("recency"), str) else "stalled"
+        pushed_at = text(repo.get("pushed_at")) or text(insight.get("source_pushed_at"))
+        recency = repo.get("recency") if isinstance(repo.get("recency"), str) else classify_recency(pushed_at)
         if recency not in {"active", "maintain", "stalled"}:
             recency = "stalled"
         group = "done" if override == "done" else recency
@@ -882,10 +902,13 @@ def _merge_hub_entries(include_hidden: bool = False) -> dict:
             order = int(cur.get("order", 999))
         except (TypeError, ValueError, OverflowError):
             order = 999
-        text = lambda value: value.strip() if isinstance(value, str) else ""
-        commits = repo.get("commits") if isinstance(repo.get("commits"), list) else []
         goal = text(cur.get("goal"))
-        whats_next = text(cur.get("whats_next"))
+        current_override = text(cur.get("current_override"))
+        next_override = text(cur.get("whats_next"))
+        generated_current = text(insight.get("current_state"))
+        generated_next = text(insight.get("next_step"))
+        current_state = current_override or generated_current
+        whats_next = next_override or generated_next
         attention_reasons = []
         if recency == "stalled" and override != "done":
             attention_reasons.append("No activity in 30+ days")
@@ -893,6 +916,10 @@ def _merge_hub_entries(include_hidden: bool = False) -> dict:
             attention_reasons.append("Goal missing")
         if not whats_next and override != "done":
             attention_reasons.append("Next action missing")
+        if insight.get("confidence") == "low" and not current_override:
+            attention_reasons.append("Automatic insight needs review")
+        if insight.get("state") in {"stale", "unavailable"} and generated_current:
+            attention_reasons.append("Automatic insight is stale")
         if override == "done" and recency == "active":
             attention_reasons.append("Marked done but updated recently")
         entry = {
@@ -901,14 +928,23 @@ def _merge_hub_entries(include_hidden: bool = False) -> dict:
             "html_url": text(repo.get("html_url")),
             "description": text(repo.get("description")),
             "language": text(repo.get("language")) or None,
-            "pushed_at": text(repo.get("pushed_at")),
+            "pushed_at": pushed_at,
             "recency": recency,
-            "commits": commits,
+            "head_sha": text(repo.get("head_sha")) or text(insight.get("head_sha")),
+            "change_status": text(repo.get("change_status")),
             "order": order,
             "goal": goal,
+            "current_override": current_override,
+            "generated_current": generated_current,
+            "current_state": current_state,
+            "current_source": "manual" if current_override else "automatic",
             "whats_next": whats_next,
+            "next_override": next_override,
+            "generated_next": generated_next,
+            "next_source": "manual" if next_override else "automatic",
             "live_url": text(cur.get("live_url")),
             "local_path": text(cur.get("local_path")),
+            "pinned": bool(cur.get("pinned", False)),
             "hidden": hidden,
             "curated": full_name in curated,
             "curated_only": full_name not in github_repos,
@@ -916,10 +952,13 @@ def _merge_hub_entries(include_hidden: bool = False) -> dict:
             "status_override": override,
             "attention_reasons": attention_reasons,
             "group": group,
+            "insight": insight,
         }
         groups[group].append(entry)
     for entries in groups.values():
-        entries.sort(key=lambda entry: (entry["order"], entry["full_name"].lower()))
+        entries.sort(key=lambda entry: (
+            not entry["pinned"], entry["order"], entry["full_name"].lower()
+        ))
     return {"groups": groups, "status": data.get("status", "ok"),
             "state": data.get("state", "ready"),
             "version": data.get("version", 0), "banner": data.get("banner")}
@@ -1009,7 +1048,7 @@ def hub_page() -> str:
             e["focus_visible"] = key in {"active", "maintain"} or e["full_name"] in stalled_focus
             body += _hub_card_html(e)
         body += '</div>' + ('</details>' if key in {"stalled", "done"} else '</section>')
-    # JS poll for summaries (non-blocking fill from cache)
+    # JS poll for structured insights (non-blocking fill from persistent state)
     body += state_script
     body += ('<script>'
              'document.addEventListener("DOMContentLoaded",function(){'
@@ -1025,18 +1064,15 @@ def hub_page() -> str:
              'buttons.forEach(function(button){button.addEventListener("click",function(){applyHubFilter(button.dataset.hubFilter);});});'
              'applyHubFilter("focus");});</script>')
     body += ('<script>'
-             'function refreshSummaries(){'
-             'fetch("/api/hub/summaries").then(function(r){return r.json();}).then(function(d){'
-             'var s=d.summaries||{};'
-             'Object.keys(s).forEach(function(fn){'
-             'var el=document.querySelector(\'[data-summary="\'+fn+\'"]\');'
-             'if(el&&s[fn]){el.textContent=s[fn];el.classList.remove("summarizing");}});'
-             'var states=d.states||{};Object.keys(states).forEach(function(fn){'
-             'var el=document.querySelector(\'[data-summary="\'+fn+\'"]\');'
-             'if(el&&states[fn]==="fallback"){el.remove();}});'
-             'if(d.pending&&d.pending.length){setTimeout(refreshSummaries,2500);}'
+             'function refreshInsights(){'
+             'fetch("/api/hub/insights").then(function(r){return r.json();}).then(function(d){'
+             'var insights=d.insights||{};Object.keys(insights).forEach(function(fn){'
+             'var el=document.querySelector(\'[data-insight-current="\'+CSS.escape(fn)+\'"]\');'
+             'if(el&&insights[fn].current_state){el.textContent=insights[fn].current_state;'
+             'el.classList.remove("summarizing");}});'
+             'if(d.pending&&d.pending.length){setTimeout(refreshInsights,2500);}'
              '}).catch(function(){});}'
-             'document.addEventListener("DOMContentLoaded",function(){setTimeout(refreshSummaries,800);});'
+             'document.addEventListener("DOMContentLoaded",function(){setTimeout(refreshInsights,800);});'
              '</script>')
     return html_page("Hub", body, active_nav="hub")
 
@@ -1048,24 +1084,19 @@ def _hub_card_html(e: dict) -> str:
     live_url = _safe_http_url(text(e.get("live_url")))
     desc = html.escape(text(e.get("description")))
     lang = html.escape(text(e.get("language")))
-    commits = e.get("commits") if isinstance(e.get("commits"), list) else []
+    current_state = text(e.get("current_state"))
     summary_html = ""
-    if commits:
-        summary_html = (f'<p class="card-summary summarizing" data-summary="{html.escape(fn, quote=True)}">'
-                        f'Summarizing…</p>')
+    if current_state:
+        summary_html = (f'<p class="card-summary" data-insight-current="{html.escape(fn, quote=True)}">'
+                        f'{html.escape(current_state)}</p>')
+    elif text(e.get("change_status")) == "ready":
+        summary_html = (f'<p class="card-summary summarizing" data-insight-current="{html.escape(fn, quote=True)}">'
+                        f'Updating insight…</p>')
     if e.get("status_override") == "done":
         status = "done"
     else:
         status = text(e.get("recency")) or "stalled"
     pill = f'<span class="status-pill status-{html.escape(status, quote=True)}">{html.escape(status)}</span>'
-    commits_html = ""
-    if commits[:3]:
-        commits_html = '<ul class="hub-commits">'
-        for commit in commits[:3]:
-            subj = html.escape(text(commit.get("subject")) if isinstance(commit, dict) else "")
-            if subj:
-                commits_html += f'<li>{subj}</li>'
-        commits_html += '</ul>'
     group = text(e.get("group")) or status
     focus = "true" if e.get("focus_visible") else "false"
     card = (f'<article class="project-card" id="{html.escape(fn, quote=True)}" '
@@ -1088,7 +1119,6 @@ def _hub_card_html(e: dict) -> str:
     card += summary_html
     if lang:
         card += f'<p class="hub-lang">{lang}</p>'
-    card += commits_html
     reasons = e.get("attention_reasons") if isinstance(e.get("attention_reasons"), list) else []
     if reasons:
         card += '<div class="hub-attention"><span>Needs attention</span><ul>'
@@ -1269,12 +1299,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header("Location", location)
         self.end_headers()
 
-    def hub_summaries_api(self):
-        """Lazy JSON endpoint: return cached summaries, trigger background fills.
-        Never blocks on Ollama; never includes URL/model/prompt/errors."""
+    def hub_insights_api(self):
+        """Return display-safe insights and enqueue new heads without blocking."""
         data = get_hub_repos(force=False)
         repos = data.get("repos", []) or []
-        result = _OLLAMA_CLIENT.request_summaries(repos)
+        curated = load_hub()
+        goals = {
+            full_name: entry.get("goal", "")
+            for full_name, entry in curated.items() if isinstance(entry, dict)
+        }
+        result = _OLLAMA_CLIENT.request_insights(repos, goals)
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")
@@ -1309,9 +1343,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif path == "/api/status":
             self._respond(200, "application/json", json.dumps(get_monitor_status()).encode())
         elif path == "/api/hub/state":
-            self._respond(200, "application/json", json.dumps(_GITHUB_CLIENT.state()).encode())
-        elif path == "/api/hub/summaries":
-            self.hub_summaries_api()
+            self._respond(200, "application/json", json.dumps(_hub_runtime_state()).encode())
+        elif path == "/api/hub/insights":
+            self.hub_insights_api()
         elif path == "/hub":
             content = hub_page().encode()
             self._respond(200, "text/html", content)
@@ -1379,6 +1413,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 _GITHUB_CLIENT.invalidate()
                 get_hub_repos(force=True)
                 self._send_redirect("/hub/admin?" + urllib.parse.urlencode({"message": "Hub refreshed."}))
+            elif action == "regenerate":
+                fn = get("full_name").strip()
+                if not fn:
+                    self._respond(400, "text/plain", b"Repository identifier missing.")
+                    return
+                _OLLAMA_CLIENT.invalidate(fn)
+                _GITHUB_CLIENT.invalidate_repo(fn)
+                get_hub_repos(force=True)
+                anchor = urllib.parse.quote(fn, safe="")
+                self._send_redirect("/hub/admin?" + urllib.parse.urlencode({
+                    "message": "Project regeneration queued.", "repo": fn
+                }) + f"#{anchor}")
             elif action == "backup":
                 import tarfile, tempfile, time
                 try:

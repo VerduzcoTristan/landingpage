@@ -266,12 +266,31 @@ class TestHubStateRoute(unittest.TestCase):
         handler.path = "/api/hub/state"
         handler._reject_unallowed_host.return_value = False
         state = {"state": "refreshing", "version": 2, "updated_at": None, "has_data": False}
-        with patch.object(server._GITHUB_CLIENT, "state", return_value=state):
+        with patch.object(server._GITHUB_CLIENT, "state", return_value=state), patch.object(
+            server._OLLAMA_CLIENT, "state", return_value={"state": "idle", "pending": 0}
+        ):
             server.Handler.do_GET(handler)
         status, content_type, body = handler._respond.call_args.args
         self.assertEqual(status, 200)
         self.assertEqual(content_type, "application/json")
-        self.assertEqual(json.loads(body), state)
+        payload = json.loads(body)
+        self.assertEqual(payload["state"], "refreshing")
+        self.assertEqual(payload["github_state"], "refreshing")
+        self.assertEqual(payload["insight_state"], "idle")
+
+    def test_project_invalidation_forces_fresh_change_window(self):
+        pushed_at = "2026-07-20T12:00:00Z"
+        known = {"owner/repo-0": {"head_sha": "a" * 40, "source_pushed_at": pushed_at}}
+        client = GitHubClient(insight_loader=lambda: known)
+        repo_data = TestNonBlockingRefresh.repo()
+        repo_data["pushed_at"] = pushed_at
+        client.invalidate_repo("owner/repo-0")
+        with patch.dict(os.environ, {"GITHUB_TOKEN": "token"}, clear=True), patch.object(
+            client, "fetch_all_repos", return_value=[repo_data]
+        ), patch.object(client, "fetch_change_context", return_value=None) as changes:
+            client.get_repos(force=True)
+            client.wait_for_refresh()
+        changes.assert_called_once_with("owner", "repo-0", "main", "")
 
 
 if __name__ == "__main__":

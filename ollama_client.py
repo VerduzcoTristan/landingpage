@@ -317,6 +317,11 @@ class OllamaClient:
                 self._epoch += 1
                 self._failures.clear()
 
+    def state(self) -> dict:
+        with self.lock:
+            pending = len(self._inflight)
+            return {"state": "updating" if pending else "idle", "pending": pending}
+
     def wait_for_idle(self, timeout: float = 5.0) -> bool:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:

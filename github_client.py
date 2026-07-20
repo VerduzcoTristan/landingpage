@@ -45,6 +45,7 @@ class GitHubClient:
         self._version = 0
         self._last_attempt = 0.0
         self._thread: threading.Thread | None = None
+        self._forced_repos: set[str] = set()
         self._lock = threading.RLock()
 
     @staticmethod
@@ -287,10 +288,12 @@ class GitHubClient:
             if repos is None:
                 raise RuntimeError("GitHub fetch failed")
             known_insights = self._known_insights()
+            with self._lock:
+                forced_repos = set(self._forced_repos)
 
             def enrich(repo):
                 full_name = self._text(repo.get("full_name")) if isinstance(repo, dict) else ""
-                known = known_insights.get(full_name, {})
+                known = {} if full_name in forced_repos else known_insights.get(full_name, {})
                 return self._enrich_repo(repo, known)
 
             with ThreadPoolExecutor(
@@ -303,6 +306,7 @@ class GitHubClient:
                 self._state = "ready"
                 self._banner = None
                 self._version += 1
+                self._forced_repos.difference_update(forced_repos)
         except Exception:
             with self._lock:
                 self._state = "error"
@@ -371,6 +375,18 @@ class GitHubClient:
 
     def invalidate(self) -> None:
         with self._lock:
+            self._cache["ts"] = 0.0
+            if self._state != "refreshing":
+                self._state = "idle"
+                self._banner = None
+
+    def invalidate_repo(self, full_name: str) -> None:
+        """Force one repository to rebuild an initial change window on refresh."""
+        full_name = full_name.strip() if isinstance(full_name, str) else ""
+        if not full_name:
+            return
+        with self._lock:
+            self._forced_repos.add(full_name)
             self._cache["ts"] = 0.0
             if self._state != "refreshing":
                 self._state = "idle"
