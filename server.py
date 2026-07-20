@@ -772,7 +772,6 @@ def update_hub(action: str, get) -> str:
 # (production secret mount). It is never logged or echoed.
 
 _GITHUB_CLIENT = GitHubClient()
-_GH_CACHE = _GITHUB_CLIENT._cache  # compatibility seam for existing callers/tests
 _GH_CACHE_TTL = _GITHUB_CLIENT.cache_ttl
 _GH_API = _GITHUB_CLIENT.api_url
 
@@ -801,12 +800,7 @@ def get_hub_repos(force: bool = False) -> dict:
     """Return merged Hub data: {repos: [...], status: "ok"|"token_missing"|"error", banner: str|None, ts: float}.
     Cached 10 min; serves stale on failure. Each repo entry carries:
     full_name, name, description, language, html_url, default_branch, pushed_at, recency, commits (list)."""
-    global _GH_CACHE
-    if _GH_CACHE is not _GITHUB_CLIENT._cache:
-        _GITHUB_CLIENT._cache = _GH_CACHE
-    result = _GITHUB_CLIENT.get_repos(force=force)
-    _GH_CACHE = _GITHUB_CLIENT._cache
-    return result
+    return _GITHUB_CLIENT.get_repos(force=force)
 
 # ── Ollama client (Hub summaries) ──
 # Local LLM summarization of recent commit activity. Non-blocking: the /hub
@@ -909,20 +903,38 @@ def _merge_hub_entries() -> dict:
             groups[g].sort(key=lambda e: (e["order"] if e["order"] != 999 else 1000,
                                            e["full_name"]))
     return {"groups": groups, "status": data.get("status", "ok"),
-            "banner": data.get("banner")}
+            "state": data.get("state", "ready"),
+            "version": data.get("version", 0), "banner": data.get("banner")}
 
 def hub_page() -> str:
     merged = _merge_hub_entries()
     groups = merged["groups"]
     total = sum(len(v) for v in groups.values())
+    state_script = ""
+    if merged.get("state") == "refreshing":
+        state_script = (
+            '<script>(function pollHubState(){fetch("/api/hub/state")'
+            '.then(function(r){return r.json();}).then(function(s){'
+            'if(s.state==="refreshing"){setTimeout(pollHubState,1000);return;}'
+            'window.location.reload();}).catch(function(){setTimeout(pollHubState,2500);});'
+            '})();</script>'
+        )
     body = '<div class="page-head"><div><h1>Hub</h1>'
     body += '<p>All your projects in one place — GitHub activity, curated notes, and AI summaries.</p></div>'
     body += '<div class="admin-link"><a class="button" href="/hub/admin">Curate Hub</a></div></div>'
     if merged.get("banner"):
         body += '<div class="notice">' + html.escape(merged["banner"]) + '</div>'
     if total == 0:
-        body += '<div class="empty-state"><p>No projects yet.</p>'
-        body += '<p>Set <code>GITHUB_TOKEN</code> to populate the Hub from your repositories.</p></div>'
+        if merged.get("state") == "refreshing":
+            body += '<div class="empty-state"><p>Loading GitHub activity…</p>'
+            body += '<p>Your curated projects remain available while the first snapshot loads.</p></div>'
+        elif merged.get("status") == "error":
+            body += '<div class="empty-state"><p>Hub data is temporarily unavailable.</p>'
+            body += '<p>Refresh later or check the GitHub integration.</p></div>'
+        else:
+            body += '<div class="empty-state"><p>No projects yet.</p>'
+            body += '<p>Set <code>GITHUB_TOKEN</code> to populate the Hub from your repositories.</p></div>'
+        body += state_script
         return html_page("Hub", body, active_nav="hub")
     group_labels = {"active": "Active", "maintain": "Maintaining",
                     "stalled": "Stalled", "done": "Done"}
@@ -937,6 +949,7 @@ def hub_page() -> str:
             body += _hub_card_html(e)
         body += '</div></section>'
     # JS poll for summaries (non-blocking fill from cache)
+    body += state_script
     body += ('<script>'
              'function refreshSummaries(){'
              'fetch("/api/hub/summaries").then(function(r){return r.json();}).then(function(d){'
@@ -1140,6 +1153,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._respond(200, "text/html", content)
         elif path == "/api/status":
             self._respond(200, "application/json", json.dumps(get_monitor_status()).encode())
+        elif path == "/api/hub/state":
+            self._respond(200, "application/json", json.dumps(_GITHUB_CLIENT.state()).encode())
         elif path == "/api/hub/summaries":
             self.hub_summaries_api()
         elif path == "/hub":

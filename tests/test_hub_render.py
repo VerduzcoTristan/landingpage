@@ -48,8 +48,9 @@ def make_repo(full_name, name=None, description="", language="Python",
     }
 
 
-def repos_payload(repos, status="ok", banner=None, ts=1234):
-    return {"repos": repos, "status": status, "banner": banner, "ts": ts}
+def repos_payload(repos, status="ok", banner=None, ts=1234, state="ready", version=1):
+    return {"repos": repos, "status": status, "banner": banner, "ts": ts,
+            "state": state, "version": version}
 
 
 # ── _merge_hub_entries tests ─────────────────────────────────────────────────
@@ -198,6 +199,17 @@ class TestHubPage(unittest.TestCase):
         html = self._page([], {})
         self.assertIn("No projects yet", html)
         self.assertIn("GITHUB_TOKEN", html)
+
+    def test_first_load_shows_refresh_state_and_polls_state_endpoint(self):
+        payload = repos_payload([], status="refreshing", banner="Refreshing GitHub activity…",
+                                state="refreshing")
+        with patch.object(server, "get_hub_repos", return_value=payload), patch.object(
+            server, "load_hub", return_value={}
+        ):
+            page = server.hub_page()
+        self.assertIn("Loading GitHub activity", page)
+        self.assertIn('fetch("/api/hub/state")', page)
+        self.assertIn("window.location.reload()", page)
 
     def test_stalled_no_note_shows_needs_attention(self):
         repos = [make_repo("a/repo", recency="stalled")]

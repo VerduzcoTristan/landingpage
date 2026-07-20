@@ -122,7 +122,7 @@ deployment change is planned.
   `github_client.py`, and `ollama_client.py`; move behavior without changing
   routes; add locked atomic storage and malformed-field/null tests; run full
   regression tests.
-- [ ] **Step 3 — Make GitHub loading non-blocking.** Add the guarded background
+- [x] **Step 3 — Make GitHub loading non-blocking.** Add the guarded background
   refresh, bounded commit enrichment, stale snapshots, `/api/hub/state`, and
   prompt first-load/error states; verify latency with blocking stubs and assert
   worker/in-flight ceilings.
