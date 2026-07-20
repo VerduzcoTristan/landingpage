@@ -1,7 +1,7 @@
 """Tests for the /hub/admin curation page + POST handler (Step 1.5).
 
 Covers:
-  - hub_admin_page(): HTML output, "Curate Hub" heading, repo name listing
+  - hub_admin_page(): HTML output, project-management heading, repo name listing
     (escaped), goal prefill from load_hub(), status_override select with ""
     and "done" options, hidden full_name input, empty-state when no repos.
   - XSS escaping: injected <script> in repo name and injected attribute-break
@@ -53,13 +53,15 @@ def make_repo(full_name, name=None, description="", language="Python",
 
 
 def make_hub_entry(goal="", live_url="", local_path="", status_override="",
-                   order=999, hidden=False):
+                   order=999, hidden=False, current_override="", pinned=False):
     return {
         "goal": goal,
+        "current_override": current_override,
         "whats_next": "",
         "status_override": status_override,
         "live_url": live_url,
         "local_path": local_path,
+        "pinned": pinned,
         "hidden": hidden,
         "order": order,
     }
@@ -145,13 +147,13 @@ class TestHubAdminPageRender(unittest.TestCase):
         self.patcher_repos.stop()
         self.patcher_load.stop()
 
-    def test_returns_html_with_curate_heading(self):
+    def test_returns_html_with_management_heading(self):
         self.mock_repos.return_value = {"repos": []}
         self.mock_load.return_value = {}
         out = server.hub_admin_page()
         self.assertIsInstance(out, str)
         self.assertIn("<!DOCTYPE html>", out)
-        self.assertIn("Curate Hub", out)
+        self.assertIn("Manage Projects", out)
 
     def test_lists_repo_name_escaped(self):
         self.mock_repos.return_value = {
@@ -168,7 +170,10 @@ class TestHubAdminPageRender(unittest.TestCase):
             "repos": [make_repo("owner/repo")]
         }
         self.mock_load.return_value = {
-            "owner/repo": make_hub_entry(goal="Ship the thing", order=3, hidden=True)
+            "owner/repo": make_hub_entry(
+                goal="Ship the thing", order=3, hidden=True,
+                current_override="Manual state", pinned=True,
+            )
         }
         out = server.hub_admin_page()
         self.assertIn('name="goal"', out)
@@ -177,6 +182,9 @@ class TestHubAdminPageRender(unittest.TestCase):
         self.assertIn('name="order" value="3"', out)
         # hidden checkbox checked
         self.assertIn('name="hidden" value="1" checked', out)
+        self.assertIn('name="pinned" value="1" checked', out)
+        self.assertIn('name="current_override"', out)
+        self.assertIn('>Manual state</textarea>', out)
 
     def test_status_override_select_has_empty_and_done(self):
         self.mock_repos.return_value = {
@@ -234,8 +242,14 @@ class TestHubAdminPageRender(unittest.TestCase):
             "whats_next": "Deploy next",
         }}
         out = server.hub_admin_page()
-        for field in ("goal", "whats_next", "status_override", "live_url", "local_path", "hidden", "order"):
+        for field in ("goal", "current_override", "whats_next", "status_override",
+                      "live_url", "local_path", "pinned", "hidden", "order"):
             self.assertIn(f'name="{field}"', out)
+        self.assertIn("Automatic current", out)
+        self.assertIn("Automatic next", out)
+        self.assertIn("Use automatic", out)
+        self.assertIn('formaction="/hub/admin/regenerate"', out)
+        self.assertIn("Regenerate from code changes", out)
         self.assertIn("Repository ↗", out)
         self.assertIn("Live site ↗", out)
         self.assertIn("Local: C:/work/repo", out)

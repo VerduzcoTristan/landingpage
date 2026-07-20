@@ -189,6 +189,7 @@ h1,h2,h3,h4,p{margin-top:0}h1,h2,h3{line-height:1.15;letter-spacing:-.025em}h1{f
 .admin-toolbar{display:grid;grid-template-columns:minmax(14rem,1fr) auto;gap:.75rem;align-items:end;margin:0 0 1rem}.admin-search{display:grid;gap:.35rem;color:var(--muted);font-size:.75rem;font-weight:750}.admin-filters{display:flex;flex-wrap:wrap;gap:.4rem}.admin-filters button{min-height:2.75rem;padding:.5rem .7rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--muted);cursor:pointer}.admin-filters button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--text)}.admin-result-count{grid-column:1/-1;color:var(--subtle);font-size:.76rem}.admin-repo-list{display:grid;gap:.55rem}.admin-repo{border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);box-shadow:var(--shadow-1)}.admin-repo>summary{display:flex;align-items:center;justify-content:space-between;gap:1rem;min-height:3.5rem;padding:.75rem .9rem;cursor:pointer}.admin-repo>summary>span:first-child{display:grid}.admin-repo>summary small{color:var(--subtle);font-size:.72rem}.admin-repo-badges{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.35rem}.admin-repo-body{padding:1rem;border-top:1px solid var(--border)}.admin-tech-links{display:flex;flex-wrap:wrap;gap:.8rem;margin:0 0 1rem;color:var(--subtle);font-size:.78rem}.admin-tech-links a{text-decoration:none}
 .hub-overview{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.55rem;margin:0 0 1.5rem}.hub-filter{display:flex;align-items:center;justify-content:space-between;gap:.5rem;min-height:2.75rem;padding:.55rem .7rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--muted);cursor:pointer}.hub-filter strong{color:var(--text)}.hub-filter[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--text)}.hub-group{margin:1.5rem 0}.hub-low-priority{border-top:1px solid var(--border)}.hub-low-priority>summary{display:flex;align-items:center;justify-content:space-between;min-height:3.25rem;padding:.65rem 0;cursor:pointer}.hub-group-title{font-size:1.3rem;font-weight:800}.hub-low-priority>.projects-grid{padding-top:.65rem}.status-active{border-color:rgba(69,214,154,.35);color:var(--success)}.status-maintain{border-color:rgba(169,158,255,.35);color:var(--accent-strong)}.status-stalled{border-color:rgba(243,185,95,.35);color:var(--warning)}.status-done{color:var(--subtle)}.hub-description{font-size:.88rem}.hub-decision{margin:.7rem 0;padding:.65rem .75rem;border-left:2px solid var(--border-strong);background:rgba(255,255,255,.02)}.hub-decision span,.hub-attention>span{color:var(--subtle);font-size:.68rem;font-weight:850;letter-spacing:.08em;text-transform:uppercase}.hub-decision p{margin:.2rem 0 0;color:var(--text)}.hub-updated{font-size:.76rem}.hub-commits{margin:.6rem 0 0;padding-left:1.1rem;color:var(--muted);font-size:.82rem}.hub-commits li{margin:.15rem 0}.hub-lang{color:var(--subtle);font-size:.78rem;margin:.4rem 0 0}.hub-attention{margin:.75rem 0;padding:.6rem .7rem;border:1px solid rgba(243,185,95,.22);border-radius:var(--radius-sm);background:rgba(243,185,95,.05);color:var(--warning);font-size:.78rem}.hub-attention ul{margin:.3rem 0 0;padding-left:1rem}.hub-references{display:flex;flex-wrap:wrap;gap:.65rem;margin:.75rem 0;color:var(--subtle);font-size:.76rem}.hub-references a{text-decoration:none}.hub-edit{color:var(--subtle);font-size:.76rem;text-decoration:none}.hub-edit:hover{color:var(--text)}.summarizing{color:var(--subtle);font-style:italic}
 .project-card{position:relative;overflow:hidden}.project-card.is-pinned{border-color:rgba(169,158,255,.48)}.project-card.is-new::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--accent)}.project-card-head{align-items:flex-start}.hub-card-badges{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.35rem}.hub-card-badges .status-pill{white-space:nowrap}.hub-pin{color:var(--accent-strong)}.hub-new-badge{display:none;color:var(--success)}.project-card.is-new .hub-new-badge{display:inline-flex}.hub-description{margin-bottom:.45rem!important}.hub-decision.current{border-left-color:var(--accent);background:var(--accent-soft)}.hub-decision.next{border-left-color:var(--success)}.hub-decision .source{float:right;color:var(--subtle);font-size:.62rem;letter-spacing:.03em;text-transform:none}.hub-decision .placeholder{color:var(--subtle);font-style:italic}.hub-goal{margin:.55rem 0;color:var(--muted);font-size:.8rem}.hub-goal strong{color:var(--text)}.hub-insight-meta{display:flex;flex-wrap:wrap;gap:.4rem .75rem;margin:.65rem 0;color:var(--subtle);font-size:.72rem}.hub-insight-meta a{color:var(--muted);text-decoration:none}.hub-evidence,.hub-history{margin:.65rem 0;border-top:1px solid var(--border)}.hub-evidence>summary,.hub-history>summary{min-height:2.75rem;padding:.65rem 0;color:var(--muted);font-size:.76rem;font-weight:750;cursor:pointer}.hub-file-list,.hub-history-list{display:grid;gap:.4rem;margin:0 0 .65rem;padding:0;list-style:none}.hub-file-list li{display:flex;justify-content:space-between;gap:.6rem;padding:.4rem .5rem;border-radius:var(--radius-sm);background:var(--page);color:var(--muted);font:500 .7rem/1.4 ui-monospace,SFMono-Regular,Consolas,monospace}.hub-file-list li span:first-child{min-width:0;overflow-wrap:anywhere}.hub-file-list small{color:var(--subtle);white-space:nowrap}.hub-history-list li{padding:.55rem .65rem;border-left:2px solid var(--border);background:rgba(255,255,255,.02);color:var(--muted);font-size:.76rem}.hub-history-list strong{display:block;margin-bottom:.15rem;color:var(--text)}.hub-history-list time{display:block;margin-top:.25rem;color:var(--subtle);font-size:.68rem}.hub-filter[data-hub-filter="new"] strong{color:var(--success)}
+.admin-suggestion{grid-column:1/-1;padding:.7rem .8rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--page)}.admin-suggestion span{color:var(--subtle);font-size:.68rem;font-weight:850;letter-spacing:.08em;text-transform:uppercase}.admin-suggestion p{margin:.25rem 0 0;color:var(--muted);font-size:.82rem}.field-label-row{display:flex;align-items:center;justify-content:space-between;gap:.6rem}.field-label-row button{padding:0;border:0;background:none;color:var(--accent-strong);font-size:.7rem;font-weight:750;cursor:pointer}.project-form .admin-help{color:var(--subtle);font-size:.68rem;font-weight:500}.admin-repo-badges .hub-pin{color:var(--accent-strong)}
 code{padding:.15rem .35rem;border:1px solid var(--border);border-radius:.35rem;background:var(--page);font:500 .86em ui-monospace,SFMono-Regular,Consolas,monospace}
 @media(max-width:820px){.home-dashboard{grid-template-columns:1fr}.home-rail{grid-template-columns:1fr 1fr}.hub-overview{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:640px){.container{width:min(100% - 1.25rem,var(--shell));padding-top:1.5rem}.page-head,.section-head{align-items:flex-start;flex-direction:column}.project-form,.admin-toolbar{grid-template-columns:1fr}.project-form .wide{grid-column:auto}.landing-status-strip summary{align-items:flex-start;flex-direction:column;min-height:2.75rem}.status-summary-right{flex-wrap:wrap}.status-summary-meta{white-space:normal}.home-links,.home-rail{grid-template-columns:1fr}.hub-overview{grid-template-columns:repeat(2,minmax(0,1fr))}.site-footer{width:min(100% - 1.25rem,var(--shell))}}
@@ -1244,12 +1245,12 @@ def _hub_card_html(e: dict) -> str:
     return card
 
 def hub_admin_page(message: str = "", repo_context: str = "") -> str:
-    """Auth-gated curation page listing every Hub repo with editable fields."""
+    """Auth-gated project management with explicit automatic/manual precedence."""
     merged = _merge_hub_entries(include_hidden=True)
     repos = [entry for group in ("active", "maintain", "stalled", "done")
              for entry in merged["groups"][group]]
-    body = '<div class="page-head"><div><h1>Curate Hub</h1>'
-    body += '<p>Search, prioritize, and edit the work that appears in your Control Center.</p></div></div>'
+    body = '<div class="page-head"><div><h1>Manage Projects</h1>'
+    body += '<p>Guide automatic insights, prioritize work, and override only what needs human judgment.</p></div></div>'
     known_names = {entry.get("full_name") for entry in repos}
     if message and repo_context not in known_names:
         body += '<div class="notice">' + html.escape(message) + '</div>'
@@ -1257,7 +1258,7 @@ def hub_admin_page(message: str = "", repo_context: str = "") -> str:
     body += '<div class="admin-actions" style="margin-bottom:1.5rem">'
     body += '<form method="post" action="/hub/admin/refresh" style="display:inline">'
     body += _csrf_field()
-    body += '<button class="button" type="submit">Refresh hub now</button></form>'
+    body += '<button class="button" type="submit">Refresh projects now</button></form>'
     body += '<form method="post" action="/hub/admin/backup" style="display:inline;margin-left:.5rem">'
     body += _csrf_field()
     body += '<button class="button" type="submit">Download backup</button></form>'
@@ -1265,7 +1266,7 @@ def hub_admin_page(message: str = "", repo_context: str = "") -> str:
     if not repos:
         body += '<div class="empty-state"><p>No projects to curate yet.</p>'
         body += '<p>Set <code>GITHUB_TOKEN</code> to populate the Hub.</p></div>'
-        return html_page("Curate Hub", body, active_nav="hub")
+        return html_page("Manage Projects", body, active_nav="hub")
     counts = {
         "all": len(repos),
         "uncurated": sum(not entry.get("curated") for entry in repos),
@@ -1282,21 +1283,26 @@ def hub_admin_page(message: str = "", repo_context: str = "") -> str:
                  f'{label} <strong>{counts[key]}</strong></button>')
     body += '</div><span class="admin-result-count" id="admin-result-count" aria-live="polite"></span></div>'
     body += '<div class="admin-repo-list">'
-    for repo in repos:
+    for repo_index, repo in enumerate(repos):
         fn = repo.get("full_name") if isinstance(repo.get("full_name"), str) else ""
         fn = fn.strip()
         if not fn:
             continue
         text = lambda value: value.strip() if isinstance(value, str) else ""
         goal = text(repo.get("goal"))
-        whats_next = text(repo.get("whats_next"))
+        current_override = text(repo.get("current_override"))
+        whats_next = text(repo.get("next_override"))
+        generated_current = text(repo.get("generated_current"))
+        generated_next = text(repo.get("generated_next"))
         live = text(repo.get("live_url"))
         local = text(repo.get("local_path"))
         override = "done" if repo.get("status_override") == "done" else ""
         order = repo.get("order", 999) if isinstance(repo.get("order"), int) else 999
         hidden = bool(repo.get("hidden"))
+        pinned = bool(repo.get("pinned"))
         curated = bool(repo.get("curated"))
-        search_value = " ".join((fn, text(repo.get("name")), goal, whats_next)).lower()
+        search_value = " ".join((fn, text(repo.get("name")), goal, current_override,
+                                 whats_next, generated_current, generated_next)).lower()
         opened = ' open' if repo_context == fn else ''
         body += (f'<details class="admin-repo" id="{html.escape(fn, quote=True)}" data-admin-entry '
                  f'data-search="{html.escape(search_value, quote=True)}" '
@@ -1310,6 +1316,8 @@ def hub_admin_page(message: str = "", repo_context: str = "") -> str:
             body += '<span class="status-pill">curated only</span>'
         if hidden:
             body += '<span class="status-pill">hidden</span>'
+        if pinned:
+            body += '<span class="status-pill hub-pin">pinned</span>'
         if override == "done":
             body += '<span class="status-pill status-done">done</span>'
         body += '</span></summary><div class="admin-repo-body">'
@@ -1330,7 +1338,22 @@ def hub_admin_page(message: str = "", repo_context: str = "") -> str:
         body += _csrf_field()
         body += f'<input type="hidden" name="full_name" value="{html.escape(fn, quote=True)}">'
         body += f'<label class="wide">Goal / note<textarea name="goal" rows="2" placeholder="What is this project for?">{html.escape(goal)}</textarea></label>'
-        body += f'<label class="wide">What’s next<textarea name="whats_next" rows="2" placeholder="Next concrete action">{html.escape(whats_next)}</textarea></label>'
+        body += '<div class="admin-suggestion"><span>Automatic current</span><p>'
+        body += html.escape(generated_current or "No automatic current-state insight yet.") + '</p></div>'
+        current_id = f'current-override-{repo_index}'
+        body += (f'<label class="wide"><span class="field-label-row">Current override (optional)'
+                 f'<button type="button" data-clear-field="{current_id}">Use automatic</button></span>'
+                 f'<textarea id="{current_id}" name="current_override" rows="2" '
+                 f'placeholder="Leave blank to use the automatic current state">{html.escape(current_override)}</textarea>'
+                 '<small class="admin-help">Only fill this when the generated state needs correction.</small></label>')
+        body += '<div class="admin-suggestion"><span>Automatic next</span><p>'
+        body += html.escape(generated_next or "No automatic next-step suggestion yet.") + '</p></div>'
+        next_id = f'next-override-{repo_index}'
+        body += (f'<label class="wide"><span class="field-label-row">Next override (optional)'
+                 f'<button type="button" data-clear-field="{next_id}">Use automatic</button></span>'
+                 f'<textarea id="{next_id}" name="whats_next" rows="2" '
+                 f'placeholder="Leave blank to use the automatic next step">{html.escape(whats_next)}</textarea>'
+                 '<small class="admin-help">A manual next action stays in control until you clear it.</small></label>')
         body += f'<label>Live URL<input name="live_url" value="{html.escape(live, quote=True)}" placeholder="https://…"></label>'
         body += f'<label>Local path<input name="local_path" value="{html.escape(local, quote=True)}" placeholder="/srv/…"></label>'
         body += ('<label>Status override<select name="status_override">'
@@ -1338,14 +1361,17 @@ def hub_admin_page(message: str = "", repo_context: str = "") -> str:
                  f'<option value="done"{" selected" if override == "done" else ""}>Done</option>'
                  '</select></label>')
         body += f'<label>Order<input type="number" name="order" value="{order}" min="0"></label>'
+        body += f'<label class="check"><input type="checkbox" name="pinned" value="1"{" checked" if pinned else ""}> Pinned to focus</label>'
         body += f'<label class="check"><input type="checkbox" name="hidden" value="1"{" checked" if hidden else ""}> Hidden</label>'
         body += '<div class="admin-actions">'
         body += '<button class="button primary" type="submit">Save</button>'
+        body += ('<button class="button" type="submit" formmethod="post" '
+                 'formaction="/hub/admin/regenerate">Regenerate from code changes</button>')
         if curated:
             body += ('<button class="button danger" type="submit" formmethod="post" '
                      'formaction="/hub/admin/delete" '
                      'onclick="return confirm(\'Delete this curation entry?\')">Delete curation</button>')
-        body += f'<a class="button" href="/hub#{urllib.parse.quote(fn)}">View on Hub</a>'
+        body += f'<a class="button" href="/hub#{urllib.parse.quote(fn)}">View project</a>'
         body += '</div></form></div></details>'
     body += '</div>'
     body += ('<script>document.addEventListener("DOMContentLoaded",function(){'
@@ -1353,6 +1379,9 @@ def hub_admin_page(message: str = "", repo_context: str = "") -> str:
              'var entries=[].slice.call(document.querySelectorAll("[data-admin-entry]"));'
              'var buttons=[].slice.call(document.querySelectorAll("[data-admin-filter]"));'
              'var count=document.getElementById("admin-result-count");var filter="all";'
+             '[].slice.call(document.querySelectorAll("[data-clear-field]")).forEach(function(button){'
+             'button.addEventListener("click",function(){var field=document.getElementById(button.dataset.clearField);'
+             'if(field){field.value="";field.focus();}});});'
              'function applyAdminFilters(){var query=input.value.trim().toLowerCase();var visible=0;'
              'entries.forEach(function(entry){var matchesText=!query||entry.dataset.search.indexOf(query)!==-1;'
              'var matchesFilter=filter==="all"||entry.dataset[filter]==="true";'
@@ -1362,7 +1391,7 @@ def hub_admin_page(message: str = "", repo_context: str = "") -> str:
              'button.addEventListener("click",function(){filter=button.dataset.adminFilter;'
              'buttons.forEach(function(item){item.setAttribute("aria-pressed",item===button?"true":"false");});'
              'applyAdminFilters();});});applyAdminFilters();});</script>')
-    return html_page("Curate Hub", body, active_nav="hub")
+    return html_page("Manage Projects", body, active_nav="hub")
 
 #  HTTP Handler
 

@@ -218,7 +218,7 @@ curation. Malformed fields or one malformed entry degrade independently.
   the commit-message list. Add changed-since-last-visit marking. Verify render,
   escaping, accessibility, responsive, and browser-script contract tests;
   compile, check this step, and commit alone.
-- [ ] **Step 6 — Add simple user intervention.** Extend the searchable admin UI
+- [x] **Step 6 — Add simple user intervention.** Extend the searchable admin UI
   with automatic-value previews, current/next override semantics, pinning,
   clear-to-auto guidance, and per-project regeneration. Preserve goal, done,
   hide, order, URLs/path, delete-curation, refresh-all, backup, anchor-preserving
@@ -264,6 +264,11 @@ curation. Malformed fields or one malformed entry degrade independently.
   provenance, revision links, safe changed-file stats, stale/updating states,
   five-entry collapsed history, and device-local since-last-visit markers.
   Content remains server-rendered without JavaScript; commit prose is absent.
+- Step 6: all 144 unit tests passed. Manage Projects now previews automatic
+  Current/Next values beside optional overrides, clears either field back to
+  automatic, supports pinning, and exposes scoped code-change regeneration.
+  Existing goal/done/hide/order/link/delete/refresh/backup behavior, inline
+  feedback, anchors, escaping, authentication, and CSRF protections remain.
 
 ---
 

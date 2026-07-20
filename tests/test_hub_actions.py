@@ -142,6 +142,14 @@ class TestHubActionAuthGate(unittest.TestCase):
         # The protected side-effect must NOT run when unauthenticated.
         mock_tar.assert_not_called()
 
+    def test_regenerate_unauthenticated_returns_403(self):
+        h = self._make_handler(path="/hub/admin/regenerate")
+        with patch.object(server, "is_authenticated", return_value=False), \
+             patch.object(server._GITHUB_CLIENT, "invalidate_repo") as invalidate:
+            server.Handler.do_POST(h)
+        self.assertEqual(h.responses[0][0], 403)
+        invalidate.assert_not_called()
+
 
 # ── Refresh success tests ────────────────────────────────────────────────────
 
@@ -335,7 +343,16 @@ class TestHubActionUIButtons(unittest.TestCase):
         self.mock_load.return_value = {}
         out = server.hub_admin_page()
         self.assertIn('action="/hub/admin/refresh"', out)
-        self.assertIn("Refresh hub now", out)
+        self.assertIn("Refresh projects now", out)
+
+    def test_page_has_regenerate_control_for_each_project(self):
+        self.mock_repos.return_value = {"repos": [{
+            "full_name": "owner/repo", "name": "repo", "recency": "active",
+        }]}
+        self.mock_load.return_value = {}
+        out = server.hub_admin_page()
+        self.assertIn('formaction="/hub/admin/regenerate"', out)
+        self.assertIn("Regenerate from code changes", out)
 
     def test_page_has_backup_form(self):
         self.mock_repos.return_value = {"repos": []}
