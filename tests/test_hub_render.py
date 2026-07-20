@@ -273,7 +273,7 @@ class TestHubPage(unittest.TestCase):
     def test_empty_state_when_no_repos(self):
         html = self._page([], {})
         self.assertIn("No projects yet", html)
-        self.assertIn("GITHUB_TOKEN", html)
+        self.assertIn("Configure GitHub access", html)
 
     def test_first_load_shows_refresh_state_and_polls_state_endpoint(self):
         payload = repos_payload([], status="refreshing", banner="Refreshing GitHub activity…",

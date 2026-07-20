@@ -107,6 +107,13 @@ class TestAccessVerification(unittest.TestCase):
 
 
 class TestMonitorRefresh(unittest.TestCase):
+    def test_monitor_errors_use_friendly_labels(self):
+        with patch.object(server.urllib.request, "urlopen", side_effect=TimeoutError()):
+            result = server._check_monitor(
+                {"name": "slow", "url": "https://example.test", "timeout": 1}
+            )
+        self.assertEqual(result["error"], "Timed out")
+
     def test_monitor_status_returns_before_slow_probe_finishes(self):
         started = threading.Event()
         release = threading.Event()
@@ -136,6 +143,30 @@ class TestMonitorRefresh(unittest.TestCase):
                     break
                 time.sleep(0.01)
             self.assertEqual(server._MONITOR_CACHE["data"]["status"], "ok")
+
+
+class TestAuditMarkup(unittest.TestCase):
+    def test_all_count_can_be_unique_when_categories_overlap(self):
+        tabs = server._category_filter_html(
+            counts={"AI": 10, "coding": 6}, all_count=12
+        )
+        self.assertIn('class="tab-count">12<', tabs)
+        self.assertNotIn('class="tab-count">16<', tabs)
+
+    def test_manual_empty_insight_does_not_claim_ai_confidence(self):
+        card = server._hub_card_html({
+            "full_name": "owner/repo", "name": "repo", "html_url": "",
+            "description": "", "language": None, "pushed_at": "",
+            "recency": "stalled", "group": "stalled", "head_sha": "",
+            "change_status": "unchanged", "order": 0, "pinned": False,
+            "status_override": "", "goal": "", "current_state": "Manual state",
+            "current_source": "manual", "whats_next": "", "next_source": "automatic",
+            "attention_reasons": [], "insight": {
+                "confidence": "low", "state": "unavailable", "current_state": "",
+                "next_step": "",
+            },
+        })
+        self.assertNotIn("AI low", card)
 
 
 class TestContainerHealthcheck(unittest.TestCase):

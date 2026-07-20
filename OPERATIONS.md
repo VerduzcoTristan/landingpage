@@ -29,6 +29,8 @@ Create `/srv/apps/landing-page/repo/.env` with mode `0600`:
 
 ```dotenv
 ALLOWED_HOSTS=<current-public-hostname>,localhost,127.0.0.1
+CF_ACCESS_TEAM_DOMAIN=<your-team>.cloudflareaccess.com
+CF_ACCESS_AUDIENCE=<application-audience-tag>
 OLLAMA_BASE_URL=http://ollama:11434
 OLLAMA_MODEL=qwen2.5:7b
 ```
@@ -36,6 +38,14 @@ OLLAMA_MODEL=qwen2.5:7b
 `ALLOWED_HOSTS` is a comma-separated exact-host allowlist. A missing or
 unlisted `Host` header receives HTTP 421. The Compose default is suitable only
 for local checks; production must include the hostname already used by Caddy.
+
+Remote admin and bookmark mutations require a valid RS256
+`Cf-Access-Jwt-Assertion`. Set `CF_ACCESS_TEAM_DOMAIN` and the Cloudflare
+Access application `CF_ACCESS_AUDIENCE` in `.env`; the app validates issuer,
+audience, expiry, and the signature against the team's HTTPS JWKS endpoint.
+`CF_ACCESS_JWKS_URL` is optional when the standard
+`/cdn-cgi/access/certs` endpoint is used. The email header alone is not trusted.
+Localhost remains the explicit development bypass.
 
 Create a read-only GitHub PAT with repository access (including private
 repositories that should appear in Projects) and write only the token to
@@ -71,9 +81,13 @@ does not mutate `/srv/infra`.
   sources, while each admin editor can force **Regenerate this project**.
   Automatic current/next text can be pinned or replaced by manual overrides;
   clearing an override immediately returns to the generated value.
-- Projects admin mutations require Cloudflare/local auth and a per-process CSRF
+- Projects admin and bookmark mutations require Cloudflare/local auth and a per-process CSRF
   token embedded in the current admin page. After a container restart, reload
   `/hub/admin` before submitting a form opened before the restart.
+- Monitor probes are stale-while-refreshing: `/api/status` and `/status` return
+  the checking or last-known snapshot immediately while one background refresh
+  runs with at most four workers. Probe failures show friendly labels rather
+  than raw Python exceptions.
 
 ## First-time host preparation
 
@@ -109,7 +123,7 @@ docker compose up -d --build landing-page
 docker compose ps
 ```
 
-The healthcheck calls `http://127.0.0.1:3002/` inside the container. A healthy
+The healthcheck calls `http://127.0.0.1:3002/health` inside the container. A healthy
 container should also answer:
 
 ```sh
@@ -206,8 +220,8 @@ selected archive before extraction.
 
 - HTTP 421: add the request hostname to `ALLOWED_HOSTS` in `.env`, then recreate
   the container.
-- Empty monitoring board: create a valid `data/monitors.json`; check
-  `/api/status` from inside the container.
+- Empty monitoring board: create a valid `data/monitors.json`; `/api/status`
+  returns immediately while the first background refresh runs.
 - Missing briefings: verify both read-only host mounts exist and are readable by
   Docker; the UI should still render a graceful empty state.
 - Projects says the GitHub token is not configured: verify the root-owned
@@ -220,5 +234,8 @@ selected archive before extraction.
   retry is deliberately delayed to avoid hammering an unavailable service.
 - Admin form returns `Invalid form token`: reload `/hub/admin`; the container
   likely restarted after the form was opened.
+- Remote admin/bookmark requests return 403: confirm `CF_ACCESS_TEAM_DOMAIN`
+  and `CF_ACCESS_AUDIENCE` match the Access application and that Caddy passes
+  `Cf-Access-Jwt-Assertion`; an email header alone is intentionally rejected.
 - Permission errors beneath `/app/data`: restore uid/gid 10001 ownership on the
   host data directory.

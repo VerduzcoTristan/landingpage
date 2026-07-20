@@ -307,7 +307,7 @@ h1,h2,h3,h4,p{margin-top:0}h1,h2,h3{line-height:1.15;letter-spacing:-.025em}h1{f
 .empty-state{padding:2.5rem;border:1px dashed var(--border-strong);border-radius:var(--radius-lg);background:linear-gradient(145deg,rgba(255,255,255,.025),transparent),var(--surface);text-align:center;color:var(--muted);box-shadow:var(--shadow-1)}.empty-state p{margin:0 0 1rem}.empty-state p:last-child{margin-bottom:0}.notice{margin:0 0 1rem;padding:.8rem 1rem;border:1px solid rgba(69,214,154,.3);border-radius:var(--radius-sm);background:rgba(69,214,154,.08);color:#a9f2d3}
 .category-tabs{display:flex;align-items:center;gap:.5rem;overflow-x:auto;padding:.2rem 0 .8rem;scrollbar-width:none}.category-tabs::-webkit-scrollbar{display:none}.category-tab{display:inline-flex;align-items:center;gap:.4rem;flex:0 0 auto;padding:.42rem .75rem;border:1px solid var(--border);border-radius:999px;background:rgba(16,22,36,.72);color:var(--muted);font-size:.78rem;font-weight:750;text-decoration:none;transition:all var(--ease)}.category-tab:hover,.category-tab.active{border-color:rgba(139,124,255,.7);background:var(--accent-soft);color:var(--text)}.tab-count{display:inline-grid;place-items:center;min-width:1.25rem;height:1.25rem;padding:0 .3rem;border-radius:999px;background:rgba(255,255,255,.07);font-size:.68rem}.briefing-sort{display:flex;align-items:center;justify-content:flex-end;gap:.55rem;margin:.2rem 0 1rem;color:var(--muted);font-size:.78rem}.briefing-sort select,input,textarea,select{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);padding:.65rem .75rem;transition:border-color var(--ease),box-shadow var(--ease)}input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);outline:0}
 .briefing-archive-grid,.projects-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19rem),1fr));gap:1rem}.briefing-archive-card,.project-card,.admin-panel{border:1px solid var(--border);border-radius:var(--radius-lg);background:linear-gradient(150deg,rgba(255,255,255,.04),transparent 38%),var(--surface);box-shadow:var(--shadow-1);transition:transform var(--ease),border-color var(--ease),box-shadow var(--ease)}.briefing-archive-card{display:flex;min-height:12rem;flex-direction:column;gap:.8rem;padding:1.1rem;color:var(--text);text-decoration:none}.briefing-archive-card:hover,.project-card:hover{transform:translateY(-3px);border-color:var(--border-strong);box-shadow:var(--shadow-2)}.briefing-card-topline,.project-card-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem}.briefing-date-chip,.briefing-count-chip,.status-pill,.category-badge{display:inline-flex;align-items:center;width:max-content;border-radius:999px;font-size:.7rem;font-weight:800;letter-spacing:.025em}.briefing-date-chip{color:var(--accent-strong)}.briefing-count-chip,.status-pill{padding:.25rem .55rem;border:1px solid var(--border);background:rgba(255,255,255,.035);color:var(--muted)}.briefing-top-story{font-size:1.08rem;font-weight:800;line-height:1.35}.briefing-preview-list{margin:0;padding-left:1.1rem;color:var(--muted);font-size:.83rem}.briefing-card-footer{margin-top:auto;color:var(--subtle);font-size:.75rem;font-weight:700}
-.briefing-header{margin:1.5rem 0 1rem}.briefing-header .date{color:var(--accent-strong);font-size:.76rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em}.briefing-grid,.dashboard-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr));gap:1rem}.briefing-card{padding:1.2rem;border:1px solid var(--border);border-radius:var(--radius-lg);background:linear-gradient(145deg,rgba(139,124,255,.06),transparent 40%),var(--surface);box-shadow:var(--shadow-1)}.briefing-card h3{margin:.35rem 0 .6rem}.card-num{color:var(--accent-strong);font-size:.72rem;font-weight:850}.card-summary,.card-impact{color:var(--muted);font-size:.92rem;line-height:1.6}.card-impact{margin-bottom:.5rem;color:#cad4e8}.card-source{margin-top:.8rem;color:var(--subtle);font-size:.78rem}.card-source a{text-decoration:none}.card-categories{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.7rem}.category-badge{padding:.2rem .5rem}.bm-btn-row{margin-top:.85rem}.bm-btn{padding:.4rem .7rem;border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted);font-size:.74rem;font-weight:750;cursor:pointer;transition:all var(--ease)}.bm-btn:hover,.bm-btn.active{border-color:var(--accent);background:var(--accent-soft);color:var(--text)}
+.briefing-header{margin:1.5rem 0 1rem}.briefing-header .date{color:var(--accent-strong);font-size:.76rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em}.briefing-grid,.dashboard-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr));gap:1rem}.briefing-card{padding:1.2rem;border:1px solid var(--border);border-radius:var(--radius-lg);background:linear-gradient(145deg,rgba(139,124,255,.06),transparent 40%),var(--surface);box-shadow:var(--shadow-1)}.briefing-card h3{margin:.35rem 0 .6rem}.card-num{color:var(--accent-strong);font-size:.72rem;font-weight:850}.card-summary,.card-impact{color:var(--muted);font-size:.92rem;line-height:1.6}.card-impact{margin-bottom:.5rem;color:#cad4e8}.card-source{margin-top:.8rem;color:var(--subtle);font-size:.78rem}.card-source a{text-decoration:none}.card-categories{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.7rem}.category-badge{padding:.2rem .5rem}.bm-btn-row{margin-top:.85rem}.bm-btn{min-height:2.75rem;padding:.4rem .7rem;border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted);font-size:.74rem;font-weight:750;cursor:pointer;transition:all var(--ease)}.bm-btn:hover,.bm-btn.active{border-color:var(--accent);background:var(--accent-soft);color:var(--text)}
 .home-eyebrow{display:block;margin-bottom:.35rem;color:var(--accent-strong);font-size:.7rem;font-weight:850;letter-spacing:.14em;text-transform:uppercase}.home-head h1{margin:0;font-size:clamp(2.2rem,5vw,3.6rem)}.briefing-home{overflow:hidden;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-1)}.briefing-home-row{display:flex;align-items:flex-start;gap:.75rem;padding:1.1rem 1.2rem;border-top:1px solid var(--border)}.briefing-home-row:first-child{border-top:0}.bh-main{min-width:0;width:100%}.bh-title-line{display:flex;align-items:baseline;flex-wrap:wrap;gap:.55rem}.bh-title{color:var(--text);font-size:1rem;font-weight:800;text-decoration:none}.bh-impact{margin-top:.4rem;color:var(--muted);font-size:.96rem;line-height:1.68;white-space:pre-line;overflow:visible}
 .home-dashboard{display:grid;grid-template-columns:minmax(0,2fr) minmax(17rem,1fr);gap:1.25rem;align-items:start}.home-primary .section-head,.home-rail .section-head{margin-top:0}.home-rail{display:grid;gap:1rem}.home-rail-block{padding:1rem;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-1)}.home-rail-block .landing-status-strip{margin:0;box-shadow:none}.home-focus-list{display:grid;gap:.55rem}.home-focus-item{display:grid;grid-template-columns:1fr auto;gap:.15rem .6rem;padding:.7rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--page);color:var(--text);text-decoration:none}.home-focus-item strong{font-size:.86rem}.home-focus-item small{grid-column:1;color:var(--muted);line-height:1.35}.home-focus-item .status-pill{grid-column:2;grid-row:1/3;align-self:center}.home-rail-empty{margin:0;color:var(--muted);font-size:.84rem}
 .home-focus-item .home-focus-current,.home-focus-item .home-focus-next{grid-column:1;display:block}.home-focus-item .home-focus-current{color:var(--text)}.home-focus-item .home-focus-next{color:var(--muted)}.home-focus-next b{color:var(--accent-strong);font-size:.68rem;text-transform:uppercase;letter-spacing:.04em}.home-focus-item.is-pinned{border-color:rgba(169,158,255,.4)}
@@ -379,6 +379,7 @@ def _category_filter_html(
     saved_only: bool = False,
     saved_count: int = 0,
     sort: str = "newest",
+    all_count: int | None = None,
 ) -> str:
     """Render horizontal category filter tabs. 'active_category' of 'All' means no filter."""
     def filter_url(category: str | None = None, saved: bool = False) -> str:
@@ -393,7 +394,7 @@ def _category_filter_html(
 
     html = '<div class="category-tabs">'
     all_cls = 'active' if active_category == "All" and not saved_only else ''
-    all_count = sum(counts.values()) if counts else ""
+    all_count = all_count if all_count is not None else (sum(counts.values()) if counts else "")
     html += f'<a href="{filter_url()}" class="category-tab {all_cls}">All'
     if all_count:
         html += f'<span class="tab-count">{all_count}</span>'
@@ -412,6 +413,14 @@ def _category_filter_html(
     html += '</a></div>'
     return html
 
+
+def _unique_article_count(archive, category_counts: dict) -> int:
+    """Return the unique article total instead of summing overlapping categories."""
+    try:
+        return max(0, int(archive.get_stats().get("total_articles", 0)))
+    except (AttributeError, TypeError, ValueError, OverflowError):
+        return sum(category_counts.values())
+
 def html_escape(value: object, quote: bool = False) -> str:
     """Escape arbitrary stored/external text before inserting it into HTML."""
     return html.escape(str(value or ""), quote=quote)
@@ -426,7 +435,7 @@ def briefing_card_from_db(
 
     html = '<div class="briefing-header">'
     if show_date:
-        html += f'<div class="date">{date_str}</div>'
+        html += f'<div class="date">{html_escape(date_str)}</div>'
     html += '<h2>📰 Morning Briefing</h2>'
     html += '</div>'
     html += '<div class="briefing-grid">'
@@ -594,7 +603,7 @@ def status_strip() -> str:
             }
             if(!checks.length){dot.classList.add('amber');meta.textContent='No monitors configured';body.innerHTML='<span class="status-summary-meta">Add checks in monitors.json.</span> <a href="/status">Open status →</a>';return;}
             dot.classList.add(down?'red':'green');
-            meta.textContent=down?(down+' monitor'+(down===1?'':'s')+' need attention'):'All monitors healthy';
+            meta.textContent=down?(down===1?'1 monitor needs attention':down+' monitors need attention'):'All monitors healthy';
             body.innerHTML='<div class="status-mini-grid">'+checks.map(function(check){return '<a class="status-mini-service" href="/status"><span><span class="status-dot '+(check.healthy?'green':'red')+'"></span>'+esc(check.name)+'</span><small>'+esc(check.healthy?(check.latency_ms+' ms'):(check.error||'Unavailable'))+'</small></a>';}).join('')+'</div>';
             if(down){panel.open=true;}
         }).catch(function(){dot.classList.add('amber');meta.textContent='Status unavailable';body.innerHTML='<span class="status-summary-meta">Live monitoring could not be loaded.</span> <a href="/status">Open status →</a>';});
@@ -609,7 +618,11 @@ def home_focus_projects(limit: int = 4) -> str:
         entry for entry in merged["groups"]["stalled"]
         if entry.get("pinned") or entry.get("attention_reasons")
     )
-    focus.sort(key=lambda entry: not bool(entry.get("pinned")))
+    focus.sort(key=lambda entry: (
+        not bool(entry.get("pinned")),
+        entry.get("order", 999),
+        str(entry.get("full_name", "")).lower(),
+    ))
     focus = focus[:limit]
     if not focus:
         return '<p class="home-rail-empty">No focus projects yet. Manage priorities in Projects.</p>'
@@ -637,7 +650,7 @@ def home_page() -> str:
     page_date = now.strftime("%A, %B ") + str(now.day)  # cross-platform "no leading zero"
 
     # 1) Header row (replaces the hero tagline)
-    body = ('<div class="page-head home-head"><div><span class="home-eyebrow">Tristan</span><h1>Control Center</h1></div>'
+    body = ('<div class="page-head home-head"><div><span class="home-eyebrow">Tristan</span><h1>Today at a glance</h1></div>'
             f'<span class="page-date">{page_date}</span></div>')
 
     # 3) Today's Briefing — same 3-level fallback chain as before, rendered as a
@@ -694,12 +707,14 @@ def briefings_page(category=None, saved_only: bool = False, sort: str = "newest"
     saved_ids = {item.get("id") for item in bookmarks.get("saved", []) if item.get("id")}
     cat_counts_raw = archive.get_category_counts()
     cat_counts = {item["category"]: item["count"] for item in cat_counts_raw}
+    all_count = _unique_article_count(archive, cat_counts)
     body += _category_filter_html(
         active_category=category or "All",
         counts=cat_counts,
         saved_only=saved_only,
         saved_count=len(saved_ids),
         sort=sort,
+        all_count=all_count,
     )
     body += '<form class="briefing-sort" method="GET" action="/briefings"><label for="briefing-sort">Sort</label>'
     if category:
@@ -801,7 +816,7 @@ def briefing_detail_page(date: str, category: str = "", saved_only: bool = False
     briefing = archive.get_briefing(date)
 
     if not briefing or not briefing.get("articles"):
-        body += f'<div class="empty-state" style="margin-top:2rem"><p>No briefing found for {date}.</p></div>'
+        body += f'<div class="empty-state" style="margin-top:2rem"><p>No briefing found for {html.escape(date)}.</p></div>'
         return html_page(f"Briefing — {date}", body, active_nav="briefings")
 
     articles = briefing["articles"]
@@ -819,12 +834,14 @@ def briefing_detail_page(date: str, category: str = "", saved_only: bool = False
     # Show category tabs on detail page too (for quick switching)
     cat_counts_raw = archive.get_category_counts()
     cat_counts = {c["category"]: c["count"] for c in cat_counts_raw}
+    all_count = _unique_article_count(archive, cat_counts)
     body += _category_filter_html(
         active_category=category or "All",
         counts=cat_counts,
         saved_only=saved_only,
         saved_count=len(_load_bookmarks().get("saved", [])),
         sort=sort,
+        all_count=all_count,
     )
 
     body += briefing_card_from_db(articles, date_str, show_date=True, story_date=date)
@@ -889,8 +906,13 @@ def _check_monitor(item: dict) -> dict:
     except urllib.error.HTTPError as error:
         status_code = error.code
         error_text = f"HTTP {error.code}"
-    except Exception as error:
-        error_text = str(error)
+    except TimeoutError:
+        error_text = "Timed out"
+    except urllib.error.URLError as error:
+        reason = str(getattr(error, "reason", "")).lower()
+        error_text = "Timed out" if "timed out" in reason or "timeout" in reason else "Unavailable"
+    except Exception:
+        error_text = "Unavailable"
     return {
         "name": item["name"],
         "healthy": healthy,
@@ -1212,7 +1234,7 @@ def hub_page() -> str:
             body += '<p>Refresh later or check the GitHub integration.</p></div>'
         else:
             body += '<div class="empty-state"><p>No projects yet.</p>'
-            body += '<p>Set <code>GITHUB_TOKEN</code> to populate projects from your repositories.</p></div>'
+            body += '<p>Configure GitHub access to populate Projects from your repositories.</p></div>'
         body += state_script
         return html_page("Projects", body, active_nav="hub")
     group_labels = {"active": "Active", "maintain": "Maintaining",
@@ -1353,7 +1375,11 @@ def _hub_card_html(e: dict) -> str:
         card += '<span class="status-pill">Updating</span>'
     elif insight.get("state") == "stale":
         card += '<span class="status-pill">Stale insight</span>'
-    elif insight.get("confidence"):
+    elif insight.get("confidence") and insight.get("state") not in {"unavailable", "error"} and (
+        text(insight.get("current_state"))
+        or text(insight.get("next_step"))
+        or (insight.get("state") in {"ready", "stale"} and current_source == "automatic")
+    ):
         card += f'<span class="status-pill">AI {html.escape(text(insight.get("confidence")))}</span>'
     card += '</span></div>'
     if desc:
@@ -1459,7 +1485,7 @@ def hub_admin_page(message: str = "", repo_context: str = "") -> str:
     body += '</div>'
     if not repos:
         body += '<div class="empty-state"><p>No projects to curate yet.</p>'
-        body += '<p>Set <code>GITHUB_TOKEN</code> to populate Projects.</p></div>'
+        body += '<p>Configure GitHub access to populate Projects.</p></div>'
         return html_page("Manage Projects", body, active_nav="hub")
     counts = {
         "all": len(repos),
@@ -1580,7 +1606,7 @@ def hub_admin_page(message: str = "", repo_context: str = "") -> str:
              'entries.forEach(function(entry){var matchesText=!query||entry.dataset.search.indexOf(query)!==-1;'
              'var matchesFilter=filter==="all"||entry.dataset[filter]==="true";'
              'entry.hidden=!(matchesText&&matchesFilter);if(!entry.hidden){visible++;}});'
-             'count.textContent=visible+" repositories";}'
+              'count.textContent=visible+(visible===1?" repository":" repositories");}'
              'input.addEventListener("input",applyAdminFilters);buttons.forEach(function(button){'
              'button.addEventListener("click",function(){filter=button.dataset.adminFilter;'
              'buttons.forEach(function(item){item.setAttribute("aria-pressed",item===button?"true":"false");});'

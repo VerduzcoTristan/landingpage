@@ -277,7 +277,7 @@ class TestHubAdminPageRender(unittest.TestCase):
         self.mock_load.return_value = {}
         out = server.hub_admin_page()
         self.assertIn("No projects to curate yet.", out)
-        self.assertIn("GITHUB_TOKEN", out)
+        self.assertIn("Configure GitHub access", out)
 
     def test_message_is_escaped_and_shown(self):
         self.mock_repos.return_value = {"repos": []}

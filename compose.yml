@@ -12,6 +12,9 @@ services:
       DATA_DIR: /app/data
       HOME: /home/landing
       BRIEFING_DB_READ_ONLY: "true"
+      CF_ACCESS_TEAM_DOMAIN: ${CF_ACCESS_TEAM_DOMAIN:-}
+      CF_ACCESS_AUDIENCE: ${CF_ACCESS_AUDIENCE:-}
+      CF_ACCESS_JWKS_URL: ${CF_ACCESS_JWKS_URL:-}
       GITHUB_TOKEN_FILE: /run/secrets/github_token
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}

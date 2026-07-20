@@ -55,7 +55,7 @@ briefings/monitoring/project scope or touching live infrastructure.
   stale-while-refreshing and bounded; use `/health` in Compose/Docker health
   checks; remove module-shadowing behavior; preserve safe fallback output.
   Add concurrency/latency and configuration tests.
-- [ ] **Step R3 — Finish copy, ordering, and UI polish.** Fix monitor error
+- [x] **Step R3 — Finish copy, ordering, and UI polish.** Fix monitor error
   labels, pluralization, unique briefing totals, Projects branding, detail
   palette token, focus-rail order, manual-insight confidence labeling, and
   Save touch target. Add render tests and update operations/config guidance.
@@ -89,6 +89,9 @@ briefings/monitoring/project scope or touching live infrastructure.
 - Step R2: monitor probes run in one daemon refresh thread with at most four
   workers; requests return checking or stale data immediately, and both image
   and Compose healthchecks use `/health`.
+- Step R3: the homepage heading now answers the daily-use question directly;
+  the Projects fallback copy avoids leaking configuration variable names,
+  while operations documentation retains the exact env names for operators.
 
 ## Verification summary
 
@@ -100,6 +103,11 @@ briefings/monitoring/project scope or touching live infrastructure.
 - Step R2: the focused operational suite passed (61 tests), including a slow
   probe that returns before release, healthcheck route assertions, and module
   compilation.
+- Step R3: 85 focused render, home, responsive, admin, and remediation tests
+  passed; compilation, Compose config, and whitespace checks passed. Coverage
+  includes unique category totals, friendly monitor errors, focus ordering,
+  manual/unavailable insight confidence, pluralization, and the 44px Save
+  target.
 
 ---
 
