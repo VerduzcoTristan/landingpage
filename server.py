@@ -6,6 +6,7 @@ import html
 import json
 import hmac
 import base64
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import os
 import re
@@ -164,7 +165,8 @@ _UNAUTH_PAGE = """<!DOCTYPE html>
 </style></head><body><main class="access-card"><div class="eyebrow">Control Center</div><h1>Access required</h1><p>Authenticate through Cloudflare Access to continue.</p></main></body></html>"""
 
 # ── Briefing Archive (DB-backed) ──
-sys.path.insert(0, os.path.expanduser("~/.hermes/tools"))
+# Import the checkout-local module. The script directory is already on
+# sys.path; prepending a user tools directory would let a stale copy shadow it.
 from briefing_archive import BriefingArchive
 
 _ARCHIVE: BriefingArchive | None = None
@@ -586,6 +588,10 @@ def status_strip() -> str:
             var down=checks.length-up;
             okP.textContent=up+' up';if(up){okP.classList.add('ok');}
             badP.textContent=down+' down';badP.classList.add(down?'warn':'ok');
+            if(data.status==='checking' && !checks.length){
+                dot.classList.add('amber');meta.textContent='Checking monitors…';
+                body.innerHTML='<span class="status-summary-meta">Live checks are running in the background…</span>';return;
+            }
             if(!checks.length){dot.classList.add('amber');meta.textContent='No monitors configured';body.innerHTML='<span class="status-summary-meta">Add checks in monitors.json.</span> <a href="/status">Open status →</a>';return;}
             dot.classList.add(down?'red':'green');
             meta.textContent=down?(down+' monitor'+(down===1?'':'s')+' need attention'):'All monitors healthy';
@@ -826,8 +832,10 @@ def briefing_detail_page(date: str, category: str = "", saved_only: bool = False
 
 #  Status Board Page
 
-_MONITOR_CACHE: dict = {"data": None, "ts": 0.0}
+_MONITOR_CACHE: dict = {"data": None, "ts": 0.0, "refreshing": False}
+_MONITOR_CACHE_LOCK = threading.RLock()
 _MONITOR_CACHE_TTL = 30
+_MONITOR_MAX_WORKERS = 4
 
 def _load_monitor_config() -> tuple[list[dict], list[dict], str | None]:
     path = DATA_DIR / "monitors.json"
@@ -891,13 +899,20 @@ def _check_monitor(item: dict) -> dict:
         "status_code": status_code,
     }
 
-def get_monitor_status(force: bool = False) -> dict:
-    now = time.time()
-    cached = _MONITOR_CACHE.get("data")
-    if not force and cached is not None and now - _MONITOR_CACHE["ts"] < _MONITOR_CACHE_TTL:
-        return cached
+def _monitor_refresh() -> None:
+    """Refresh monitor probes off-request and publish one complete snapshot."""
     checks, links, config_error = _load_monitor_config()
-    results = [_check_monitor(item) for item in checks]
+    try:
+        with ThreadPoolExecutor(
+            max_workers=min(_MONITOR_MAX_WORKERS, max(1, len(checks))),
+            thread_name_prefix="monitor",
+        ) as executor:
+            results = list(executor.map(_check_monitor, checks))
+    except Exception:
+        # A malformed probe must never strand the refresh flag or the request
+        # path. Keep the public error deliberately generic.
+        results = []
+        config_error = config_error or "Monitor refresh unavailable."
     if config_error or not results:
         status = "unconfigured"
     elif all(item["healthy"] for item in results):
@@ -905,14 +920,44 @@ def get_monitor_status(force: bool = False) -> dict:
     else:
         status = "issues"
     data = {"status": status, "checks": results, "links": links, "error": config_error}
-    _MONITOR_CACHE.update({"data": data, "ts": now})
-    return data
+    with _MONITOR_CACHE_LOCK:
+        _MONITOR_CACHE.update({"data": data, "ts": time.time(), "refreshing": False})
+
+
+def _queue_monitor_refresh() -> None:
+    with _MONITOR_CACHE_LOCK:
+        if _MONITOR_CACHE.get("refreshing"):
+            return
+        _MONITOR_CACHE["refreshing"] = True
+        if _MONITOR_CACHE.get("data") is None:
+            _, links, config_error = _load_monitor_config()
+            _MONITOR_CACHE["data"] = {
+                "status": "checking", "checks": [], "links": links, "error": config_error
+            }
+    thread = threading.Thread(target=_monitor_refresh, name="monitor-refresh", daemon=True)
+    thread.start()
+
+
+def get_monitor_status(force: bool = False) -> dict:
+    """Return a snapshot immediately and refresh it stale-while-revalidate."""
+    now = time.time()
+    with _MONITOR_CACHE_LOCK:
+        cached = _MONITOR_CACHE.get("data")
+        fresh = cached is not None and now - _MONITOR_CACHE.get("ts", 0.0) < _MONITOR_CACHE_TTL
+    if force or not fresh:
+        _queue_monitor_refresh()
+    with _MONITOR_CACHE_LOCK:
+        return dict(_MONITOR_CACHE.get("data") or {
+            "status": "checking", "checks": [], "links": [], "error": None
+        })
 
 def status_page() -> str:
     data = get_monitor_status()
     body = '<div class="hero" style="padding:2rem 0 1rem"><h1>Server Status</h1><p>Live checks from inside the app container.</p></div>'
     if data.get("error"):
         body += '<div class="empty-state"><p>' + html.escape(data["error"]) + '</p></div>'
+    elif data.get("status") == "checking":
+        body += '<div class="empty-state"><p>Checking monitors…</p></div>'
     elif not data["checks"]:
         body += '<div class="empty-state"><p>No monitors configured.</p></div>'
     else:

@@ -2,6 +2,8 @@
 
 import io
 import tempfile
+import threading
+import time
 import unittest
 import urllib.parse
 from pathlib import Path
@@ -102,6 +104,47 @@ class TestAccessVerification(unittest.TestCase):
             clear=True,
         ):
             self.assertFalse(server._verify_access_jwt("not.a.jwt"))
+
+
+class TestMonitorRefresh(unittest.TestCase):
+    def test_monitor_status_returns_before_slow_probe_finishes(self):
+        started = threading.Event()
+        release = threading.Event()
+
+        def slow_check(item):
+            started.set()
+            release.wait(2)
+            return {"name": item["name"], "healthy": True, "latency_ms": 1,
+                    "error": None, "status_code": 200}
+
+        with patch.object(
+            server, "_MONITOR_CACHE", {"data": None, "ts": 0.0, "refreshing": False}
+        ), patch.object(
+            server, "_load_monitor_config",
+            return_value=([{"name": "slow", "url": "https://example.test", "timeout": 30}], [], None),
+        ), patch.object(server, "_check_monitor", side_effect=slow_check):
+            started_at = time.perf_counter()
+            snapshot = server.get_monitor_status(force=True)
+            elapsed = time.perf_counter() - started_at
+            self.assertLess(elapsed, 0.2)
+            self.assertEqual(snapshot["status"], "checking")
+            self.assertTrue(started.wait(0.5))
+            release.set()
+            deadline = time.time() + 1
+            while time.time() < deadline:
+                if server._MONITOR_CACHE["data"].get("status") == "ok":
+                    break
+                time.sleep(0.01)
+            self.assertEqual(server._MONITOR_CACHE["data"]["status"], "ok")
+
+
+class TestContainerHealthcheck(unittest.TestCase):
+    def test_healthchecks_use_liveness_route(self):
+        compose = Path("compose.yml").read_text(encoding="utf-8")
+        dockerfile = Path("Dockerfile").read_text(encoding="utf-8")
+        self.assertIn("127.0.0.1:3002/health", compose)
+        self.assertIn("127.0.0.1:3002/health", dockerfile)
+        self.assertNotIn("urlopen('http://127.0.0.1:3002/',", compose)
 
 
 if __name__ == "__main__":

@@ -51,7 +51,7 @@ briefings/monitoring/project scope or touching live infrastructure.
   escape detail content/categories/URLs; safely encode inline bookmark JS;
   remove the duplicate query helper; harden Cloudflare Access JWT validation.
   Add focused regression and handler-contract tests.
-- [ ] **Step R2 — Remove blocking operational paths.** Make monitor status
+- [x] **Step R2 — Remove blocking operational paths.** Make monitor status
   stale-while-refreshing and bounded; use `/health` in Compose/Docker health
   checks; remove module-shadowing behavior; preserve safe fallback output.
   Add concurrency/latency and configuration tests.
@@ -86,6 +86,9 @@ briefings/monitoring/project scope or touching live infrastructure.
 - Step R1: remote Cloudflare Access auth now requires a signed RS256 JWT with
   configured issuer/audience; the existing localhost bypass remains for local
   development, and no infrastructure files were changed.
+- Step R2: monitor probes run in one daemon refresh thread with at most four
+  workers; requests return checking or stale data immediately, and both image
+  and Compose healthchecks use `/health`.
 
 ## Verification summary
 
@@ -94,6 +97,9 @@ briefings/monitoring/project scope or touching live infrastructure.
   canonical ISO story IDs, apostrophe-safe inline JS, and external-content
   escaping. `python -m py_compile server.py hub_store.py tests/test_audit_remediation.py`
   passed.
+- Step R2: the focused operational suite passed (61 tests), including a slow
+  probe that returns before release, healthcheck route assertions, and module
+  compilation.
 
 ---
 
