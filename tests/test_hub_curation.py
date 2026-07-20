@@ -67,10 +67,12 @@ class TestHubCuration(unittest.TestCase):
     def test_save_load_roundtrip_all_fields(self):
         entry = {
             "goal": "g",
+            "current_override": "c",
             "whats_next": "n",
             "status_override": "done",
             "live_url": "u",
             "local_path": "p",
+            "pinned": True,
             "hidden": True,
             "order": 3,
         }
@@ -101,10 +103,12 @@ class TestHubCuration(unittest.TestCase):
         raw = {
             "  owner/repo  ": {
                 "goal": "  my goal  ",
+                "current_override": "  current  ",
                 "whats_next": "\tnxt\n",
                 "status_override": "  DONE  ",
                 "live_url": "  https://x  ",
                 "local_path": "  /p  ",
+                "pinned": "yes",
                 "hidden": "true",
                 "order": "7",
             }
@@ -113,10 +117,12 @@ class TestHubCuration(unittest.TestCase):
         self.assertIn("owner/repo", clean)  # key stripped
         entry = clean["owner/repo"]
         self.assertEqual(entry["goal"], "my goal")
+        self.assertEqual(entry["current_override"], "current")
         self.assertEqual(entry["whats_next"], "nxt")
         self.assertEqual(entry["status_override"], "done")  # lowercased + trimmed
         self.assertEqual(entry["live_url"], "https://x")
         self.assertEqual(entry["local_path"], "/p")
+        self.assertTrue(entry["pinned"])
         self.assertTrue(entry["hidden"])
         self.assertEqual(entry["order"], 7)
         self.assertIsInstance(entry["order"], int)
@@ -125,17 +131,20 @@ class TestHubCuration(unittest.TestCase):
         clean = self.server._normalise_hub({
             "owner/repo": {
                 "goal": None,
+                "current_override": {"bad": "shape"},
                 "whats_next": ["not", "text"],
                 "status_override": {"bad": "shape"},
                 "live_url": 42,
                 "local_path": False,
+                "pinned": [],
                 "hidden": "false",
                 "order": "not-a-number",
             }
         })
         self.assertEqual(clean["owner/repo"], {
-            "goal": "", "whats_next": "", "status_override": "",
-            "live_url": "", "local_path": "", "hidden": False, "order": 0,
+            "goal": "", "current_override": "", "whats_next": "",
+            "status_override": "", "live_url": "", "local_path": "",
+            "pinned": False, "hidden": False, "order": 0,
         })
 
     def test_normalise_hub_status_non_done_becomes_empty(self):
@@ -201,7 +210,9 @@ class TestHubCuration(unittest.TestCase):
         self.assertTrue(foo["hidden"])
         self.assertEqual(foo["order"], 2)
         self.assertEqual(foo["whats_next"], "")
+        self.assertEqual(foo["current_override"], "")
         self.assertEqual(foo["local_path"], "")
+        self.assertFalse(foo["pinned"])
         # Old status NOT mapped to status_override
         self.assertEqual(foo["status_override"], "")
 
@@ -224,10 +235,12 @@ class TestHubCuration(unittest.TestCase):
         get = {
             "full_name": "owner/repo",
             "goal": "x",
+            "current_override": "shipping",
             "whats_next": "y",
             "status_override": "done",
             "live_url": "",
             "local_path": "",
+            "pinned": "on",
             "hidden": "1",
             "order": "5",
         }
@@ -237,9 +250,11 @@ class TestHubCuration(unittest.TestCase):
         self.assertIn("owner/repo", hub)
         entry = hub["owner/repo"]
         self.assertEqual(entry["goal"], "x")
+        self.assertEqual(entry["current_override"], "shipping")
         self.assertEqual(entry["whats_next"], "y")
         self.assertEqual(entry["status_override"], "done")
         self.assertTrue(entry["hidden"])   # "1" -> True
+        self.assertTrue(entry["pinned"])
         self.assertEqual(entry["order"], 5)
 
     def test_update_hub_toggle_hide_flips(self):
