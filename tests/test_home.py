@@ -73,6 +73,7 @@ class TestHomepageBriefingSelection(unittest.TestCase):
         self.assertIn('class="home-rail"', page)
         self.assertIn("Monitoring", page)
         self.assertIn("FOCUS-CONTENT", page)
+        self.assertIn("Open projects", page)
 
 
 class TestHomepageFocus(unittest.TestCase):
@@ -81,6 +82,7 @@ class TestHomepageFocus(unittest.TestCase):
             return {
                 "full_name": f"owner/repo-{index}", "name": f"repo-{index}",
                 "whats_next": f"next-{index}", "goal": "", "description": "",
+                "current_state": f"current-{index}", "pinned": False,
                 "recency": group, "status_override": "", "attention_reasons": [],
             }
 
@@ -96,6 +98,29 @@ class TestHomepageFocus(unittest.TestCase):
             self.assertIn(f"repo-{index}", output)
         self.assertNotIn("repo-4", output)
         self.assertNotIn("repo-6", output)
+        self.assertIn("current-0", output)
+        self.assertIn("<b>Next</b> next-0", output)
+
+    def test_pinned_project_leads_focus_even_when_stalled(self):
+        active = {
+            "full_name": "owner/active", "name": "active", "current_state": "Active current",
+            "whats_next": "Active next", "recency": "active", "pinned": False,
+            "status_override": "", "attention_reasons": [],
+        }
+        pinned = {
+            "full_name": "owner/pinned", "name": "pinned", "current_state": "Pinned current",
+            "whats_next": "Pinned next", "recency": "stalled", "pinned": True,
+            "status_override": "", "attention_reasons": [],
+        }
+        merged = {"groups": {
+            "active": [active], "maintain": [], "stalled": [pinned], "done": [],
+        }}
+        with patch.object(server, "_merge_hub_entries", return_value=merged):
+            output = server.home_focus_projects()
+        self.assertLess(output.index("pinned"), output.index("active"))
+        self.assertIn('class="home-focus-item is-pinned"', output)
+        self.assertIn("Pinned current", output)
+        self.assertIn("Pinned next", output)
 
     def test_mobile_navigation_stays_in_one_row_with_touch_targets(self):
         mobile = server.NAV_CSS.split("@media(max-width:720px)", 1)[1]

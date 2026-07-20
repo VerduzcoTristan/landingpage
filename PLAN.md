@@ -224,7 +224,7 @@ curation. Malformed fields or one malformed entry degrade independently.
   hide, order, URLs/path, delete-curation, refresh-all, backup, anchor-preserving
   feedback, auth, and CSRF. Verify round trips and every error state; compile,
   check this step, and commit alone.
-- [ ] **Step 7 — Integrate living projects into the daily homepage.** Keep
+- [x] **Step 7 — Integrate living projects into the daily homepage.** Keep
   briefings first/largest and monitoring intact; make the compact project rail
   prefer pinned work and show the resolved current/next state with graceful
   cached/unavailable fallbacks. Verify homepage briefing/status regression and
@@ -269,6 +269,10 @@ curation. Malformed fields or one malformed entry degrade independently.
   automatic, supports pinning, and exposes scoped code-change regeneration.
   Existing goal/done/hide/order/link/delete/refresh/backup behavior, inline
   feedback, anchors, escaping, authentication, and CSRF protections remain.
+- Step 7: all 145 unit tests passed, including briefing selection and responsive
+  regressions. The homepage remains briefing-first with unchanged monitoring;
+  its compact project rail now leads with pinned work and shows resolved Current
+  plus Next, while missing or unavailable insight falls back without error.
 
 ---
 

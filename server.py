@@ -183,6 +183,7 @@ h1,h2,h3,h4,p{margin-top:0}h1,h2,h3{line-height:1.15;letter-spacing:-.025em}h1{f
 .briefing-header{margin:1.5rem 0 1rem}.briefing-header .date{color:var(--accent-strong);font-size:.76rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em}.briefing-grid,.dashboard-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr));gap:1rem}.briefing-card{padding:1.2rem;border:1px solid var(--border);border-radius:var(--radius-lg);background:linear-gradient(145deg,rgba(139,124,255,.06),transparent 40%),var(--surface);box-shadow:var(--shadow-1)}.briefing-card h3{margin:.35rem 0 .6rem}.card-num{color:var(--accent-strong);font-size:.72rem;font-weight:850}.card-summary,.card-impact{color:var(--muted);font-size:.92rem;line-height:1.6}.card-impact{margin-bottom:.5rem;color:#cad4e8}.card-source{margin-top:.8rem;color:var(--subtle);font-size:.78rem}.card-source a{text-decoration:none}.card-categories{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.7rem}.category-badge{padding:.2rem .5rem}.bm-btn-row{margin-top:.85rem}.bm-btn{padding:.4rem .7rem;border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted);font-size:.74rem;font-weight:750;cursor:pointer;transition:all var(--ease)}.bm-btn:hover,.bm-btn.active{border-color:var(--accent);background:var(--accent-soft);color:var(--text)}
 .home-eyebrow{display:block;margin-bottom:.35rem;color:var(--accent-strong);font-size:.7rem;font-weight:850;letter-spacing:.14em;text-transform:uppercase}.home-head h1{margin:0;font-size:clamp(2.2rem,5vw,3.6rem)}.briefing-home{overflow:hidden;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-1)}.briefing-home-row{display:flex;align-items:flex-start;gap:.75rem;padding:1.1rem 1.2rem;border-top:1px solid var(--border)}.briefing-home-row:first-child{border-top:0}.bh-main{min-width:0;width:100%}.bh-title-line{display:flex;align-items:baseline;flex-wrap:wrap;gap:.55rem}.bh-title{color:var(--text);font-size:1rem;font-weight:800;text-decoration:none}.bh-impact{margin-top:.4rem;color:var(--muted);font-size:.96rem;line-height:1.68;white-space:pre-line;overflow:visible}
 .home-dashboard{display:grid;grid-template-columns:minmax(0,2fr) minmax(17rem,1fr);gap:1.25rem;align-items:start}.home-primary .section-head,.home-rail .section-head{margin-top:0}.home-rail{display:grid;gap:1rem}.home-rail-block{padding:1rem;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-1)}.home-rail-block .landing-status-strip{margin:0;box-shadow:none}.home-focus-list{display:grid;gap:.55rem}.home-focus-item{display:grid;grid-template-columns:1fr auto;gap:.15rem .6rem;padding:.7rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--page);color:var(--text);text-decoration:none}.home-focus-item strong{font-size:.86rem}.home-focus-item small{grid-column:1;color:var(--muted);line-height:1.35}.home-focus-item .status-pill{grid-column:2;grid-row:1/3;align-self:center}.home-rail-empty{margin:0;color:var(--muted);font-size:.84rem}
+.home-focus-item .home-focus-current,.home-focus-item .home-focus-next{grid-column:1;display:block}.home-focus-item .home-focus-current{color:var(--text)}.home-focus-item .home-focus-next{color:var(--muted)}.home-focus-next b{color:var(--accent-strong);font-size:.68rem;text-transform:uppercase;letter-spacing:.04em}.home-focus-item.is-pinned{border-color:rgba(169,158,255,.4)}
 .landing-status-strip{margin:1.4rem 0;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-1);overflow:hidden}.landing-status-strip summary{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.85rem 1rem;cursor:pointer;list-style:none}.landing-status-strip summary::-webkit-details-marker{display:none}.status-summary-left,.status-summary-right{display:flex;align-items:center;gap:.55rem}.status-summary-title{font-weight:800}.status-summary-meta{color:var(--muted);font-size:.8rem}.status-mini-pill{padding:.2rem .5rem;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:.68rem}.status-mini-pill.ok{color:var(--success)}.status-mini-pill.warn{color:var(--warning)}.status-strip-dot,.status-dot{display:inline-block;width:.65rem;height:.65rem;border-radius:50%;background:var(--subtle);box-shadow:0 0 0 4px rgba(111,125,149,.1)}.green{background:var(--success)!important}.red{background:var(--danger)!important}.amber{background:var(--warning)!important}.landing-status-body{padding:1rem;border-top:1px solid var(--border)}
 .status-mini-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:.55rem}.status-mini-service{display:flex;align-items:center;justify-content:space-between;gap:.7rem;padding:.65rem .75rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--page);color:var(--text);font-size:.78rem;text-decoration:none}.status-mini-service>span{display:flex;align-items:center;gap:.5rem}.status-mini-service small{color:var(--muted)}.status-board{display:grid;gap:.75rem}.status-check{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.1rem;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);box-shadow:var(--shadow-1)}.status-check>div{display:flex;align-items:center;gap:.7rem}.status-check>span{color:var(--muted);font-size:.8rem}.monitor-links,.project-actions,.admin-actions{display:flex;flex-wrap:wrap;gap:.6rem}.link-card{padding:.7rem .9rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-weight:750;text-decoration:none;transition:all var(--ease)}.link-card:hover{transform:translateY(-1px);border-color:var(--accent)}
 .home-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem;margin:1rem 0 0}.home-links a{display:grid;grid-template-columns:1fr auto;gap:.1rem .7rem;padding:1rem 1.1rem;border:1px solid var(--border);border-radius:var(--radius-md);background:linear-gradient(145deg,rgba(255,255,255,.035),transparent),var(--surface);color:var(--text);text-decoration:none;box-shadow:var(--shadow-1);transition:all var(--ease)}.home-links a:hover{transform:translateY(-2px);border-color:var(--accent)}.home-links span{font-weight:850}.home-links small{grid-column:1;color:var(--muted)}.home-links b{grid-column:2;grid-row:1/3;align-self:center;color:var(--accent-strong)}.project-card{padding:1.2rem}.project-card h3{margin:0;font-size:1.15rem}.project-card p{margin:.65rem 0;color:var(--muted)}.admin-link{margin:1.3rem 0;text-align:right}.admin-panel{margin-bottom:1rem;padding:1.2rem}.admin-panel h2{font-size:1.05rem}.project-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.85rem}.project-form label{display:grid;gap:.35rem;color:var(--muted);font-size:.75rem;font-weight:750}.project-form .wide{grid-column:1/-1}.project-form .check{display:flex;align-items:center;gap:.5rem}.project-form .check input{width:auto}.project-form textarea{resize:vertical}.admin-actions{margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--border)}.admin-actions form{margin:0}
@@ -454,24 +455,31 @@ def status_strip() -> str:
     </script>"""
 
 def home_focus_projects(limit: int = 4) -> str:
-    """Render the highest-value visible Hub entries for the homepage rail."""
+    """Render pinned and active living-project decisions for the homepage rail."""
     merged = _merge_hub_entries()
     focus = list(merged["groups"]["active"]) + list(merged["groups"]["maintain"])
     focus.extend(
-        entry for entry in merged["groups"]["stalled"] if entry.get("attention_reasons")
+        entry for entry in merged["groups"]["stalled"]
+        if entry.get("pinned") or entry.get("attention_reasons")
     )
+    focus.sort(key=lambda entry: not bool(entry.get("pinned")))
     focus = focus[:limit]
     if not focus:
-        return '<p class="home-rail-empty">No focus projects yet. Curate priorities in the Hub.</p>'
+        return '<p class="home-rail-empty">No focus projects yet. Manage priorities in Projects.</p>'
     output = '<div class="home-focus-list">'
     for entry in focus:
         full_name = entry.get("full_name", "")
-        detail = entry.get("whats_next") or entry.get("goal") or entry.get("description") or "Needs curation"
+        current = (entry.get("current_state") or entry.get("goal")
+                   or entry.get("description") or "Automatic insight not available yet")
+        next_step = entry.get("whats_next") or "No next action yet"
         status = "done" if entry.get("status_override") == "done" else entry.get("recency", "stalled")
+        pinned = bool(entry.get("pinned"))
         output += (
-            f'<a class="home-focus-item" href="/hub#{urllib.parse.quote(full_name)}">'
+            f'<a class="home-focus-item{" is-pinned" if pinned else ""}" '
+            f'href="/hub#{urllib.parse.quote(full_name)}">'
             f'<strong>{html.escape(entry.get("name") or full_name)}</strong>'
-            f'<small>{html.escape(detail)}</small>'
+            f'<small class="home-focus-current">{html.escape(current)}</small>'
+            f'<small class="home-focus-next"><b>Next</b> {html.escape(next_step)}</small>'
             f'<span class="status-pill">{html.escape(status)}</span></a>'
         )
     return output + '</div>'
@@ -526,7 +534,7 @@ def home_page() -> str:
     body += ('<section class="home-rail-block"><div class="section-head"><h2>Monitoring</h2>'
              '<a href="/status">Full status →</a></div>' + status_strip() + '</section>')
     body += ('<section class="home-rail-block"><div class="section-head"><h2>Focus projects</h2>'
-             '<a href="/hub">Open Hub →</a></div>' + home_focus_projects() + '</section>')
+             '<a href="/hub">Open projects →</a></div>' + home_focus_projects() + '</section>')
     body += '</aside></div>'
 
     return html_page("Control Center", body, active_nav="home")
